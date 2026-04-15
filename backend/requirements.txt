@@ -1,0 +1,39 @@
+# Web Framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# Database (SQLite para dev, PostgreSQL para produção)
+sqlalchemy==2.0.36
+alembic==1.14.0
+
+# Authentication
+python-jose[cryptography]
+bcrypt
+python-multipart
+
+# Encryption at rest (CPF, RG, conta bancária)
+cryptography==44.0.0
+
+# Validation
+pydantic==2.10.3
+pydantic-settings==2.7.0
+email-validator==2.2.0
+
+# PDF Generation
+reportlab==4.2.5
+
+# Data Import/Export
+pandas==2.2.3
+openpyxl==3.1.5
+
+# Environment Variables
+python-dotenv==1.0.1
+
+# Date/Time
+python-dateutil==2.9.0.post0
+
+# HTTP Client (auto-update check)
+httpx==0.28.1
+
+# Logging
+loguru==0.7.3

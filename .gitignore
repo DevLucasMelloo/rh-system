@@ -1,0 +1,47 @@
+# Nunca subir — segredos e dados
+.env
+*.db
+*.sqlite3
+
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Alembic
+alembic/versions/*.pyc
+
+# Logs
+*.log
+logs/
+
+# PyInstaller
+*.spec
+dist/
+*.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PDF gerados
+*.pdf
+
+# Uploads temporários
+uploads/
+temp/
