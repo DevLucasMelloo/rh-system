@@ -1,9 +1,9 @@
 # Web Framework
-fastapi==0.115.6
+fastapi==0.135.3
 uvicorn[standard]==0.32.1
 
 # Database (SQLite para dev, PostgreSQL para produção)
-sqlalchemy==2.0.36
+sqlalchemy==2.0.49
 alembic==1.14.0
 
 # Authentication
@@ -15,8 +15,8 @@ python-multipart
 cryptography==44.0.0
 
 # Validation
-pydantic==2.10.3
-pydantic-settings==2.7.0
+pydantic==2.13.1
+pydantic-settings==2.13.1
 email-validator==2.2.0
 
 # PDF Generation

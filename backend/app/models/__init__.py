@@ -5,6 +5,7 @@ from app.models.seamstress import Seamstress, SeamstressPayment
 from app.models.timesheet import TimesheetEntry, HourBank
 from app.models.payroll import Payroll, PayrollItem, Vale
 from app.models.vacation import Vacation, VacationStatus
+from app.models.termination import Termination, TerminationReason
 from app.models.audit_log import AuditLog
 
 __all__ = [
@@ -14,5 +15,6 @@ __all__ = [
     "TimesheetEntry", "HourBank",
     "Payroll", "PayrollItem", "Vale",
     "Vacation", "VacationStatus",
+    "Termination", "TerminationReason",
     "AuditLog",
 ]

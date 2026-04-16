@@ -65,8 +65,9 @@ class Employee(Base):
     timesheet_entries = relationship("TimesheetEntry", back_populates="employee", cascade="all, delete-orphan")
     hour_bank = relationship("HourBank", back_populates="employee", uselist=False, cascade="all, delete-orphan")
     payrolls = relationship("Payroll", back_populates="employee", cascade="all, delete-orphan")
-    vacations = relationship("Vacation", back_populates="employee", cascade="all, delete-orphan")
-    vales = relationship("Vale", back_populates="employee", cascade="all, delete-orphan")
+    vacations    = relationship("Vacation",     back_populates="employee", cascade="all, delete-orphan")
+    vales        = relationship("Vale",         back_populates="employee", cascade="all, delete-orphan")
+    terminations = relationship("Termination",  back_populates="employee", cascade="all, delete-orphan")
 
 
 class EmployeeHistory(Base):

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
@@ -5,9 +6,17 @@ from loguru import logger
 from app.core.config import settings
 from app.api.v1.router import api_router
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    logger.info(f"Sistema de RH iniciado — ambiente: {settings.ENVIRONMENT}")
+    yield
+
+
 app = FastAPI(
     title="Sistema de RH",
     version=settings.APP_VERSION,
+    lifespan=lifespan,
     # Em produção, desabilitar docs públicos
     docs_url="/docs" if settings.is_development else None,
     redoc_url="/redoc" if settings.is_development else None,
@@ -36,8 +45,3 @@ def versao():
         "version": settings.APP_VERSION,
         "download_url": None,
     }
-
-
-@app.on_event("startup")
-async def startup():
-    logger.info(f"Sistema de RH iniciado — ambiente: {settings.ENVIRONMENT}")
