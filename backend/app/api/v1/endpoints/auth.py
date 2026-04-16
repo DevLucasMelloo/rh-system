@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -7,10 +7,40 @@ from app.schemas.auth import (
     LoginRequest, TokenResponse, RefreshRequest,
     PasswordResetRequest, PasswordResetConfirm,
 )
+from app.schemas.user import UserCreate
 from app.services import auth as auth_service
-from app.models.user import User
+from app.services import user as user_service
+from app.repositories import user as user_repo
+from app.repositories import company as company_repo
+from app.models.user import User, UserRole
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
+
+
+@router.post("/setup", status_code=201, summary="Cria o primeiro admin (só funciona sem usuários cadastrados)")
+def setup_first_admin(data: UserCreate, db: Session = Depends(get_db)):
+    """
+    Endpoint de configuração inicial.
+    Só funciona quando não existe nenhum usuário no sistema.
+    Após o primeiro admin criado, este endpoint retorna 403 permanentemente.
+    """
+    company = company_repo.get_first_company(db)
+    if not company:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cadastre a empresa antes de criar o primeiro usuário",
+        )
+
+    existing = user_repo.list_users(db, company.id)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Setup já realizado. Use o endpoint de login.",
+        )
+
+    # Força perfil admin no primeiro usuário
+    data.role = UserRole.ADMIN
+    return user_service.create_user(db, data, company.id, created_by_id=0)
 
 
 @router.post("/login", response_model=TokenResponse)
