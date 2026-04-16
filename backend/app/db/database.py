@@ -21,7 +21,7 @@ engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
     # Pool de conexões — para SQLite usa StaticPool automaticamente
-    echo=settings.is_development,  # Loga queries SQL apenas em dev
+    echo=settings.DB_ECHO,  # Controle via .env — DB_ECHO=true para debug
 )
 
 

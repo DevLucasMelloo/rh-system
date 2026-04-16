@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     EMAIL_FROM: str = ""
 
+    # Banco — echo de queries SQL (desativar em dev para não poluir terminal)
+    DB_ECHO: bool = False
+
     # Versão
     APP_VERSION: str = "1.0.0"
 
