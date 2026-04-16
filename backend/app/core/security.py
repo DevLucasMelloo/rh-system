@@ -5,7 +5,8 @@ Módulo central de segurança:
 - Criptografia/descriptografia Fernet para dados sensíveis
 """
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Union
+from typing import Optional
+import secrets
 
 import bcrypt
 from cryptography.fernet import Fernet, InvalidToken
@@ -64,6 +65,7 @@ def _create_token(
         "iat": now,
         "exp": now + expires_delta,
         "type": token_type,
+        "jti": secrets.token_hex(16),  # ID único por token — garante unicidade mesmo no mesmo segundo
     })
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
