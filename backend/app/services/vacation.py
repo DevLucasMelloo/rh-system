@@ -422,3 +422,7 @@ def get_termination(
     if not emp or emp.company_id != company_id:
         raise HTTPException(status_code=404, detail="Rescisão não encontrada")
     return term
+
+
+def list_terminations(db: Session, company_id: int) -> list[Termination]:
+    return vac_repo.list_terminations(db, company_id)

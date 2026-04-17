@@ -163,6 +163,16 @@ def delete_item(
 
 # ── Vale ──────────────────────────────────────────────────────────────────────
 
+@router.get("/employees/{employee_id}/vales", response_model=list[ValeRead])
+def list_vales(
+    employee_id: int = Path(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lista todos os vales de um funcionário."""
+    return payroll_service.list_vales_by_employee(db, employee_id, current_user.company_id)
+
+
 @router.post("/employees/{employee_id}/vales", response_model=ValeRead, status_code=201)
 def create_vale(
     employee_id: int = Path(...),

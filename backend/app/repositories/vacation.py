@@ -85,6 +85,17 @@ def get_termination(db: Session, termination_id: int) -> Termination | None:
     return db.get(Termination, termination_id)
 
 
+def list_terminations(db: Session, company_id: int) -> list[Termination]:
+    from app.models.employee import Employee
+    return (
+        db.query(Termination)
+        .join(Employee, Termination.employee_id == Employee.id)
+        .filter(Employee.company_id == company_id)
+        .order_by(Termination.termination_date.desc())
+        .all()
+    )
+
+
 def get_termination_by_employee(db: Session, employee_id: int) -> Termination | None:
     return (
         db.query(Termination)

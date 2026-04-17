@@ -369,3 +369,8 @@ def get_vale(db: Session, vale_id: int, company_id: int) -> Vale:
     if not emp or emp.company_id != company_id:
         raise HTTPException(status_code=404, detail="Vale não encontrado")
     return vale
+
+
+def list_vales_by_employee(db: Session, employee_id: int, company_id: int) -> list[Vale]:
+    emp = _get_employee(db, employee_id, company_id)
+    return payroll_repo.list_vales_by_employee(db, emp.id)

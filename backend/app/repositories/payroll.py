@@ -153,6 +153,16 @@ def get_vale(db: Session, vale_id: int) -> Vale | None:
     )
 
 
+def list_vales_by_employee(db: Session, employee_id: int) -> list[Vale]:
+    return (
+        db.query(Vale)
+        .options(joinedload(Vale.installment_items))
+        .filter(Vale.employee_id == employee_id)
+        .order_by(Vale.competence_year.desc(), Vale.competence_month.desc())
+        .all()
+    )
+
+
 def list_pending_installments(
     db: Session, employee_id: int, month: int, year: int
 ) -> list[ValeInstallment]:

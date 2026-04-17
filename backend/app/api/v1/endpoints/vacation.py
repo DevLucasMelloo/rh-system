@@ -117,6 +117,16 @@ def get_thirteenth(
 
 # ── Rescisão ──────────────────────────────────────────────────────────────────
 
+@router.get("/terminations", response_model=list[TerminationRead])
+def list_terminations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lista todas as rescisões da empresa."""
+    terms = vac_service.list_terminations(db, current_user.company_id)
+    return [_enrich_termination(t, db) for t in terms]
+
+
 @router.post("/termination", response_model=TerminationRead, status_code=201)
 def create_termination(
     data: TerminationCreate,

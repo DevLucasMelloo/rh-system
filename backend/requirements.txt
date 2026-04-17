@@ -1,6 +1,6 @@
 # Web Framework
-fastapi==0.135.3
-uvicorn[standard]==0.32.1
+fastapi[standard]
+uvicorn[standard]
 
 # Database (SQLite para dev, PostgreSQL para produção)
 sqlalchemy==2.0.49
