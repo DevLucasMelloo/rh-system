@@ -80,11 +80,10 @@ const Api = (() => {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   async function login(email, password) {
-    const form = new URLSearchParams({ username: email, password });
     const res = await fetch(API_BASE + '/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: form,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.detail || 'Credenciais inválidas');
@@ -109,6 +108,12 @@ const Api = (() => {
     if (data) setUser(data);
     return data;
   }
+
+  // ── Users ─────────────────────────────────────────────────────────────────
+  const getUsers      = ()           => get('/users');
+  const createUser    = (body)       => post('/users', body);
+  const updateUser    = (id, body)   => patch(`/users/${id}`, body);
+  const changeMyPwd   = (body)       => patch('/users/me/password', body);
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   const getDashboard = () => get('/reports/dashboard');
@@ -174,6 +179,7 @@ const Api = (() => {
   return {
     getToken, setToken, removeToken, getUser, setUser,
     login, setupAdmin, me,
+    getUsers, createUser, updateUser, changeMyPwd,
     getDashboard,
     getEmployees, getEmployee, createEmployee, updateEmployee, inactivateEmp, reactivateEmp,
     getSeamstresses, createSeamstress, updateSeamstress, getSeamstressPayments, createPayment,

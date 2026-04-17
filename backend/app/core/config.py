@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
 
     # CORS
-    ALLOWED_ORIGINS: str = "http://localhost,http://127.0.0.1"
+    ALLOWED_ORIGINS: str = "http://localhost,http://127.0.0.1,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5500,http://127.0.0.1:5500"
 
     @property
     def allowed_origins_list(self) -> List[str]:

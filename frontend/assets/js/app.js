@@ -2,38 +2,6 @@
  * app.js — Router, auth, sidebar, login.
  */
 
-// ── Router ────────────────────────────────────────────────────────────────────
-const PAGES = {
-  dashboard:    PageDashboard,
-  employees:    PageEmployees,
-  seamstresses: PageSeamstresses,
-  payroll:      PagePayroll,
-  vales:        PageVales,
-  rescisao:     PageRescisao,
-  vacation:     PageVacation,
-  timesheet:    PageTimesheet,
-  reports:      PageReports,
-  settings:     PageSettings,
-  audit:        PageAudit,
-};
-
-let currentPage = null;
-
-function navigate(page) {
-  closeModal();
-  document.querySelectorAll('.nav-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.page === page);
-  });
-  currentPage = page;
-  const container = document.getElementById('page-content');
-  const mod = PAGES[page];
-  if (mod) {
-    mod.render(container);
-  } else {
-    container.innerHTML = `<div class="page-wrapper"><h1>Página não encontrada</h1></div>`;
-  }
-}
-
 // ── Sidebar toggle ────────────────────────────────────────────────────────────
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('collapsed');
@@ -67,15 +35,15 @@ async function doLogin() {
 }
 
 async function doRegister() {
-  const name    = document.getElementById('reg-name').value.trim();
-  const email   = document.getElementById('reg-email').value.trim();
-  const pass    = document.getElementById('reg-password').value;
-  const confirm = document.getElementById('reg-confirm').value;
-  const company = document.getElementById('reg-company').value.trim();
-  const cnpj    = document.getElementById('reg-cnpj').value.replace(/\D/g,'');
+  const name         = document.getElementById('reg-name').value.trim();
+  const email        = document.getElementById('reg-email').value.trim();
+  const pass         = document.getElementById('reg-password').value;
+  const confirm      = document.getElementById('reg-confirm').value;
+  const company      = document.getElementById('reg-company').value.trim();
+  const cnpj         = document.getElementById('reg-cnpj').value.replace(/\D/g, '');
   const companyEmail = document.getElementById('reg-company-email').value.trim();
-  const errEl   = document.getElementById('register-error');
-  const btn     = document.getElementById('btn-register');
+  const errEl        = document.getElementById('register-error');
+  const btn          = document.getElementById('btn-register');
 
   errEl.innerHTML = '';
   if (!name || !email || !pass || !company || !cnpj) {
@@ -122,30 +90,8 @@ function switchLoginTab(tab) {
   document.getElementById('form-register').classList.toggle('hidden', tab !== 'register');
 }
 
-// ── Stub pages (settings, audit) ──────────────────────────────────────────────
-const PageSettings = {
-  render(container) {
-    const user = Api.getUser();
-    container.innerHTML = `
-      <div class="page-header">
-        <div><h1>Configurações</h1><p>Configurações da conta e da empresa</p></div>
-      </div>
-      <div class="card" style="max-width:500px">
-        <div class="card-body">
-          <h3 style="margin-bottom:16px;font-size:15px">Usuário logado</h3>
-          <div class="detail-grid">
-            <div class="detail-item"><label>Nome</label><span>${user?.name || '—'}</span></div>
-            <div class="detail-item"><label>Email</label><span>${user?.email || '—'}</span></div>
-            <div class="detail-item"><label>Perfil</label><span>${user?.role || '—'}</span></div>
-          </div>
-          <div style="margin-top:20px">
-            <button class="btn btn-danger" onclick="doLogout()">Sair da conta</button>
-          </div>
-        </div>
-      </div>`;
-  }
-};
-
+// ── Audit page ────────────────────────────────────────────────────────────────
+// (PageSettings is defined in pages/settings.js loaded before this file)
 const PageAudit = {
   async render(container) {
     container.innerHTML = `
@@ -158,18 +104,61 @@ const PageAudit = {
           <tbody id="audit-tbody">${loadingRow(4)}</tbody>
         </table>
       </div>`;
-    try {
-      // audit endpoint may not exist — graceful fallback
-      const data = await fetch(Api.getToken ? `${window.location.origin}/api/v1/audit` : null).catch(() => null);
-      document.getElementById('audit-tbody').innerHTML = emptyRow('Nenhum registro de auditoria.', 4);
-    } catch {
-      document.getElementById('audit-tbody').innerHTML = emptyRow('Nenhum registro de auditoria.', 4);
-    }
+    document.getElementById('audit-tbody').innerHTML = emptyRow('Nenhum registro de auditoria.', 4);
   }
 };
 
+// ── Router ────────────────────────────────────────────────────────────────────
+// Declarado APÓS PageAudit e PageSettings para evitar temporal dead zone
+const PAGES = {
+  dashboard:    PageDashboard,
+  employees:    PageEmployees,
+  seamstresses: PageSeamstresses,
+  payroll:      PagePayroll,
+  vales:        PageVales,
+  rescisao:     PageRescisao,
+  vacation:     PageVacation,
+  timesheet:    PageTimesheet,
+  reports:      PageReports,
+  settings:     PageSettings,
+  audit:        PageAudit,
+};
+
+let currentPage = null;
+
+function navigate(page) {
+  closeModal();
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === page);
+  });
+  currentPage = page;
+  const container = document.getElementById('page-content');
+  const mod = PAGES[page];
+  if (mod) {
+    Promise.resolve(mod.render(container)).catch(err => {
+      container.innerHTML = `<div style="padding:40px"><div class="alert alert-error"><strong>Erro ao carregar "${page}":</strong><br>${err.message}</div></div>`;
+      console.error('navigate error:', err);
+    });
+  } else {
+    container.innerHTML = `<div style="padding:40px"><h1>Página não encontrada: ${page}</h1></div>`;
+  }
+}
+
 // ── Startup ───────────────────────────────────────────────────────────────────
 (async function init() {
+  // Verifica se precisa de setup inicial
+  try {
+    const res = await fetch('http://localhost:8080/api/v1/auth/setup-status');
+    const { needs_setup } = await res.json();
+    if (!needs_setup) {
+      const tabReg = document.getElementById('tab-register');
+      if (tabReg) tabReg.style.display = 'none';
+    } else {
+      switchLoginTab('register');
+    }
+  } catch { /* backend offline */ }
+
+  // Auto-login se tiver token salvo
   if (Api.getToken()) {
     try {
       await Api.me();
