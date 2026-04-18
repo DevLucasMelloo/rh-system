@@ -1,13 +1,30 @@
 const PageSettings = (() => {
   let users = [];
 
+  const ALL_MODULES = [
+    { key: 'dashboard',    label: 'Dashboard' },
+    { key: 'employees',    label: 'Funcionários' },
+    { key: 'seamstresses', label: 'Costureiras' },
+    { key: 'payroll',      label: 'Folha de Pagamento' },
+    { key: 'vales',        label: 'Vales' },
+    { key: 'rescisao',     label: 'Rescisão' },
+    { key: 'vacation',     label: 'Férias' },
+    { key: 'timesheet',    label: 'Ponto' },
+    { key: 'reports',      label: 'Relatórios' },
+    { key: 'audit',        label: 'Auditoria' },
+  ];
+
   function fmtRole(role) {
     const map = { admin: 'Administrador', rh: 'RH', financeiro: 'Financeiro' };
     return map[role] || role || '—';
   }
 
+  function parseModules(str) {
+    if (!str) return null;
+    try { return JSON.parse(str); } catch { return null; }
+  }
+
   async function render(container) {
-    // Busca usuario atual
     let user = Api.getUser();
     if (!user) {
       try { user = await Api.me(); } catch {}
@@ -28,7 +45,7 @@ const PageSettings = (() => {
           <div class="card-body">
             <div class="detail-grid" style="margin-bottom:20px">
               <div class="detail-item"><label>Nome</label><span>${user?.name || '—'}</span></div>
-              <div class="detail-item"><label>Email</label><span>${user?.email || '—'}</span></div>
+              <div class="detail-item"><label>Usuário</label><span>${user?.username || '—'}</span></div>
               <div class="detail-item"><label>Perfil</label><span>${fmtRole(user?.role)}</span></div>
             </div>
             <button class="btn btn-secondary" style="width:100%;margin-bottom:8px"
@@ -72,7 +89,7 @@ const PageSettings = (() => {
       tbody.innerHTML = users.map(u => `
         <tr>
           <td><strong>${u.name}</strong></td>
-          <td style="color:var(--text-muted);font-size:12px">${u.email}</td>
+          <td style="color:var(--text-muted);font-size:12px">${u.username}</td>
           <td>${fmtRole(u.role)}</td>
           <td>${u.is_active
             ? '<span class="badge badge-success">Ativo</span>'
@@ -97,8 +114,8 @@ const PageSettings = (() => {
         <div class="form-group"><label>Nome *</label>
           <input class="form-control" id="nu-name" placeholder="Nome completo">
         </div>
-        <div class="form-group"><label>Email *</label>
-          <input class="form-control" type="email" id="nu-email" placeholder="email@exemplo.com">
+        <div class="form-group"><label>Usuário (login) *</label>
+          <input class="form-control" type="text" id="nu-username" placeholder="ex: MariaOliveira">
         </div>
       </div>
       <div class="form-row">
@@ -113,24 +130,40 @@ const PageSettings = (() => {
           </select>
         </div>
       </div>
+      <div class="form-group">
+        <label>Módulos permitidos <small style="color:var(--text-muted)">(deixe tudo marcado para acesso total)</small></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-top:8px">
+          ${ALL_MODULES.map(m => `
+            <label style="display:flex;align-items:center;gap:8px;font-weight:normal;cursor:pointer">
+              <input type="checkbox" class="nu-module" value="${m.key}" checked> ${m.label}
+            </label>`).join('')}
+        </div>
+      </div>
       <div id="nu-error"></div>`, `
       <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="PageSettings.saveNewUser()">Criar Usuário</button>`);
   }
 
   async function saveNewUser() {
-    const name  = document.getElementById('nu-name').value.trim();
-    const email = document.getElementById('nu-email').value.trim();
-    const pwd   = document.getElementById('nu-pwd').value;
-    const role  = document.getElementById('nu-role').value;
-    const errEl = document.getElementById('nu-error');
+    const name     = document.getElementById('nu-name').value.trim();
+    const username = document.getElementById('nu-username').value.trim();
+    const pwd      = document.getElementById('nu-pwd').value;
+    const role     = document.getElementById('nu-role').value;
+    const errEl    = document.getElementById('nu-error');
 
-    if (!name || !email || !pwd) {
+    const checked = [...document.querySelectorAll('.nu-module:checked')].map(el => el.value);
+    const allChecked = checked.length === ALL_MODULES.length;
+    const allowed_modules = allChecked ? null : JSON.stringify(checked);
+
+    if (!name || !username || !pwd) {
       errEl.innerHTML = '<div class="alert alert-error">Preencha todos os campos.</div>';
       return;
     }
     try {
-      await Api.createUser({ name, email, password: pwd, role });
+      const newUser = await Api.createUser({ name, username, password: pwd, role });
+      if (!allChecked) {
+        await Api.updateUser(newUser.id, { allowed_modules });
+      }
       closeModal();
       toast('Usuário criado com sucesso!');
       loadUsers();
@@ -142,9 +175,17 @@ const PageSettings = (() => {
   function openEditUser(id) {
     const u = users.find(x => x.id === id);
     if (!u) return;
+    const mods = parseModules(u.allowed_modules);
+    const hasAll = mods === null;
+
     openModal('Editar Usuário', `
-      <div class="form-group"><label>Nome</label>
-        <input class="form-control" id="eu-name" value="${u.name}">
+      <div class="form-row">
+        <div class="form-group"><label>Nome</label>
+          <input class="form-control" id="eu-name" value="${u.name}">
+        </div>
+        <div class="form-group"><label>Usuário (login)</label>
+          <input class="form-control" type="text" id="eu-username" value="${u.username}">
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Perfil</label>
@@ -161,22 +202,75 @@ const PageSettings = (() => {
           </select>
         </div>
       </div>
+      <div class="form-group">
+        <label>Módulos permitidos <small style="color:var(--text-muted)">(deixe tudo marcado para acesso total)</small></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-top:8px">
+          ${ALL_MODULES.map(m => `
+            <label style="display:flex;align-items:center;gap:8px;font-weight:normal;cursor:pointer">
+              <input type="checkbox" class="eu-module" value="${m.key}" ${hasAll || (mods && mods.includes(m.key)) ? 'checked' : ''}> ${m.label}
+            </label>`).join('')}
+        </div>
+      </div>
       <div id="eu-error"></div>`, `
       <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-warning" onclick="PageSettings.openResetUserPwd(${id})" style="margin-right:auto">Redefinir Senha</button>
       <button class="btn btn-primary" onclick="PageSettings.saveEditUser(${id})">Salvar</button>`);
   }
 
   async function saveEditUser(id) {
     const errEl = document.getElementById('eu-error');
+    const checked = [...document.querySelectorAll('.eu-module:checked')].map(el => el.value);
+    const allChecked = checked.length === ALL_MODULES.length;
+    const allowed_modules = allChecked ? null : JSON.stringify(checked);
+
     try {
       await Api.updateUser(id, {
-        name:      document.getElementById('eu-name').value.trim(),
-        role:      document.getElementById('eu-role').value,
-        is_active: document.getElementById('eu-active').value === 'true',
+        name:            document.getElementById('eu-name').value.trim(),
+        username:        document.getElementById('eu-username').value.trim(),
+        role:            document.getElementById('eu-role').value,
+        is_active:       document.getElementById('eu-active').value === 'true',
+        allowed_modules,
       });
       closeModal();
       toast('Usuário atualizado!');
       loadUsers();
+    } catch (e) {
+      errEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    }
+  }
+
+  function openResetUserPwd(id) {
+    const u = users.find(x => x.id === id);
+    openModal('Redefinir Senha — ' + (u?.name || ''), `
+      <p style="color:var(--text-muted);margin-bottom:16px">Defina uma nova senha para este usuário. Ele será desconectado de sessões ativas.</p>
+      <div class="form-group"><label>Nova Senha *</label>
+        <input class="form-control" type="password" id="rp-new" placeholder="Mínimo 8 caracteres">
+      </div>
+      <div class="form-group"><label>Confirmar Nova Senha *</label>
+        <input class="form-control" type="password" id="rp-confirm" placeholder="Mínimo 8 caracteres">
+      </div>
+      <div id="rp-error"></div>`, `
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="PageSettings.saveResetUserPwd(${id})">Redefinir</button>`);
+  }
+
+  async function saveResetUserPwd(id) {
+    const novo    = document.getElementById('rp-new').value;
+    const confirm = document.getElementById('rp-confirm').value;
+    const errEl   = document.getElementById('rp-error');
+
+    if (!novo || !confirm) {
+      errEl.innerHTML = '<div class="alert alert-error">Preencha os dois campos.</div>';
+      return;
+    }
+    if (novo !== confirm) {
+      errEl.innerHTML = '<div class="alert alert-error">As senhas não coincidem.</div>';
+      return;
+    }
+    try {
+      await Api.adminResetPwd(id, { new_password: novo });
+      closeModal();
+      toast('Senha redefinida com sucesso!');
     } catch (e) {
       errEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
@@ -217,5 +311,11 @@ const PageSettings = (() => {
     }
   }
 
-  return { render, openNewUser, saveNewUser, openEditUser, saveEditUser, openChangePwd, saveChangePwd };
+  return {
+    render,
+    openNewUser, saveNewUser,
+    openEditUser, saveEditUser,
+    openResetUserPwd, saveResetUserPwd,
+    openChangePwd, saveChangePwd,
+  };
 })();

@@ -79,11 +79,11 @@ const Api = (() => {
   }
 
   // ── Auth ──────────────────────────────────────────────────────────────────
-  async function login(email, password) {
+  async function login(username, password) {
     const res = await fetch(API_BASE + '/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ username, password }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.detail || 'Credenciais inválidas');
@@ -110,21 +110,24 @@ const Api = (() => {
   }
 
   // ── Users ─────────────────────────────────────────────────────────────────
-  const getUsers      = ()           => get('/users');
-  const createUser    = (body)       => post('/users', body);
-  const updateUser    = (id, body)   => patch(`/users/${id}`, body);
-  const changeMyPwd   = (body)       => patch('/users/me/password', body);
+  const getUsers         = ()           => get('/users');
+  const createUser       = (body)       => post('/users', body);
+  const updateUser       = (id, body)   => patch(`/users/${id}`, body);
+  const adminResetPwd    = (id, body)   => patch(`/users/${id}/password`, body);
+  const changeMyPwd      = (body)       => patch('/users/me/password', body);
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   const getDashboard = () => get('/reports/dashboard');
 
   // ── Employees ─────────────────────────────────────────────────────────────
-  const getEmployees    = ()           => get('/employees');
-  const getEmployee     = (id)         => get(`/employees/${id}`);
-  const createEmployee  = (body)       => post('/employees', body);
-  const updateEmployee  = (id, body)   => put(`/employees/${id}`, body);
-  const inactivateEmp   = (id, reason) => patch(`/employees/${id}/inactivate`, { reason });
-  const reactivateEmp   = (id)         => patch(`/employees/${id}/reactivate`, {});
+  const getEmployees         = ()           => get('/employees');
+  const getInactiveEmployees = ()           => get('/employees', { inactive: true });
+  const getEmployee          = (id)         => get(`/employees/${id}`);
+  const getEmployeeHistory = (id)         => get(`/employees/${id}/history`);
+  const createEmployee     = (body)       => post('/employees', body);
+  const updateEmployee     = (id, body)   => patch(`/employees/${id}`, body);
+  const inactivateEmp      = (id, reason) => post(`/employees/${id}/inactivate`, { reason });
+  const reactivateEmp      = (id)         => post(`/employees/${id}/reactivate`, {});
 
   // ── Seamstresses ──────────────────────────────────────────────────────────
   const getSeamstresses   = ()         => get('/seamstresses');
@@ -179,9 +182,9 @@ const Api = (() => {
   return {
     getToken, setToken, removeToken, getUser, setUser,
     login, setupAdmin, me,
-    getUsers, createUser, updateUser, changeMyPwd,
+    getUsers, createUser, updateUser, adminResetPwd, changeMyPwd,
     getDashboard,
-    getEmployees, getEmployee, createEmployee, updateEmployee, inactivateEmp, reactivateEmp,
+    getEmployees, getInactiveEmployees, getEmployee, getEmployeeHistory, createEmployee, updateEmployee, inactivateEmp, reactivateEmp,
     getSeamstresses, createSeamstress, updateSeamstress, getSeamstressPayments, createPayment,
     getPayrollPeriod, getPayroll, createPayroll, closePayroll, recalcPayroll,
     addPayrollItem, deletePayrollItem, getPayrollPdf,

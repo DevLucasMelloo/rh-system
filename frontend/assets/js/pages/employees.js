@@ -46,7 +46,11 @@ const PageEmployees = (() => {
 
   async function loadData() {
     try {
-      allEmployees = await Api.getEmployees() || [];
+      const [active, inactive] = await Promise.all([
+        Api.getEmployees(),
+        Api.getInactiveEmployees(),
+      ]);
+      allEmployees = [...(active || []), ...(inactive || [])];
       renderTable();
     } catch (e) {
       document.getElementById('emp-tbody').innerHTML =
@@ -84,7 +88,7 @@ const PageEmployees = (() => {
         <td style="color:var(--text-muted)">${fmt.cpf(e.cpf)}</td>
         <td>${e.role}</td>
         <td>${fmt.brl(e.salary)}</td>
-        <td>R$ ${Number(e.vt_daily || 10.60).toFixed(2)}</td>
+        <td>${e.needs_transport ? fmt.brl(e.vt_daily || 10.60) : '—'}</td>
         <td>${fmt.date(e.admission_date)}</td>
         <td>${fmt.status(e.status)}</td>
         <td class="td-actions">
@@ -121,18 +125,37 @@ const PageEmployees = (() => {
 
   // ── Forms ──────────────────────────────────────────────────────────────────
   function empForm(e = {}) {
+    const needsTransport = e.needs_transport || false;
     return `
       <div class="form-row">
         <div class="form-group"><label>Nome *</label>
           <input class="form-control" id="f-name" value="${e.name||''}"></div>
         <div class="form-group"><label>CPF *</label>
-          <input class="form-control" id="f-cpf" value="${fmt.cpf(e.cpf)||''}" placeholder="000.000.000-00"></div>
+          <input class="form-control" id="f-cpf" value="${fmt.cpf(e.cpf)||''}"
+            placeholder="000.000.000-00" maxlength="14"
+            oninput="applyCpfMask(this)"></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Cargo *</label>
           <input class="form-control" id="f-role" value="${e.role||''}"></div>
         <div class="form-group"><label>Salário *</label>
           <input class="form-control" type="number" step="0.01" id="f-salary" value="${e.salary||''}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Auxílio (R$)</label>
+          <input class="form-control" type="number" step="0.01" id="f-auxilio"
+            value="${e.auxilio||''}" placeholder="0.00"></div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <input type="checkbox" id="f-transport" ${needsTransport?'checked':''}
+              onchange="document.getElementById('vt-group').style.display=this.checked?'block':'none'">
+            Precisa de condução (VT)
+          </label>
+          <div id="vt-group" style="display:${needsTransport?'block':'none'}">
+            <input class="form-control" type="number" step="0.01" id="f-vt"
+              value="${e.vt_daily||10.60}" placeholder="Valor VT diário">
+          </div>
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Data Admissão *</label>
@@ -170,11 +193,15 @@ const PageEmployees = (() => {
   }
 
   function collectForm() {
+    const needsTransport = document.getElementById('f-transport').checked;
     return {
       name:              document.getElementById('f-name').value.trim(),
-      cpf:               document.getElementById('f-cpf').value.trim(),
+      cpf:               document.getElementById('f-cpf').value.replace(/\D/g,''),
       role:              document.getElementById('f-role').value.trim(),
       salary:            parseFloat(document.getElementById('f-salary').value),
+      auxilio:           parseFloat(document.getElementById('f-auxilio').value) || null,
+      needs_transport:   needsTransport,
+      vt_daily:          needsTransport ? (parseFloat(document.getElementById('f-vt').value) || 10.60) : null,
       admission_date:    document.getElementById('f-admission').value,
       registration_date: document.getElementById('f-registration').value,
       rg:                document.getElementById('f-rg').value.trim() || null,
@@ -256,24 +283,32 @@ const PageEmployees = (() => {
   }
 
   async function openHistory(id, name) {
-    openModal(`Histórico — ${name}`, '<div class="flex items-center gap-2" style="padding:20px"><div class="spinner spinner-dark"></div> Carregando...</div>', '', true);
+    openModal(`Histórico — ${name}`, `<div style="padding:20px;text-align:center"><div class="spinner spinner-dark"></div> Carregando...</div>`, '', true);
     try {
-      const emp = await Api.getEmployee(id);
-      const hist = emp?.history || [];
+      const hist = await Api.getEmployeeHistory(id) || [];
+      const fieldLabels = {
+        name: 'Nome', role: 'Cargo', salary: 'Salário', phone: 'Telefone',
+        address: 'Endereço', city: 'Cidade', state: 'Estado', bank_name: 'Banco',
+        weekly_hours: 'Horas semanais', auxilio: 'Auxílio', needs_transport: 'Condução',
+        vt_daily: 'VT Diário', criacao: 'Cadastro', inactivation: 'Inativação',
+        bank_account: 'Conta bancária', pix: 'PIX', rg: 'RG',
+      };
       const rows = hist.length
         ? hist.map(h => `<tr>
-            <td>${h.changed_at ? h.changed_at.slice(0,16).replace('T',' ') : '—'}</td>
-            <td>${h.field_changed}</td>
-            <td>${h.old_value || '—'}</td>
+            <td style="white-space:nowrap">${h.changed_at ? h.changed_at.slice(0,16).replace('T',' ') : '—'}</td>
+            <td>${fieldLabels[h.field_changed] || h.field_changed}</td>
+            <td style="color:var(--text-muted)">${h.old_value || '—'}</td>
             <td>${h.new_value || '—'}</td>
           </tr>`).join('')
-        : emptyRow('Sem histórico.', 4);
+        : emptyRow('Sem histórico registrado.', 4);
       document.getElementById('modal-body').innerHTML = `
-        <div class="table-wrapper">
-          <table><thead><tr><th>Data</th><th>Campo</th><th>Anterior</th><th>Novo</th></tr></thead>
+        <div class="table-wrapper" style="border:none">
+          <table><thead><tr><th>Data/Hora</th><th>Campo</th><th>Anterior</th><th>Novo</th></tr></thead>
           <tbody>${rows}</tbody></table>
         </div>`;
-    } catch (e) { document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
+    } catch (e) {
+      document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    }
   }
 
   return { render, setTab, onSearch, openNew, saveNew, openEdit, saveEdit, confirmInactivate, doInactivate, reactivate, openHistory };

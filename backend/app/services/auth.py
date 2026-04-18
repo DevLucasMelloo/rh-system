@@ -17,12 +17,11 @@ from app.utils.email import send_password_reset
 
 
 def login(db: Session, data: LoginRequest, ip: str | None = None) -> TokenResponse:
-    user = user_repo.get_by_email(db, data.email)
+    user = user_repo.get_by_email(db, data.username)
 
-    # Mensagem genérica — não revelar se o email existe ou não
     invalid = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Email ou senha incorretos",
+        detail="Usuário ou senha incorretos",
     )
 
     if not user or not user.is_active:
@@ -31,7 +30,7 @@ def login(db: Session, data: LoginRequest, ip: str | None = None) -> TokenRespon
     if not verify_password(data.password, user.hashed_password):
         audit_repo.create_log(
             db, action="login_failed", user_id=user.id,
-            description=f"Tentativa de login falhou para {data.email}",
+            description=f"Tentativa de login falhou para {data.username}",
             ip_address=ip,
         )
         raise invalid
@@ -42,7 +41,7 @@ def login(db: Session, data: LoginRequest, ip: str | None = None) -> TokenRespon
     user_repo.update_refresh_token(db, user, refresh)
     audit_repo.create_log(
         db, action="login", user_id=user.id,
-        description=f"Login realizado por {user.email}",
+        description=f"Login realizado por {user.username}",
         ip_address=ip,
     )
 
@@ -71,18 +70,14 @@ def logout(db: Session, user_id: int) -> None:
         user_repo.update_refresh_token(db, user, None)
 
 
-def request_password_reset(db: Session, email: str) -> None:
-    """
-    Envia link de reset de senha.
-    Sempre retorna sucesso mesmo se o email não existir (evita enumeração de usuários).
-    """
-    user = user_repo.get_by_email(db, email)
+def request_password_reset(db: Session, username: str) -> None:
+    user = user_repo.get_by_email(db, username)
     if not user or not user.is_active:
-        return  # Silencioso
+        return
 
-    token = create_password_reset_token(email)
+    token = create_password_reset_token(username)
     reset_link = f"http://localhost/reset-password?token={token}"
-    send_password_reset(email, reset_link)
+    send_password_reset(username, reset_link)
 
 
 def confirm_password_reset(db: Session, data: PasswordResetConfirm) -> None:
@@ -94,12 +89,12 @@ def confirm_password_reset(db: Session, data: PasswordResetConfirm) -> None:
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token inválido ou expirado")
 
-    if len(data.new_password) < 8:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Senha deve ter pelo menos 8 caracteres")
+    if len(data.new_password) < 4:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Senha deve ter pelo menos 4 caracteres")
 
     user_repo.update_password(db, user, hash_password(data.new_password))
     user_repo.update_refresh_token(db, user, None)  # invalida sessões abertas
     audit_repo.create_log(
         db, action="password_reset", user_id=user.id,
-        description=f"Senha redefinida para {user.email}",
+        description=f"Senha redefinida para {user.username}",
     )

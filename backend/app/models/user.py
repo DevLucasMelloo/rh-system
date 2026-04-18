@@ -17,7 +17,7 @@ class User(Base):
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
 
     name = Column(String(150), nullable=False)
-    email = Column(String(200), nullable=False, unique=True, index=True)
+    username = Column('email', String(200), nullable=False, unique=True, index=True)
     hashed_password = Column(String(200), nullable=False)  # bcrypt — nunca texto puro
     role = Column(Enum(UserRole), nullable=False, default=UserRole.RH)
     is_active = Column(Boolean, default=True)

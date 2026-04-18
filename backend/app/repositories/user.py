@@ -7,9 +7,8 @@ def get_user(db: Session, user_id: int) -> User | None:
     return db.get(User, user_id)
 
 
-def get_by_email(db: Session, email: str) -> User | None:
-    # Busca por email — SQLAlchemy usa parâmetro vinculado (sem SQL injection)
-    return db.query(User).filter(User.email == email.lower()).first()
+def get_by_email(db: Session, username: str) -> User | None:
+    return db.query(User).filter(User.username == username.lower()).first()
 
 
 def list_users(db: Session, company_id: int) -> list[User]:
@@ -20,7 +19,7 @@ def create_user(db: Session, data: UserCreate, company_id: int, hashed_password:
     user = User(
         company_id=company_id,
         name=data.name,
-        email=data.email.lower(),
+        username=data.username.lower(),
         hashed_password=hashed_password,
         role=data.role,
     )
@@ -31,7 +30,10 @@ def create_user(db: Session, data: UserCreate, company_id: int, hashed_password:
 
 
 def update_user(db: Session, user: User, data: UserUpdate) -> User:
-    for field, value in data.model_dump(exclude_none=True).items():
+    updates = data.model_dump(exclude_none=True)
+    if 'username' in updates:
+        updates['username'] = updates['username'].lower()
+    for field, value in updates.items():
         setattr(user, field, value)
     db.commit()
     db.refresh(user)

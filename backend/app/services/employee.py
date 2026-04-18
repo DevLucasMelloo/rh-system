@@ -3,7 +3,7 @@ Serviço de Funcionários.
 Toda regra de negócio fica aqui — nunca nos endpoints ou no banco.
 Criptografia Fernet aplicada a CPF, RG, conta bancária e pix antes de persistir.
 """
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -15,6 +15,26 @@ from app.models.employee import Employee, EmployeeStatus
 
 
 # ── Helpers de criptografia ───────────────────────────────────────────────────
+
+def _vals_equal(old, new) -> bool:
+    """Compara valores ignorando diferenças de precisão em Decimais e booleans."""
+    if old == new:
+        return True
+    if old is None or new is None:
+        return False
+    try:
+        return Decimal(str(old)).normalize() == Decimal(str(new)).normalize()
+    except Exception:
+        return str(old) == str(new)
+
+
+def _fmt_val(v) -> str:
+    if v is None:
+        return '—'
+    if isinstance(v, Decimal):
+        return f'{v:.2f}'
+    return str(v)
+
 
 def _encrypt_sensitive(data: dict) -> dict:
     """Criptografa os campos sensíveis antes de salvar."""
@@ -49,6 +69,9 @@ def _decrypt_employee(emp: Employee) -> dict:
         "bank_account": decrypt_field(emp.bank_account_encrypted) if emp.bank_account_encrypted else None,
         "pix": decrypt_field(emp.pix_encrypted) if emp.pix_encrypted else None,
         "bank_name": emp.bank_name,
+        "auxilio": emp.auxilio,
+        "needs_transport": emp.needs_transport or False,
+        "vt_daily": emp.vt_daily,
         "inactivation_date": emp.inactivation_date,
         "inactivation_reason": emp.inactivation_reason,
     }
@@ -103,6 +126,9 @@ def create_employee(db: Session, data: EmployeeCreate, company_id: int, created_
         "registration_date": data.registration_date,
         "is_intern": data.is_intern,
         "weekly_hours": data.weekly_hours,
+        "auxilio": data.auxilio,
+        "needs_transport": data.needs_transport,
+        "vt_daily": data.vt_daily,
         "bank_account_encrypted": data.bank_account or "",
         "pix_encrypted": data.pix or "",
         "bank_name": data.bank_name,
@@ -153,16 +179,24 @@ def update_employee(
         "name": data.name, "phone": data.phone, "date_of_birth": data.date_of_birth,
         "father_name": data.father_name, "mother_name": data.mother_name,
         "address": data.address, "cep": data.cep, "city": data.city, "state": data.state,
-        "role": data.role, "weekly_hours": data.weekly_hours,
+        "role": data.role, "salary": data.salary, "weekly_hours": data.weekly_hours,
         "bank_name": data.bank_name, "is_intern": data.is_intern,
+        "auxilio": data.auxilio, "needs_transport": data.needs_transport, "vt_daily": data.vt_daily,
     }
+
+    # RG — campo criptografado tratado como plain aqui (re-criptografa no save)
+    if data.rg is not None:
+        changes["rg_encrypted"] = encrypt_field(data.rg)
+        old_rg = decrypt_field(emp.rg_encrypted) if emp.rg_encrypted else None
+        if old_rg != data.rg:
+            history_entries.append(("rg", "***", "***atualizado***"))
 
     for field, new_val in plain_fields.items():
         if new_val is None:
             continue
         old_val = getattr(emp, field)
-        if str(old_val) != str(new_val):
-            history_entries.append((field, str(old_val), str(new_val)))
+        if not _vals_equal(old_val, new_val):
+            history_entries.append((field, _fmt_val(old_val), _fmt_val(new_val)))
             changes[field] = new_val
 
     # Campos criptografados

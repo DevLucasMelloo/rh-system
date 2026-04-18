@@ -5,10 +5,13 @@ from loguru import logger
 
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.db.database import Base, engine
+import app.models  # noqa: F401 — garante que todos os modelos sejam registrados
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    Base.metadata.create_all(bind=engine)
     logger.info(f"Sistema de RH iniciado — ambiente: {settings.ENVIRONMENT}")
     yield
 

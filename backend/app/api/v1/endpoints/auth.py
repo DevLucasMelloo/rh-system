@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Request, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -21,14 +21,12 @@ router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
 class SetupRequest(BaseModel):
     """Dados para criação do primeiro admin + empresa."""
-    # Usuário
     name: str
-    email: EmailStr
+    username: str
     password: str
-    # Empresa
     razao_social: str
     cnpj: str
-    company_email: EmailStr
+    company_email: str
 
 
 @router.get("/setup-status", summary="Verifica se o sistema já foi configurado")
@@ -67,12 +65,12 @@ def setup_first_admin(data: SetupRequest, db: Session = Depends(get_db)):
         company = company_repo.create_company(db, company_data)
 
     # Cria admin
-    user_data = UserCreate(name=data.name, email=data.email, password=data.password)
+    user_data = UserCreate(name=data.name, username=data.username, password=data.password)
     user_data.role = UserRole.ADMIN
     user = user_service.create_user(db, user_data, company.id, created_by_id=0)
 
     # Retorna token direto para logar automaticamente
-    login_data = LoginRequest(email=data.email, password=data.password)
+    login_data = LoginRequest(username=data.username, password=data.password)
     return auth_service.login(db, login_data, ip=None)
 
 
@@ -103,7 +101,7 @@ def logout(
 
 @router.post("/forgot-password", status_code=202)
 def forgot_password(data: PasswordResetRequest, db: Session = Depends(get_db)):
-    auth_service.request_password_reset(db, data.email)
+    auth_service.request_password_reset(db, data.username)
     return {"message": "Se o email existir, você receberá um link de redefinição"}
 
 

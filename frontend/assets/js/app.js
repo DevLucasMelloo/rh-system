@@ -9,14 +9,14 @@ function toggleSidebar() {
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const pass  = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-error');
-  const btn   = document.getElementById('btn-login');
+  const username = document.getElementById('login-username').value.trim();
+  const pass     = document.getElementById('login-password').value;
+  const errEl    = document.getElementById('login-error');
+  const btn      = document.getElementById('btn-login');
 
   errEl.innerHTML = '';
-  if (!email || !pass) {
-    errEl.innerHTML = '<div class="alert alert-error">Preencha email e senha.</div>';
+  if (!username || !pass) {
+    errEl.innerHTML = '<div class="alert alert-error">Preencha usuário e senha.</div>';
     return;
   }
 
@@ -24,7 +24,7 @@ async function doLogin() {
   btn.innerHTML = '<div class="spinner"></div> Entrando...';
 
   try {
-    await Api.login(email, pass);
+    await Api.login(username, pass);
     await Api.me();
     showApp();
   } catch (e) {
@@ -36,7 +36,7 @@ async function doLogin() {
 
 async function doRegister() {
   const name         = document.getElementById('reg-name').value.trim();
-  const email        = document.getElementById('reg-email').value.trim();
+  const username     = document.getElementById('reg-username').value.trim();
   const pass         = document.getElementById('reg-password').value;
   const confirm      = document.getElementById('reg-confirm').value;
   const company      = document.getElementById('reg-company').value.trim();
@@ -46,7 +46,7 @@ async function doRegister() {
   const btn          = document.getElementById('btn-register');
 
   errEl.innerHTML = '';
-  if (!name || !email || !pass || !company || !cnpj) {
+  if (!name || !username || !pass || !company || !cnpj) {
     errEl.innerHTML = '<div class="alert alert-error">Preencha todos os campos obrigatórios.</div>';
     return;
   }
@@ -59,7 +59,7 @@ async function doRegister() {
   btn.innerHTML = '<div class="spinner"></div> Criando...';
 
   try {
-    await Api.setupAdmin({ name, email, password: pass, razao_social: company, cnpj, company_email: companyEmail });
+    await Api.setupAdmin({ name, username, password: pass, razao_social: company, cnpj, company_email: companyEmail });
     await Api.me();
     showApp();
   } catch (e) {
@@ -73,14 +73,33 @@ function doLogout() {
   Api.removeToken();
   document.getElementById('app').classList.add('hidden');
   document.getElementById('login-page').classList.remove('hidden');
-  document.getElementById('login-email').value = '';
+  document.getElementById('login-username').value = '';
   document.getElementById('login-password').value = '';
+  document.getElementById('login-error').innerHTML = '';
+  const btn = document.getElementById('btn-login');
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Entrar';
 }
 
 function showApp() {
   document.getElementById('login-page').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+  applySidebarAccess();
   navigate('dashboard');
+}
+
+function applySidebarAccess() {
+  const user = Api.getUser();
+  if (!user || user.role === 'admin' || !user.allowed_modules) {
+    document.querySelectorAll('.nav-item[data-page]').forEach(el => el.style.display = '');
+    return;
+  }
+  let allowed;
+  try { allowed = JSON.parse(user.allowed_modules); } catch { allowed = null; }
+  if (!allowed) return;
+  document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+    el.style.display = allowed.includes(el.dataset.page) ? '' : 'none';
+  });
 }
 
 function switchLoginTab(tab) {

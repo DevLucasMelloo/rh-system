@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.core.dependencies import get_current_user, require_admin
-from app.schemas.user import UserCreate, UserRead, UserUpdate, PasswordChange
+from app.schemas.user import UserCreate, UserRead, UserUpdate, PasswordChange, AdminPasswordReset
 from app.services import user as user_service
 from app.repositories import user as user_repo
 from app.models.user import User
@@ -51,3 +51,14 @@ def update_user(
     db: Session = Depends(get_db),
 ):
     return user_service.update_user(db, user_id, data, current_user.id)
+
+
+@router.patch("/{user_id}/password", status_code=204)
+def admin_reset_password(
+    user_id: int,
+    data: AdminPasswordReset,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Admin redefine a senha de qualquer usuário."""
+    user_service.admin_reset_password(db, user_id, data, current_user.id)

@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from app.core.security import hash_password, verify_password
 from app.repositories import user as user_repo
 from app.repositories import audit_log as audit_repo
-from app.schemas.user import UserCreate, UserUpdate, PasswordChange
+from app.schemas.user import UserCreate, UserUpdate, PasswordChange, AdminPasswordReset
 from app.models.user import User
 
 
@@ -16,8 +16,8 @@ def get_user_or_404(db: Session, user_id: int) -> User:
 
 
 def create_user(db: Session, data: UserCreate, company_id: int, created_by_id: int) -> User:
-    if user_repo.get_by_email(db, data.email):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email já cadastrado")
+    if user_repo.get_by_email(db, data.username):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Usuário já cadastrado")
 
     user = user_repo.create_user(
         db=db,
@@ -42,6 +42,17 @@ def update_user(db: Session, user_id: int, data: UserUpdate, updated_by_id: int)
         description=f"Dados do usuário '{user.name}' atualizados",
     )
     return updated
+
+
+def admin_reset_password(db: Session, user_id: int, data: AdminPasswordReset, admin_id: int) -> None:
+    user = get_user_or_404(db, user_id)
+    user_repo.update_password(db, user, hash_password(data.new_password))
+    user_repo.update_refresh_token(db, user, None)
+    audit_repo.create_log(
+        db, action="password_reset", user_id=admin_id,
+        entity="user", entity_id=user_id,
+        description=f"Senha do usuário '{user.name}' redefinida pelo administrador",
+    )
 
 
 def change_password(db: Session, user_id: int, data: PasswordChange) -> None:

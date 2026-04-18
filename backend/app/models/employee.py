@@ -48,8 +48,13 @@ class Employee(Base):
     inactivation_reason = Column(Text, nullable=True)
 
     # Tipo de contrato
-    is_intern = Column(Boolean, default=False)           # estagiário tem carga horária diferente
-    weekly_hours = Column(Integer, default=44)           # carga horária semanal
+    is_intern = Column(Boolean, default=False)
+    weekly_hours = Column(Integer, default=44)
+
+    # Benefícios
+    auxilio = Column(Numeric(10, 2), nullable=True)      # auxílio extra (alimentação, etc.)
+    needs_transport = Column(Boolean, default=False)     # usa VT
+    vt_daily = Column(Numeric(10, 2), nullable=True)     # valor diário do VT
 
     # Dados bancários — criptografados com Fernet
     bank_account_encrypted = Column(String(500), nullable=True)  # Fernet

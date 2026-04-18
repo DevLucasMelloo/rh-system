@@ -190,6 +190,11 @@ select.form-control { cursor: pointer; }
   color: var(--danger);
 }
 .btn-danger:hover { background: #fca5a5; }
+.btn-warning {
+  background: #fef3c7;
+  color: #b45309;
+}
+.btn-warning:hover { background: #fde68a; }
 
 .btn-success {
   background: var(--success-light);

@@ -62,7 +62,16 @@ function toggleDropdown(id) {
   const menu = document.getElementById(id);
   const wasOpen = menu.classList.contains('open');
   document.querySelectorAll('.dropdown-menu.open').forEach(m => m.classList.remove('open'));
-  if (!wasOpen) menu.classList.add('open');
+  if (!wasOpen) {
+    menu.classList.add('open');
+    // Reposicionar usando fixed para escapar de overflow:hidden
+    const btn = menu.previousElementSibling;
+    const rect = btn.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.top = (rect.bottom + 4) + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    menu.style.left = 'auto';
+  }
 }
 
 // ── Months / Years helpers ────────────────────────────────────────────────────
@@ -97,6 +106,15 @@ function emptyRow(msg = 'Nenhum registro encontrado.', cols = 6) {
 // ── CNPJ mask ─────────────────────────────────────────────────────────────────
 function maskCnpj(v) {
   return v.replace(/\D/g,'').replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+}
+
+// ── CPF mask ──────────────────────────────────────────────────────────────────
+function applyCpfMask(input) {
+  let v = input.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length > 9)      v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4');
+  else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{0,3})/, '$1.$2.$3');
+  else if (v.length > 3) v = v.replace(/(\d{3})(\d{0,3})/, '$1.$2');
+  input.value = v;
 }
 
 // ── Debounce ──────────────────────────────────────────────────────────────────

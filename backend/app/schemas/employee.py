@@ -55,6 +55,11 @@ class EmployeeCreate(BaseModel):
     is_intern: bool = False
     weekly_hours: int = 44
 
+    # Benefícios
+    auxilio: Decimal | None = None
+    needs_transport: bool = False
+    vt_daily: Decimal | None = None
+
     # Dados bancários (texto puro — criptografados no service)
     bank_account: str | None = None
     pix: str | None = None
@@ -96,6 +101,7 @@ class EmployeeCreate(BaseModel):
 
 class EmployeeUpdate(BaseModel):
     name: str | None = None
+    rg: str | None = None
     phone: str | None = None
     date_of_birth: date | None = None
     father_name: str | None = None
@@ -105,7 +111,11 @@ class EmployeeUpdate(BaseModel):
     city: str | None = None
     state: str | None = None
     role: str | None = None
+    salary: Decimal | None = None
     weekly_hours: int | None = None
+    auxilio: Decimal | None = None
+    needs_transport: bool | None = None
+    vt_daily: Decimal | None = None
     bank_account: str | None = None
     pix: str | None = None
     bank_name: str | None = None
@@ -174,8 +184,11 @@ class EmployeeRead(BaseModel):
     status: str
     is_intern: bool
     weekly_hours: int
-    bank_account: str | None  # descriptografado
-    pix: str | None           # descriptografado
+    auxilio: Decimal | None
+    needs_transport: bool
+    vt_daily: Decimal | None
+    bank_account: str | None
+    pix: str | None
     bank_name: str | None
     inactivation_date: date | None
     inactivation_reason: str | None
