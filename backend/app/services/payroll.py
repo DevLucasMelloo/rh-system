@@ -290,8 +290,16 @@ def close_payroll(
     company_id: int,
     user_id: int,
 ) -> Payroll:
+    from app.repositories import timesheet as ts_repo
     payroll = _get_payroll_or_404(db, payroll_id, company_id)
     _require_draft(payroll)
+
+    period = ts_repo.get_period(db, company_id, payroll.competence_month, payroll.competence_year)
+    if period and period.status != "closed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"O ponto de {payroll.competence_month:02d}/{payroll.competence_year} ainda está aberto. Feche o ponto antes de fechar a folha.",
+        )
 
     # Marcar parcelas de vale como pagas
     installments = payroll_repo.list_pending_installments(

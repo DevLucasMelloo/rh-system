@@ -1,10 +1,6 @@
-"""
-Controle de Ponto.
-4 batidas por dia: entrada, saída almoço, retorno almoço, saída.
-"""
 from sqlalchemy import (
     Column, Integer, String, Date, DateTime, Time, Boolean,
-    Numeric, ForeignKey, Text, func
+    Numeric, ForeignKey, Text, UniqueConstraint, func
 )
 from sqlalchemy.orm import relationship
 from app.db.database import Base
@@ -32,9 +28,11 @@ class TimesheetEntry(Base):
     late_minutes = Column(Integer, default=0)         # minutos de atraso
 
     # Ausências e justificativas
-    is_absence = Column(Boolean, default=False)        # dia de falta
-    is_medical_certificate = Column(Boolean, default=False)  # atestado médico (não desconta)
-    justification = Column(Text, nullable=True)        # justificativa para anulação
+    is_absence = Column(Boolean, default=False)
+    is_medical_certificate = Column(Boolean, default=False)
+    certificate_hours = Column(Numeric(4, 1), nullable=True)
+    is_holiday = Column(Boolean, default=False)   # feriado — dia abonado, sem impacto no banco
+    justification = Column(Text, nullable=True)
 
     # Dia anulado (atestado aprovado — não conta como falta nem extra)
     is_annulled = Column(Boolean, default=False)
@@ -61,3 +59,19 @@ class HourBank(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
     employee = relationship("Employee", back_populates="hour_bank")
+
+
+class TimesheetPeriod(Base):
+    """Controle de abertura/fechamento do período de ponto por empresa."""
+    __tablename__ = "timesheet_periods"
+    __table_args__ = (UniqueConstraint("company_id", "competence_month", "competence_year"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
+    competence_month = Column(Integer, nullable=False)
+    competence_year = Column(Integer, nullable=False)
+    status = Column(String(10), nullable=False, default="open")  # 'open' | 'closed'
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    closed_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

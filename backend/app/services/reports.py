@@ -17,6 +17,7 @@ from app.models.timesheet import TimesheetEntry
 from app.models.vacation import Vacation, VacationStatus
 from app.models.termination import Termination
 from app.schemas.reports import DashboardRead, BirthdayRead, VacationExpiringRead
+from app.repositories import seamstress as seamstress_repo
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -129,6 +130,11 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         ))
     expiring.sort(key=lambda x: x.days_until_expiry)
 
+    # ── Costureiras ───────────────────────────────────────────────────────────
+    seamstress_pending, seamstress_paid, seamstress_entrega = seamstress_repo.month_totals(
+        db, company_id, month, year
+    )
+
     return DashboardRead(
         total_employees=len(all_emps),
         active_employees=len(active),
@@ -146,6 +152,14 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         vacations_expiring_60d=len(vacs_expiring),
         birthdays_next_30_days=birthdays,
         expiring_vacations=expiring,
+        seamstress_pending_month=Decimal(str(seamstress_pending)) if seamstress_pending else Decimal(0),
+        seamstress_paid_month=Decimal(str(seamstress_paid)) if seamstress_paid else Decimal(0),
+        seamstress_entrega_month=Decimal(str(seamstress_entrega)) if seamstress_entrega else Decimal(0),
+        seamstress_total_month=(
+            Decimal(str(seamstress_pending or 0)) +
+            Decimal(str(seamstress_paid or 0)) +
+            Decimal(str(seamstress_entrega or 0))
+        ),
     )
 
 

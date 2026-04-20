@@ -43,6 +43,12 @@ class DashboardRead(BaseModel):
     vacations_scheduled:    int   # agendadas
     vacations_expiring_60d: int   # período aquisitivo vence em até 60 dias
 
+    # Costureiras
+    seamstress_pending_month: Decimal   # mensal pendente competência atual
+    seamstress_paid_month:    Decimal   # mensal pago competência atual
+    seamstress_entrega_month: Decimal   # entregas pagas no mês
+    seamstress_total_month:   Decimal   # total geral (pendente + pago + entrega)
+
     # Listas detalhadas
     birthdays_next_30_days:  list[BirthdayRead]
     expiring_vacations:      list[VacationExpiringRead]

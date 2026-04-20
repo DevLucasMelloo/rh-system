@@ -5,7 +5,8 @@ from app.db.database import get_db
 from app.core.dependencies import get_current_user, require_rh_or_admin
 from app.schemas.seamstress import (
     SeamstressCreate, SeamstressUpdate, SeamstressRead,
-    SeamstressPaymentCreate, SeamstressPaymentUpdate, SeamstressPaymentRead,
+    SeamstressPaymentCreate, SeamstressPaymentRead,
+    CloseMonthRequest, MonthReportRead,
 )
 from app.services import seamstress as seamstress_service
 from app.models.user import User
@@ -26,7 +27,7 @@ def create_seamstress(
 
 @router.get("", response_model=list[SeamstressRead])
 def list_seamstresses(
-    inactive: bool = Query(False, description="True para incluir inativas"),
+    inactive: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -73,16 +74,6 @@ def list_payments(
     return seamstress_service.list_payments_by_seamstress(db, seamstress_id, current_user.company_id)
 
 
-@router.patch("/payments/{payment_id}", response_model=SeamstressPaymentRead)
-def update_payment(
-    payment_id: int,
-    data: SeamstressPaymentUpdate,
-    current_user: User = Depends(require_rh_or_admin),
-    db: Session = Depends(get_db),
-):
-    return seamstress_service.update_payment(db, payment_id, data, current_user.company_id, current_user.id)
-
-
 @router.delete("/payments/{payment_id}", status_code=204)
 def delete_payment(
     payment_id: int,
@@ -92,13 +83,22 @@ def delete_payment(
     seamstress_service.delete_payment(db, payment_id, current_user.company_id, current_user.id)
 
 
-# ── Relatório mensal ──────────────────────────────────────────────────────────
+# ── Relatório / Fechamento ────────────────────────────────────────────────────
 
-@router.get("/report/period", summary="Total a pagar por mês/ano")
-def period_report(
+@router.get("/report/month", response_model=MonthReportRead)
+def month_report(
     month: int = Query(..., ge=1, le=12),
     year: int = Query(..., ge=2000, le=2100),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return seamstress_service.get_period_total(db, current_user.company_id, month, year)
+    return seamstress_service.get_month_report(db, current_user.company_id, month, year)
+
+
+@router.post("/close-month", status_code=200)
+def close_month(
+    data: CloseMonthRequest,
+    current_user: User = Depends(require_rh_or_admin),
+    db: Session = Depends(get_db),
+):
+    return seamstress_service.close_month(db, current_user.company_id, data, current_user.id)

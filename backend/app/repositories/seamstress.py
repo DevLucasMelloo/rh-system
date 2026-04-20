@@ -1,5 +1,6 @@
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from sqlalchemy import and_
+from datetime import date
 
 from app.models.seamstress import Seamstress, SeamstressPayment
 
@@ -39,51 +40,104 @@ def get_payment(db: Session, payment_id: int) -> SeamstressPayment | None:
     return db.get(SeamstressPayment, payment_id)
 
 
-def get_payment_by_period(
-    db: Session, seamstress_id: int, month: int, year: int
-) -> SeamstressPayment | None:
-    return (
-        db.query(SeamstressPayment)
-        .filter(
-            and_(
-                SeamstressPayment.seamstress_id == seamstress_id,
-                SeamstressPayment.competence_month == month,
-                SeamstressPayment.competence_year == year,
-            )
-        )
-        .first()
-    )
-
-
-def list_payments_by_seamstress(
-    db: Session, seamstress_id: int
-) -> list[SeamstressPayment]:
+def list_payments_by_seamstress(db: Session, seamstress_id: int) -> list[SeamstressPayment]:
     return (
         db.query(SeamstressPayment)
         .filter(SeamstressPayment.seamstress_id == seamstress_id)
-        .order_by(SeamstressPayment.competence_year.desc(), SeamstressPayment.competence_month.desc())
+        .order_by(SeamstressPayment.created_at.desc())
         .all()
     )
 
 
-def list_payments_by_period(
+def list_mensal_by_competence(
     db: Session, company_id: int, month: int, year: int
 ) -> list[SeamstressPayment]:
-    """Todos os pagamentos de um mês/ano para a empresa — usado no fechamento mensal."""
+    """Pagamentos mensais de uma competência (pendentes ou pagos)."""
     return (
         db.query(SeamstressPayment)
         .join(Seamstress)
         .filter(
-            and_(
-                Seamstress.company_id == company_id,
-                SeamstressPayment.competence_month == month,
-                SeamstressPayment.competence_year == year,
-            )
+            Seamstress.company_id == company_id,
+            SeamstressPayment.payment_type == "mensal",
+            SeamstressPayment.competence_month == month,
+            SeamstressPayment.competence_year == year,
         )
-        .options(joinedload(SeamstressPayment.seamstress))
-        .order_by(Seamstress.name)
         .all()
     )
+
+
+def list_entrega_by_month(
+    db: Session, company_id: int, month: int, year: int
+) -> list[SeamstressPayment]:
+    """Pagamentos na entrega com payment_date dentro do mês."""
+    from sqlalchemy import extract
+    return (
+        db.query(SeamstressPayment)
+        .join(Seamstress)
+        .filter(
+            Seamstress.company_id == company_id,
+            SeamstressPayment.payment_type == "entrega",
+            extract("month", SeamstressPayment.payment_date) == month,
+            extract("year", SeamstressPayment.payment_date) == year,
+        )
+        .all()
+    )
+
+
+def close_month(
+    db: Session, company_id: int, month: int, year: int, payment_date: date
+) -> int:
+    """Marca todos os pagamentos mensais pendentes da competência como pagos. Retorna qtd."""
+    payments = (
+        db.query(SeamstressPayment)
+        .join(Seamstress)
+        .filter(
+            Seamstress.company_id == company_id,
+            SeamstressPayment.payment_type == "mensal",
+            SeamstressPayment.status == "pendente",
+            SeamstressPayment.competence_month == month,
+            SeamstressPayment.competence_year == year,
+        )
+        .all()
+    )
+    for p in payments:
+        p.status = "pago"
+        p.payment_date = payment_date
+    db.commit()
+    return len(payments)
+
+
+def month_totals(
+    db: Session, company_id: int, month: int, year: int
+) -> tuple:
+    """Retorna (pendente_mensal, pago_mensal, entrega_mes) para o dashboard."""
+    from sqlalchemy import extract
+    mensais = (
+        db.query(SeamstressPayment)
+        .join(Seamstress)
+        .filter(
+            Seamstress.company_id == company_id,
+            SeamstressPayment.payment_type == "mensal",
+            SeamstressPayment.competence_month == month,
+            SeamstressPayment.competence_year == year,
+        )
+        .all()
+    )
+    entrega = (
+        db.query(SeamstressPayment)
+        .join(Seamstress)
+        .filter(
+            Seamstress.company_id == company_id,
+            SeamstressPayment.payment_type == "entrega",
+            extract("month", SeamstressPayment.payment_date) == month,
+            extract("year", SeamstressPayment.payment_date) == year,
+        )
+        .all()
+    )
+    pendente = sum(p.amount for p in mensais if p.status == "pendente")
+    pago     = sum(p.amount for p in mensais if p.status == "pago")
+    ent      = sum(p.amount for p in entrega)
+    return pendente, pago, ent
 
 
 def create_payment(db: Session, fields: dict) -> SeamstressPayment:

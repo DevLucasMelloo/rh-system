@@ -1,165 +1,371 @@
 const PageTimesheet = (() => {
-  let empId = null, month = currentMonth(), year = currentYear();
-  let empName = '';
+  const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const WEEKDAYS_SHORT = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+
+  let view = 'period';       // 'period' | 'days'
+  let curMonth = currentMonth();
+  let curYear  = currentYear();
+  let selEmpId   = null;
+  let selEmpName = '';
+  let periodData = null;
+  let daysData   = [];
+
+  // ── Render principal ────────────────────────────────────────────────────────
 
   async function render(container) {
-    const empOpts = await employeeSelectOptions();
     container.innerHTML = `
       <div class="page-header">
-        <div><h1>Ponto</h1><p>Registros de frequência e jornada</p></div>
-        <button class="btn btn-primary" id="btn-add-entry" onclick="PageTimesheet.openNew()" disabled>+ Novo Registro</button>
+        <div><h1>Ponto</h1><p>Controle de frequência mensal</p></div>
+        <div id="ts-header-actions"></div>
       </div>
-      <div class="toolbar">
-        <div class="search-box" style="max-width:260px">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-          <select class="form-control" id="ts-emp" onchange="PageTimesheet.onEmpChange()" style="padding-left:32px">
-            <option value="">Selecione o funcionário...</option>${empOpts}
-          </select>
-        </div>
-        <div class="period-selector">
-          <label>Período</label>
-          <select id="ts-month" onchange="PageTimesheet.loadEntries()">${monthOptions(month)}</select>
-          <select id="ts-year"  onchange="PageTimesheet.loadEntries()">${yearOptions(year)}</select>
-        </div>
-        <div id="hour-bank-badge"></div>
-      </div>
-
-      <div class="table-wrapper">
-        <table>
-          <thead><tr><th>Data</th><th>Entrada</th><th>Saída Almoço</th><th>Retorno</th><th>Saída</th><th>Trabalhado</th><th>Extra</th><th>Situação</th><th></th></tr></thead>
-          <tbody id="ts-tbody"><tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted)">Selecione um funcionário para ver o ponto.</td></tr></tbody>
-        </table>
-      </div>`;
+      <div id="ts-content"></div>`;
+    await loadPeriod();
   }
 
-  async function onEmpChange() {
-    empId = parseInt(document.getElementById('ts-emp').value) || null;
-    const opt = document.querySelector('#ts-emp option:checked');
-    empName = opt ? opt.textContent : '';
-    document.getElementById('btn-add-entry').disabled = !empId;
-    if (empId) { await loadEntries(); await loadHourBank(); }
+  function periodOptions() {
+    let html = '';
+    for (let y = curYear; y >= curYear - 1; y--) {
+      for (let m = 12; m >= 1; m--) {
+        if (y === curYear && m > curYear) continue;
+        const sel = (m === curMonth && y === curYear) ? 'selected' : '';
+        html += `<option value="${m}|${y}" ${sel}>${MONTHS[m-1]}/${y}</option>`;
+      }
+    }
+    return html;
   }
 
-  async function loadEntries() {
-    if (!empId) return;
-    month = parseInt(document.getElementById('ts-month').value);
-    year  = parseInt(document.getElementById('ts-year').value);
-    document.getElementById('ts-tbody').innerHTML = loadingRow(9);
+  // ── View: lista de funcionários do período ──────────────────────────────────
+
+  async function loadPeriod() {
+    view = 'period';
+    const content = document.getElementById('ts-content');
+    if (!content) return;
+    content.innerHTML = `
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+        <select class="form-control" id="ts-period-sel" style="width:200px" onchange="PageTimesheet.onPeriodChange()">
+          ${periodOptions()}
+        </select>
+        <div id="ts-period-badge"></div>
+      </div>
+      <div id="ts-employees-content">${loadingRow(5)}</div>`;
+    _updateHeaderActions();
+    await fetchAndRenderPeriod();
+  }
+
+  async function onPeriodChange() {
+    const [m, y] = _getPeriodSel();
+    curMonth = m; curYear = y;
+    await fetchAndRenderPeriod();
+  }
+
+  async function fetchAndRenderPeriod() {
     try {
-      const entries = await Api.getTimesheet(empId, month, year) || [];
-      renderTable(entries);
-    } catch (e) { document.getElementById('ts-tbody').innerHTML = emptyRow(e.message, 9); }
+      periodData = await Api.getTimesheetPeriod(curMonth, curYear);
+      renderPeriodView();
+    } catch (e) {
+      const el = document.getElementById('ts-employees-content');
+      if (el) el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    }
   }
 
-  function renderTable(entries) {
-    if (!entries.length) { document.getElementById('ts-tbody').innerHTML = emptyRow('Nenhum registro neste período.', 9); return; }
-    document.getElementById('ts-tbody').innerHTML = entries.map(e => {
-      let situation = '';
-      if (e.is_annulled)           situation = '<span class="badge badge-gray">Anulado</span>';
-      else if (e.is_medical_certificate) situation = '<span class="badge badge-primary">Atestado</span>';
-      else if (e.is_absence)       situation = '<span class="badge badge-danger">Falta</span>';
-      else if (e.overtime_minutes > 0) situation = `<span class="badge badge-success">+${fmt.mins(e.overtime_minutes)}</span>`;
-      else                         situation = '<span class="badge badge-gray">Normal</span>';
+  function renderPeriodView() {
+    if (!periodData) return;
+    _updateHeaderActions();
+
+    const badge = document.getElementById('ts-period-badge');
+    if (badge) {
+      const isOpen   = periodData.status === 'open';
+      const isClosed = periodData.status === 'closed';
+      const isNone   = periodData.status === 'not_opened';
+      badge.innerHTML = isNone
+        ? '<span class="badge badge-gray">Não aberto</span>'
+        : isOpen
+          ? '<span class="badge badge-warning">Aberto</span>'
+          : '<span class="badge badge-success">Fechado</span>';
+    }
+
+    const el = document.getElementById('ts-employees-content');
+    if (!el) return;
+
+    if (periodData.status === 'not_opened') {
+      el.innerHTML = `
+        <div style="text-align:center;padding:48px;color:var(--text-muted)">
+          <p style="margin-bottom:16px">O período <strong>${MONTHS[curMonth-1]}/${curYear}</strong> ainda não foi aberto.</p>
+          <button class="btn btn-primary" onclick="PageTimesheet.openPeriod()">Abrir Período</button>
+        </div>`;
+      return;
+    }
+
+    if (!periodData.employees.length) {
+      el.innerHTML = `<div class="alert alert-warning">Nenhum funcionário ativo para este período.</div>`;
+      return;
+    }
+
+    const isClosed = periodData.status === 'closed';
+    const rows = periodData.employees.map(e => {
+      const adm = e.admission_date ? fmt.date(e.admission_date) : '—';
+      const since = e.start_date !== `${curYear}-${String(curMonth).padStart(2,'0')}-01`
+        ? `<span style="color:var(--text-muted);font-size:12px"> (desde ${fmt.date(e.start_date)})</span>`
+        : '';
+      const pct = e.total_workdays > 0 ? Math.round(e.filled_workdays / e.total_workdays * 100) : 0;
+      const barColor = pct === 100 ? 'var(--success)' : pct > 50 ? 'var(--warning)' : 'var(--danger)';
       return `<tr>
-        <td>${fmt.date(e.work_date)}</td>
-        <td>${e.entry_time||'—'}</td>
-        <td>${e.lunch_out_time||'—'}</td>
-        <td>${e.lunch_in_time||'—'}</td>
-        <td>${e.exit_time||'—'}</td>
-        <td>${fmt.mins(e.worked_minutes||0)}</td>
-        <td>${e.overtime_minutes>0?fmt.mins(e.overtime_minutes):'—'}</td>
-        <td>${situation}</td>
-        <td class="td-actions">
-          <button class="btn-icon" onclick="PageTimesheet.openEdit(${e.id})" title="Editar">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <td><strong>${e.name}</strong>${since}</td>
+        <td>${adm}</td>
+        <td style="font-size:12px;color:var(--text-muted)">${fmt.date(e.start_date)} a ${fmt.date(e.end_date)}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="flex:1;background:var(--border);border-radius:4px;height:6px">
+              <div style="width:${pct}%;background:${barColor};border-radius:4px;height:6px"></div>
+            </div>
+            <span style="font-size:12px;white-space:nowrap">${e.filled_workdays}/${e.total_workdays}</span>
+          </div>
+        </td>
+        <td>
+          <button class="btn btn-sm ${isClosed ? 'btn-secondary' : 'btn-primary'}"
+            onclick="PageTimesheet.openEmployeeDays(${e.employee_id},'${_esc(e.name)}')">
+            ${isClosed ? 'Ver' : 'Lançar'}
           </button>
         </td>
       </tr>`;
     }).join('');
+
+    el.innerHTML = `
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Funcionário</th><th>Admissão</th><th>Período</th><th>Preenchimento</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
   }
 
-  async function loadHourBank() {
+  function _updateHeaderActions() {
+    const el = document.getElementById('ts-header-actions');
+    if (!el) return;
+    if (!periodData || periodData.status === 'not_opened') {
+      el.innerHTML = '';
+      return;
+    }
+    if (periodData.status === 'open') {
+      el.innerHTML = `<button class="btn btn-primary" onclick="PageTimesheet.confirmClosePeriod()">Fechar Ponto</button>`;
+    } else {
+      el.innerHTML = `<span class="badge badge-success" style="font-size:13px;padding:8px 14px">Ponto Fechado</span>`;
+    }
+  }
+
+  async function openPeriod() {
     try {
-      const hb = await Api.getHourBank(empId);
-      const bal = hb?.balance_minutes || 0;
-      const color = bal >= 0 ? 'var(--success)' : 'var(--danger)';
-      const h = Math.floor(Math.abs(bal)/60), m = Math.abs(bal)%60;
-      document.getElementById('hour-bank-badge').innerHTML =
-        `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:13px">
-          Banco de Horas: <strong style="color:${color}">${bal<0?'-':''}${h}h${String(m).padStart(2,'0')}min</strong>
-        </div>`;
-    } catch {}
+      periodData = await Api.openTimesheetPeriod({ competence_month: curMonth, competence_year: curYear });
+      toast(`Período ${MONTHS[curMonth-1]}/${curYear} aberto!`);
+      renderPeriodView();
+    } catch (e) { toast(e.message, 'error'); }
   }
 
-  function entryForm(e = {}) {
-    return `
-      <div class="form-group"><label>Data *</label>
-        <input class="form-control" type="date" id="ef-date" value="${e.work_date||''}"></div>
-      <div class="form-row">
-        <div class="form-group"><label>Entrada</label><input class="form-control" type="time" id="ef-entry" value="${e.entry_time?.slice(0,5)||''}"></div>
-        <div class="form-group"><label>Saída Almoço</label><input class="form-control" type="time" id="ef-lunch-out" value="${e.lunch_out_time?.slice(0,5)||''}"></div>
+  function confirmClosePeriod() {
+    openModal(`Fechar Ponto — ${MONTHS[curMonth-1]}/${curYear}`,
+      `<p>Confirma o fechamento do ponto de <strong>${MONTHS[curMonth-1]}/${curYear}</strong>?</p>
+       <p style="margin-top:8px;color:var(--text-muted);font-size:13px">Após fechar, os registros ficam bloqueados para edição em lote. A folha de pagamento só pode ser fechada com o ponto fechado.</p>`,
+      `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+       <button class="btn btn-primary" onclick="PageTimesheet.doClosePeriod()">Confirmar</button>`);
+  }
+
+  async function doClosePeriod() {
+    try {
+      await Api.closeTimesheetPeriod(curMonth, curYear);
+      closeModal();
+      toast('Ponto fechado com sucesso!');
+      await fetchAndRenderPeriod();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── View: grid de dias de um funcionário ────────────────────────────────────
+
+  async function openEmployeeDays(empId, empName) {
+    selEmpId   = empId;
+    selEmpName = empName;
+    view = 'days';
+
+    const content = document.getElementById('ts-content');
+    if (!content) return;
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="PageTimesheet.backToPeriod()">← Voltar</button>
+        <strong style="font-size:16px">${_esc(empName)} — ${MONTHS[curMonth-1]}/${curYear}</strong>
+        <div id="ts-save-status" style="color:var(--text-muted);font-size:13px"></div>
       </div>
-      <div class="form-row">
-        <div class="form-group"><label>Retorno Almoço</label><input class="form-control" type="time" id="ef-lunch-in" value="${e.lunch_in_time?.slice(0,5)||''}"></div>
-        <div class="form-group"><label>Saída</label><input class="form-control" type="time" id="ef-exit" value="${e.exit_time?.slice(0,5)||''}"></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>Falta?</label>
-          <select class="form-control" id="ef-absence">
-            <option value="false" ${!e.is_absence?'selected':''}>Não</option>
-            <option value="true" ${e.is_absence?'selected':''}>Sim</option>
+      <div id="ts-days-content">${loadingRow(8)}</div>
+      <div style="display:flex;gap:12px;margin-top:16px" id="ts-days-footer"></div>`;
+
+    const hdr = document.getElementById('ts-header-actions');
+    if (hdr) hdr.innerHTML = '';
+
+    try {
+      daysData = await Api.getEmployeeDays(empId, curMonth, curYear) || [];
+      renderDaysGrid();
+    } catch (e) {
+      document.getElementById('ts-days-content').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    }
+  }
+
+  function backToPeriod() {
+    loadPeriod();
+  }
+
+  function renderDaysGrid() {
+    const el = document.getElementById('ts-days-content');
+    if (!el) return;
+    const isClosed = periodData?.status === 'closed';
+
+    const rows = daysData.map((d, i) => {
+      const isWe = d.is_weekend;
+      const rowStyle = isWe ? 'background:var(--bg)' : '';
+
+      // Determine situation
+      let sit = 'normal';
+      if (d.is_annulled) sit = 'annulled';
+      else if (d.is_holiday) sit = 'feriado';
+      else if (d.is_absence && !d.is_medical_certificate) sit = 'falta';
+      else if (d.is_medical_certificate && !d.certificate_hours) sit = 'atestado_dia';
+      else if (d.is_medical_certificate && d.certificate_hours) sit = 'atestado_horas';
+
+      const disabled = isClosed ? 'disabled' : '';
+      const certHours = d.certificate_hours ? d.certificate_hours : '';
+
+      return `<tr style="${rowStyle}" data-idx="${i}">
+        <td style="white-space:nowrap">
+          <strong>${fmt.date(d.work_date)}</strong>
+          <span style="color:var(--text-muted);font-size:11px;margin-left:4px">${d.weekday_name}</span>
+          ${isWe ? '<span class="badge badge-gray" style="font-size:10px">FDS</span>' : ''}
+        </td>
+        <td><input class="form-control ts-time" type="time" data-field="entry_time" value="${d.entry_time||''}" ${disabled} style="width:90px;padding:4px 6px"></td>
+        <td><input class="form-control ts-time" type="time" data-field="lunch_out_time" value="${d.lunch_out_time||''}" ${disabled} style="width:90px;padding:4px 6px"></td>
+        <td><input class="form-control ts-time" type="time" data-field="lunch_in_time" value="${d.lunch_in_time||''}" ${disabled} style="width:90px;padding:4px 6px"></td>
+        <td><input class="form-control ts-time" type="time" data-field="exit_time" value="${d.exit_time||''}" ${disabled} style="width:90px;padding:4px 6px"></td>
+        <td>
+          <select class="form-control ts-sit" data-idx="${i}" onchange="PageTimesheet._onSitChange(${i})" ${disabled} style="width:155px;padding:4px 6px">
+            <option value="normal"         ${sit==='normal'?'selected':''}>Normal</option>
+            <option value="feriado"        ${sit==='feriado'?'selected':''}>Feriado</option>
+            <option value="falta"          ${sit==='falta'?'selected':''}>Falta</option>
+            <option value="atestado_dia"   ${sit==='atestado_dia'?'selected':''}>Atestado (dia)</option>
+            <option value="atestado_horas" ${sit==='atestado_horas'?'selected':''}>Atestado (horas)</option>
           </select>
-        </div>
-        <div class="form-group"><label>Atestado?</label>
-          <select class="form-control" id="ef-cert">
-            <option value="false" ${!e.is_medical_certificate?'selected':''}>Não</option>
-            <option value="true" ${e.is_medical_certificate?'selected':''}>Sim</option>
-          </select>
-        </div>
-      </div>
-      <div id="ef-error"></div>`;
+        </td>
+        <td id="cert-col-${i}">
+          ${sit==='atestado_horas'
+            ? `<input class="form-control ts-cert-h" type="number" min="0.5" max="12" step="0.5" value="${certHours}" placeholder="h" ${disabled} style="width:60px;padding:4px 6px">`
+            : ''}
+        </td>
+        <td style="font-size:12px;color:var(--text-muted)">
+          ${d.worked_minutes > 0 ? fmt.mins(d.worked_minutes) : '—'}
+          ${d.overtime_minutes > 0 ? `<span style="color:var(--success)"> +${fmt.mins(d.overtime_minutes)}</span>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div class="table-wrapper" style="max-height:calc(100vh - 280px);overflow-y:auto">
+        <table>
+          <thead><tr>
+            <th>Data</th><th>Entrada</th><th>S.Almoço</th><th>R.Almoço</th><th>Saída</th>
+            <th>Situação</th><th>Cert.h</th><th>Trabalhado</th>
+          </tr></thead>
+          <tbody id="ts-days-tbody">${rows}</tbody>
+        </table>
+      </div>`;
+
+    const footer = document.getElementById('ts-days-footer');
+    if (footer) {
+      footer.innerHTML = isClosed
+        ? '<span style="color:var(--text-muted)">Período fechado — somente leitura.</span>'
+        : `<button class="btn btn-primary" onclick="PageTimesheet.saveAll()">Salvar Tudo</button>
+           <button class="btn btn-secondary" onclick="PageTimesheet.backToPeriod()">Cancelar</button>`;
+    }
   }
 
-  function collectEntry() {
-    return {
-      employee_id: empId,
-      work_date: document.getElementById('ef-date').value,
-      entry_time: document.getElementById('ef-entry').value||null,
-      lunch_out_time: document.getElementById('ef-lunch-out').value||null,
-      lunch_in_time: document.getElementById('ef-lunch-in').value||null,
-      exit_time: document.getElementById('ef-exit').value||null,
-      is_absence: document.getElementById('ef-absence').value === 'true',
-      is_medical_certificate: document.getElementById('ef-cert').value === 'true',
-    };
+  function _onSitChange(idx) {
+    const sit = document.querySelector(`.ts-sit[data-idx="${idx}"]`)?.value;
+    const certCol = document.getElementById(`cert-col-${idx}`);
+    if (!certCol) return;
+    certCol.innerHTML = sit === 'atestado_horas'
+      ? `<input class="form-control ts-cert-h" type="number" min="0.5" max="12" step="0.5" placeholder="h" style="width:60px;padding:4px 6px">`
+      : '';
+    // disable/enable time inputs
+    const row = document.querySelector(`tr[data-idx="${idx}"]`);
+    if (!row) return;
+    const times = row.querySelectorAll('.ts-time');
+    const disableTimes = sit === 'falta' || sit === 'atestado_dia' || sit === 'feriado';
+    times.forEach(inp => {
+      inp.disabled = disableTimes;
+      if (disableTimes) inp.value = '';
+    });
   }
 
-  function openNew() {
-    openModal(`Novo Registro — ${empName}`, entryForm(), `
-      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="PageTimesheet.saveNew()">Salvar</button>`);
+  async function saveAll() {
+    const tbody = document.getElementById('ts-days-tbody');
+    if (!tbody) return;
+
+    const rows = tbody.querySelectorAll('tr[data-idx]');
+    const entries = [];
+
+    rows.forEach(row => {
+      const idx = parseInt(row.dataset.idx);
+      const day = daysData[idx];
+      if (!day) return;
+
+      const timeVal = field => row.querySelector(`[data-field="${field}"]`)?.value || null;
+      const sit = row.querySelector('.ts-sit')?.value || 'normal';
+      const certHEl = row.querySelector('.ts-cert-h');
+      const certH = certHEl ? parseFloat(certHEl.value) || null : null;
+
+      const noTimes = sit === 'feriado' || sit === 'falta' || sit === 'atestado_dia';
+      entries.push({
+        work_date: day.work_date,
+        entry_time:     noTimes ? null : timeVal('entry_time'),
+        lunch_out_time: noTimes ? null : timeVal('lunch_out_time'),
+        lunch_in_time:  noTimes ? null : timeVal('lunch_in_time'),
+        exit_time:      noTimes ? null : timeVal('exit_time'),
+        is_absence: sit === 'falta',
+        is_medical_certificate: sit === 'atestado_dia' || sit === 'atestado_horas',
+        certificate_hours: sit === 'atestado_horas' ? certH : null,
+        is_holiday: sit === 'feriado',
+        justification: null,
+      });
+    });
+
+    const status = document.getElementById('ts-save-status');
+    if (status) status.textContent = 'Salvando...';
+    try {
+      const r = await Api.saveEmployeeDays(selEmpId, curMonth, curYear, { entries });
+      toast(`${r.saved} registro(s) salvos!`);
+      if (status) status.textContent = '';
+      // Recarrega para atualizar horas calculadas
+      daysData = await Api.getEmployeeDays(selEmpId, curMonth, curYear) || [];
+      renderDaysGrid();
+      // Atualiza progresso no period
+      await fetchAndRenderPeriod();
+      openEmployeeDays(selEmpId, selEmpName);
+    } catch (e) {
+      if (status) status.textContent = '';
+      toast(e.message, 'error');
+    }
   }
 
-  async function saveNew() {
-    try { await Api.createEntry(collectEntry()); closeModal(); toast('Registro criado!'); loadEntries(); }
-    catch (e) { document.getElementById('ef-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  function _getPeriodSel() {
+    const sel = document.getElementById('ts-period-sel');
+    if (!sel) return [curMonth, curYear];
+    return sel.value.split('|').map(Number);
   }
 
-  async function openEdit(id) {
-    // Find entry in DOM or refetch
-    openModal('Editar Registro', `<div style="text-align:center;padding:20px"><div class="spinner spinner-dark"></div></div>`, '');
-    // We'll just open a blank form for simplicity; real app would fetch entry
-    document.getElementById('modal-body').innerHTML = `<div class="alert alert-warning">Para editar, use o campo de data e horários abaixo.</div>${entryForm({work_date: new Date().toISOString().split('T')[0]})}`;
-    document.getElementById('modal-footer').innerHTML = `
-      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="PageTimesheet.saveEdit(${id})">Salvar</button>`;
+  function _esc(v) {
+    if (!v) return '';
+    return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  async function saveEdit(id) {
-    const data = collectEntry();
-    delete data.employee_id;
-    try { await Api.updateEntry(id, data); closeModal(); toast('Registro atualizado!'); loadEntries(); }
-    catch (e) { document.getElementById('ef-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
-  }
-
-  return { render, onEmpChange, loadEntries, openNew, saveNew, openEdit, saveEdit };
+  return {
+    render, onPeriodChange, openPeriod, confirmClosePeriod, doClosePeriod,
+    openEmployeeDays, backToPeriod, _onSitChange, saveAll,
+  };
 })();

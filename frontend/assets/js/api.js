@@ -130,11 +130,15 @@ const Api = (() => {
   const reactivateEmp      = (id)         => post(`/employees/${id}/reactivate`, {});
 
   // ── Seamstresses ──────────────────────────────────────────────────────────
-  const getSeamstresses   = ()         => get('/seamstresses');
-  const createSeamstress  = (body)     => post('/seamstresses', body);
-  const updateSeamstress  = (id, body) => put(`/seamstresses/${id}`, body);
-  const getSeamstressPayments = (id)   => get(`/seamstresses/${id}/payments`);
-  const createPayment     = (id, body) => post(`/seamstresses/${id}/payments`, body);
+  const getSeamstresses          = ()           => get('/seamstresses');
+  const getAllSeamstresses       = ()           => get('/seamstresses', { inactive: true });
+  const createSeamstress         = (body)       => post('/seamstresses', body);
+  const updateSeamstress         = (id, body)   => patch(`/seamstresses/${id}`, body);
+  const getSeamstressPayments    = (id)         => get(`/seamstresses/${id}/payments`);
+  const createPayment            = (id, body)   => post(`/seamstresses/${id}/payments`, body);
+  const deleteSeamstressPayment  = (id)         => del(`/seamstresses/payments/${id}`);
+  const getSeamstressMonthReport = (m, y)       => get('/seamstresses/report/month', { month: m, year: y });
+  const closeSeamstressMonth     = (body)       => post('/seamstresses/close-month', body);
 
   // ── Payroll ───────────────────────────────────────────────────────────────
   const getPayrollPeriod  = (month, year) => get('/payroll/period', { month, year });
@@ -166,10 +170,16 @@ const Api = (() => {
   const getTermination    = (id)    => get(`/vacation/termination/${id}`);
 
   // ── Timesheet ─────────────────────────────────────────────────────────────
-  const getTimesheet  = (empId, month, year) => get(`/timesheet/employee/${empId}`, { month, year });
-  const createEntry   = (body)               => post('/timesheet/entries', body);
-  const updateEntry   = (id, body)           => patch(`/timesheet/entries/${id}`, body);
-  const getHourBank   = (empId)              => get(`/timesheet/hour-bank/${empId}`);
+  const getTimesheet  = (empId, month, year) => get(`/timesheet/${empId}/report`, { month, year });
+  const createEntry   = (body)               => post(`/timesheet/${body.employee_id}`, body);
+  const updateEntry   = (id, body)           => patch(`/timesheet/entry/${id}`, body);
+  const getHourBank   = (empId)              => get(`/timesheet/${empId}/hour-bank`);
+  // Períodos
+  const getTimesheetPeriod    = (m, y)        => get(`/timesheet/periods/${m}/${y}`);
+  const openTimesheetPeriod   = (body)        => post('/timesheet/periods', body);
+  const closeTimesheetPeriod  = (m, y)        => post(`/timesheet/periods/${m}/${y}/close`, {});
+  const getEmployeeDays       = (empId, m, y) => get(`/timesheet/periods/${m}/${y}/employee/${empId}/days`);
+  const saveEmployeeDays      = (empId, m, y, body) => post(`/timesheet/periods/${m}/${y}/employee/${empId}/save`, body);
 
   // ── Reports ───────────────────────────────────────────────────────────────
   const dlPayroll      = (m, y) => download('/reports/payroll',      { month: m, year: y }, `folha_${m}_${y}.xlsx`);
@@ -185,13 +195,14 @@ const Api = (() => {
     getUsers, createUser, updateUser, adminResetPwd, changeMyPwd,
     getDashboard,
     getEmployees, getInactiveEmployees, getEmployee, getEmployeeHistory, createEmployee, updateEmployee, inactivateEmp, reactivateEmp,
-    getSeamstresses, createSeamstress, updateSeamstress, getSeamstressPayments, createPayment,
+    getSeamstresses, getAllSeamstresses, createSeamstress, updateSeamstress, getSeamstressPayments, createPayment, deleteSeamstressPayment, getSeamstressMonthReport, closeSeamstressMonth,
     getPayrollPeriod, getPayroll, createPayroll, closePayroll, recalcPayroll,
     addPayrollItem, deletePayrollItem, getPayrollPdf,
     getVales, createVale, getVale,
     getVacations, getEmpVacations, createVacation, startVacation, completeVacation, cancelVacation, getThirteenth,
     getTerminations, createTermination, getTermination,
     getTimesheet, createEntry, updateEntry, getHourBank,
+    getTimesheetPeriod, openTimesheetPeriod, closeTimesheetPeriod, getEmployeeDays, saveEmployeeDays,
     dlPayroll, dlTimesheet, dlEmployees, dlVacations, dlTerminations, dlHourBank,
   };
 })();

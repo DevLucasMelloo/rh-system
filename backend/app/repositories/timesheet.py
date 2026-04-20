@@ -1,8 +1,8 @@
-from datetime import date
+from datetime import date, datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, extract
 
-from app.models.timesheet import TimesheetEntry, HourBank
+from app.models.timesheet import TimesheetEntry, HourBank, TimesheetPeriod
 
 
 # ── Entradas de ponto ─────────────────────────────────────────────────────────
@@ -85,6 +85,56 @@ def upsert_hour_bank(db: Session, employee_id: int, delta: int) -> HourBank:
         db.commit()
         db.refresh(bank)
     return bank
+
+
+def get_entries_range(
+    db: Session, employee_id: int, start: date, end: date
+) -> list[TimesheetEntry]:
+    return (
+        db.query(TimesheetEntry)
+        .filter(
+            TimesheetEntry.employee_id == employee_id,
+            TimesheetEntry.work_date >= start,
+            TimesheetEntry.work_date <= end,
+        )
+        .order_by(TimesheetEntry.work_date)
+        .all()
+    )
+
+
+# ── Períodos ──────────────────────────────────────────────────────────────────
+
+def get_period(
+    db: Session, company_id: int, month: int, year: int
+) -> TimesheetPeriod | None:
+    return (
+        db.query(TimesheetPeriod)
+        .filter(
+            TimesheetPeriod.company_id == company_id,
+            TimesheetPeriod.competence_month == month,
+            TimesheetPeriod.competence_year == year,
+        )
+        .first()
+    )
+
+
+def create_period(db: Session, fields: dict) -> TimesheetPeriod:
+    p = TimesheetPeriod(**fields)
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p
+
+
+def close_period(
+    db: Session, period: TimesheetPeriod, closed_by_id: int
+) -> TimesheetPeriod:
+    period.status = "closed"
+    period.closed_at = datetime.utcnow()
+    period.closed_by_id = closed_by_id
+    db.commit()
+    db.refresh(period)
+    return period
 
 
 def set_hour_bank(db: Session, employee_id: int, balance: int) -> HourBank:

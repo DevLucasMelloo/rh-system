@@ -1,4 +1,5 @@
 from datetime import date, time
+from decimal import Decimal
 from pydantic import BaseModel, field_validator, model_validator
 
 
@@ -63,10 +64,74 @@ class TimesheetEntryRead(BaseModel):
     late_minutes: int
     is_absence: bool
     is_medical_certificate: bool
+    certificate_hours: Decimal | None = None
     is_annulled: bool
     justification: str | None
 
     model_config = {"from_attributes": True}
+
+
+# ── Período de Ponto ──────────────────────────────────────────────────────────
+
+class BulkDayEntry(BaseModel):
+    work_date: date
+    entry_time: str | None = None        # "HH:MM"
+    lunch_out_time: str | None = None
+    lunch_in_time: str | None = None
+    exit_time: str | None = None
+    is_absence: bool = False
+    is_medical_certificate: bool = False
+    certificate_hours: float | None = None
+    is_holiday: bool = False
+    justification: str | None = None
+
+
+class BulkSaveRequest(BaseModel):
+    entries: list[BulkDayEntry]
+
+
+class PeriodCreate(BaseModel):
+    competence_month: int
+    competence_year: int
+
+
+class PeriodEmployeeInfo(BaseModel):
+    employee_id: int
+    name: str
+    admission_date: date | None
+    start_date: date
+    end_date: date
+    total_days: int       # calendar days in the period for this employee
+    filled_workdays: int  # Mon-Fri with entries
+    total_workdays: int   # Mon-Fri in period
+
+
+class PeriodRead(BaseModel):
+    id: int | None
+    competence_month: int
+    competence_year: int
+    status: str   # 'not_opened' | 'open' | 'closed'
+    employees: list[PeriodEmployeeInfo]
+
+
+class DayRead(BaseModel):
+    work_date: date
+    weekday: int         # 0=Mon … 6=Sun
+    weekday_name: str
+    is_weekend: bool
+    entry_id: int | None
+    entry_time: str | None
+    lunch_out_time: str | None
+    lunch_in_time: str | None
+    exit_time: str | None
+    worked_minutes: int
+    overtime_minutes: int
+    is_absence: bool
+    is_medical_certificate: bool
+    certificate_hours: float | None
+    is_holiday: bool
+    justification: str | None
+    is_annulled: bool
 
 
 class HourBankRead(BaseModel):

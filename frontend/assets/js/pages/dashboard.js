@@ -15,7 +15,7 @@ const PageDashboard = (() => {
 
       <!-- Stats -->
       <div class="stats-grid" id="stats-grid">
-        ${statSkeleton()} ${statSkeleton()} ${statSkeleton()} ${statSkeleton()}
+        ${statSkeleton()} ${statSkeleton()} ${statSkeleton()} ${statSkeleton()} ${statSkeleton()}
       </div>
 
       <!-- Chart -->
@@ -110,6 +110,16 @@ const PageDashboard = (() => {
         </div>
         <div class="stat-icon ${d.vacations_expiring_60d > 0 ? 'orange' : 'green'}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>
+        </div>
+      </div>
+      <div class="stat-card" style="cursor:pointer" onclick="navigate('seamstresses')" title="Ver Folha de Costureiras">
+        <div class="stat-info">
+          <h3>Costureiras ${m}/${y}</h3>
+          <div class="stat-value primary">${fmt.brl(d.seamstress_total_month)}</div>
+          <div class="stat-sub">${Number(d.seamstress_pending_month) > 0 ? `⚠ Pendente ${fmt.brl(d.seamstress_pending_month)}` : 'Tudo pago'}${Number(d.seamstress_entrega_month) > 0 ? ` · Entrega ${fmt.brl(d.seamstress_entrega_month)}` : ''}</div>
+        </div>
+        <div class="stat-icon ${Number(d.seamstress_pending_month) > 0 ? 'orange' : 'green'}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>
         </div>
       </div>`;
   }

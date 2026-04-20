@@ -2,14 +2,18 @@
 Serviço de Controle de Ponto.
 Todas as regras de cálculo ficam aqui e em timesheet_calc.py.
 """
-from datetime import date
+import calendar
+from datetime import date, time as dtime
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from app.repositories import timesheet as ts_repo
 from app.repositories import employee as emp_repo
 from app.repositories import audit_log as audit_repo
-from app.schemas.timesheet import TimesheetEntryCreate, TimesheetEntryUpdate
+from app.schemas.timesheet import (
+    TimesheetEntryCreate, TimesheetEntryUpdate,
+    BulkSaveRequest, PeriodCreate, PeriodRead, PeriodEmployeeInfo, DayRead,
+)
 from app.models.employee import Employee, EmployeeStatus
 from app.models.timesheet import TimesheetEntry
 from app.utils.timesheet_calc import (
@@ -17,6 +21,8 @@ from app.utils.timesheet_calc import (
     calc_overtime_minutes, calc_late_minutes,
     calc_bank_delta, format_minutes,
 )
+
+WEEKDAY_PT = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -52,6 +58,7 @@ def _compute_fields(
     is_abs = getattr(data_create_or_update, "is_absence", False) or False
     is_med = getattr(data_create_or_update, "is_medical_certificate", False) or False
     is_ann = getattr(data_create_or_update, "is_annulled", False) or False
+    is_hol = getattr(data_create_or_update, "is_holiday", False) or False
 
     worked = calc_worked_minutes(
         getattr(data_create_or_update, "entry_time", None),
@@ -60,8 +67,9 @@ def _compute_fields(
         getattr(data_create_or_update, "exit_time", None),
     )
     expected = expected_minutes(work_date, emp.is_intern, emp.weekly_hours)
-    overtime = calc_overtime_minutes(worked, expected) if not (is_abs or is_med or is_ann) else 0
-    late = calc_late_minutes(worked, expected) if not (is_abs or is_med or is_ann) else 0
+    no_calc = is_abs or is_med or is_ann or is_hol
+    overtime = calc_overtime_minutes(worked, expected) if not no_calc else 0
+    late = calc_late_minutes(worked, expected) if not no_calc else 0
 
     return {
         "worked_minutes": worked,
@@ -255,6 +263,257 @@ def get_monthly_report(
             for e in entries
         ],
     }
+
+
+# ── Períodos de Ponto ─────────────────────────────────────────────────────────
+
+def _eligible_employees(db: Session, company_id: int, month: int, year: int) -> list:
+    """Funcionários ativos cuja admissão é antes ou durante o mês."""
+    last_day = date(year, month, calendar.monthrange(year, month)[1])
+    emps = emp_repo.list_active(db, company_id)
+    result = []
+    for e in emps:
+        adm = e.admission_date
+        if adm is None or adm <= last_day:
+            result.append(e)
+    return result
+
+
+def _period_employee_info(emp: Employee, month: int, year: int, entries: list) -> PeriodEmployeeInfo:
+    first = date(year, month, 1)
+    last  = date(year, month, calendar.monthrange(year, month)[1])
+    adm   = emp.admission_date
+    start = max(first, adm) if adm else first
+
+    total_days = (last - start).days + 1
+    total_workdays = sum(
+        1 for d in (date(year, month, day) for day in range(start.day, last.day + 1))
+        if d.weekday() < 5
+    )
+    entry_dates = {e.work_date for e in entries}
+    filled_workdays = sum(
+        1 for d in (date(year, month, day) for day in range(start.day, last.day + 1))
+        if d.weekday() < 5 and d in entry_dates
+    )
+    return PeriodEmployeeInfo(
+        employee_id=emp.id,
+        name=emp.name,
+        admission_date=adm,
+        start_date=start,
+        end_date=last,
+        total_days=total_days,
+        filled_workdays=filled_workdays,
+        total_workdays=total_workdays,
+    )
+
+
+def open_period(
+    db: Session, data: PeriodCreate, company_id: int, user_id: int
+) -> PeriodRead:
+    existing = ts_repo.get_period(db, company_id, data.competence_month, data.competence_year)
+    if existing:
+        raise HTTPException(status_code=409, detail="Período já foi aberto.")
+
+    period = ts_repo.create_period(db, {
+        "company_id": company_id,
+        "competence_month": data.competence_month,
+        "competence_year": data.competence_year,
+        "status": "open",
+    })
+    audit_repo.create_log(
+        db, action="timesheet_period_opened", user_id=user_id,
+        entity="timesheet_period", entity_id=period.id,
+        description=f"Período de ponto {data.competence_month:02d}/{data.competence_year} aberto",
+    )
+    return get_period_info(db, data.competence_month, data.competence_year, company_id)
+
+
+def close_period(
+    db: Session, month: int, year: int, company_id: int, user_id: int
+) -> dict:
+    period = ts_repo.get_period(db, company_id, month, year)
+    if not period:
+        raise HTTPException(status_code=404, detail="Período não encontrado.")
+    if period.status == "closed":
+        raise HTTPException(status_code=400, detail="Período já está fechado.")
+
+    ts_repo.close_period(db, period, user_id)
+    audit_repo.create_log(
+        db, action="timesheet_period_closed", user_id=user_id,
+        entity="timesheet_period", entity_id=period.id,
+        description=f"Período de ponto {month:02d}/{year} fechado",
+    )
+    return {"status": "closed", "month": month, "year": year}
+
+
+def get_period_info(
+    db: Session, month: int, year: int, company_id: int
+) -> PeriodRead:
+    period = ts_repo.get_period(db, company_id, month, year)
+    emps = _eligible_employees(db, company_id, month, year)
+
+    employees_info = []
+    for emp in emps:
+        first = date(year, month, 1)
+        last  = date(year, month, calendar.monthrange(year, month)[1])
+        adm   = emp.admission_date
+        start = max(first, adm) if adm else first
+        entries = ts_repo.get_entries_range(db, emp.id, start, last)
+        employees_info.append(_period_employee_info(emp, month, year, entries))
+
+    return PeriodRead(
+        id=period.id if period else None,
+        competence_month=month,
+        competence_year=year,
+        status=period.status if period else "not_opened",
+        employees=employees_info,
+    )
+
+
+def get_employee_days(
+    db: Session, employee_id: int, month: int, year: int, company_id: int
+) -> list[DayRead]:
+    emp = emp_repo.get_employee(db, employee_id)
+    if not emp or emp.company_id != company_id:
+        raise HTTPException(status_code=404, detail="Funcionário não encontrado")
+
+    first = date(year, month, 1)
+    last  = date(year, month, calendar.monthrange(year, month)[1])
+    adm   = emp.admission_date
+    start = max(first, adm) if adm else first
+
+    entries_map: dict[date, TimesheetEntry] = {
+        e.work_date: e
+        for e in ts_repo.get_entries_range(db, employee_id, start, last)
+    }
+
+    days = []
+    cur = start
+    while cur <= last:
+        wd = cur.weekday()
+        entry = entries_map.get(cur)
+        days.append(DayRead(
+            work_date=cur,
+            weekday=wd,
+            weekday_name=WEEKDAY_PT[wd],
+            is_weekend=wd >= 5,
+            entry_id=entry.id if entry else None,
+            entry_time=str(entry.entry_time)[:5] if entry and entry.entry_time else None,
+            lunch_out_time=str(entry.lunch_out_time)[:5] if entry and entry.lunch_out_time else None,
+            lunch_in_time=str(entry.lunch_in_time)[:5] if entry and entry.lunch_in_time else None,
+            exit_time=str(entry.exit_time)[:5] if entry and entry.exit_time else None,
+            worked_minutes=entry.worked_minutes if entry else 0,
+            overtime_minutes=entry.overtime_minutes if entry else 0,
+            is_absence=entry.is_absence if entry else False,
+            is_medical_certificate=entry.is_medical_certificate if entry else False,
+            certificate_hours=float(entry.certificate_hours) if entry and entry.certificate_hours else None,
+            is_holiday=entry.is_holiday if entry else False,
+            justification=entry.justification if entry else None,
+            is_annulled=entry.is_annulled if entry else False,
+        ))
+        from datetime import timedelta
+        cur += timedelta(days=1)
+    return days
+
+
+def bulk_save_entries(
+    db: Session, employee_id: int, month: int, year: int,
+    data: BulkSaveRequest, company_id: int, user_id: int,
+) -> dict:
+    emp = emp_repo.get_employee(db, employee_id)
+    if not emp or emp.company_id != company_id:
+        raise HTTPException(status_code=404, detail="Funcionário não encontrado")
+
+    def parse_t(s: str | None) -> dtime | None:
+        if not s:
+            return None
+        try:
+            h, m = s.strip().split(":")
+            return dtime(int(h), int(m))
+        except Exception:
+            return None
+
+    saved = 0
+    for item in data.entries:
+        entry_t    = parse_t(item.entry_time)
+        lunch_out  = parse_t(item.lunch_out_time)
+        lunch_in   = parse_t(item.lunch_in_time)
+        exit_t     = parse_t(item.exit_time)
+
+        has_data = (
+            entry_t is not None or item.is_absence or item.is_medical_certificate or item.is_holiday
+        )
+
+        existing = ts_repo.get_entry_by_date(db, employee_id, item.work_date)
+
+        if not has_data:
+            if existing and not existing.is_annulled:
+                # revert bank before delete
+                old_exp = expected_minutes(item.work_date, emp.is_intern, emp.weekly_hours)
+                old_delta = calc_bank_delta(
+                    existing.worked_minutes, old_exp,
+                    existing.is_absence, existing.is_medical_certificate, existing.is_annulled,
+                )
+                bank = ts_repo.get_hour_bank(db, employee_id)
+                ts_repo.set_hour_bank(db, employee_id, (bank.balance_minutes if bank else 0) - old_delta)
+                ts_repo.delete_entry(db, existing)
+            continue
+
+        class _D:
+            pass
+        adapter = _D()
+        adapter.entry_time = entry_t
+        adapter.lunch_out_time = lunch_out
+        adapter.lunch_in_time = lunch_in
+        adapter.exit_time = exit_t
+        adapter.is_absence = item.is_absence
+        adapter.is_medical_certificate = item.is_medical_certificate
+        adapter.is_holiday = item.is_holiday
+        adapter.is_annulled = False
+
+        computed = _compute_fields(adapter, item.work_date, emp)
+        expected_mins = expected_minutes(item.work_date, emp.is_intern, emp.weekly_hours)
+
+        fields = {
+            "employee_id": employee_id,
+            "registered_by_id": user_id,
+            "work_date": item.work_date,
+            "entry_time": entry_t,
+            "lunch_out_time": lunch_out,
+            "lunch_in_time": lunch_in,
+            "exit_time": exit_t,
+            "is_absence": item.is_absence,
+            "is_medical_certificate": item.is_medical_certificate,
+            "certificate_hours": item.certificate_hours,
+            "is_holiday": item.is_holiday,
+            "justification": item.justification,
+            "is_annulled": False,
+            **computed,
+        }
+
+        new_delta = 0 if item.is_holiday else calc_bank_delta(
+            computed["worked_minutes"], expected_mins,
+            item.is_absence, item.is_medical_certificate, False,
+        )
+
+        if existing:
+            old_exp = expected_minutes(item.work_date, emp.is_intern, emp.weekly_hours)
+            old_delta = calc_bank_delta(
+                existing.worked_minutes, old_exp,
+                existing.is_absence, existing.is_medical_certificate, existing.is_annulled,
+            )
+            del fields["employee_id"]
+            del fields["work_date"]
+            ts_repo.update_entry(db, existing, fields)
+            bank = ts_repo.get_hour_bank(db, employee_id)
+            ts_repo.set_hour_bank(db, employee_id, (bank.balance_minutes if bank else 0) - old_delta + new_delta)
+        else:
+            ts_repo.create_entry(db, fields)
+            ts_repo.upsert_hour_bank(db, employee_id, new_delta)
+
+        saved += 1
+
+    return {"saved": saved}
 
 
 def get_hour_bank(db: Session, employee_id: int, company_id: int) -> dict:
