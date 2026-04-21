@@ -136,20 +136,32 @@ def recalc_totals(db: Session, payroll: Payroll) -> Payroll:
 def create_vale(db: Session, fields: dict, installments: list[dict]) -> Vale:
     vale = Vale(**fields)
     db.add(vale)
-    db.flush()  # obtém o ID sem commitar
+    db.flush()
     for inst in installments:
         db.add(ValeInstallment(vale_id=vale.id, **inst))
     db.commit()
-    db.refresh(vale)
-    return vale
+    return get_vale(db, vale.id)
 
 
 def get_vale(db: Session, vale_id: int) -> Vale | None:
+    from app.models.employee import Employee
     return (
         db.query(Vale)
-        .options(joinedload(Vale.installment_items))
+        .options(joinedload(Vale.installment_items), joinedload(Vale.employee))
         .filter(Vale.id == vale_id)
         .first()
+    )
+
+
+def list_all_vales_by_company(db: Session, company_id: int) -> list[Vale]:
+    from app.models.employee import Employee
+    return (
+        db.query(Vale)
+        .join(Employee, Vale.employee_id == Employee.id)
+        .options(joinedload(Vale.installment_items), joinedload(Vale.employee))
+        .filter(Employee.company_id == company_id)
+        .order_by(Vale.issued_date.desc())
+        .all()
     )
 
 
@@ -158,7 +170,7 @@ def list_vales_by_employee(db: Session, employee_id: int) -> list[Vale]:
         db.query(Vale)
         .options(joinedload(Vale.installment_items))
         .filter(Vale.employee_id == employee_id)
-        .order_by(Vale.competence_year.desc(), Vale.competence_month.desc())
+        .order_by(Vale.issued_date.desc())
         .all()
     )
 

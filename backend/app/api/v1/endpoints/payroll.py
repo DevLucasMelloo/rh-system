@@ -57,6 +57,16 @@ def list_by_employee(
     return [_enrich(p) for p in payrolls]
 
 
+@router.get("/vales", response_model=list[ValeRead])
+def list_all_vales(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lista todos os vales da empresa."""
+    vales = payroll_service.list_all_vales(db, current_user.company_id)
+    return [_enrich_vale(v) for v in vales]
+
+
 @router.get("/{payroll_id}", response_model=PayrollRead)
 def get_payroll(
     payroll_id: int = Path(...),
@@ -184,7 +194,7 @@ def create_vale(
     vale = payroll_service.create_vale(
         db, employee_id, data, current_user.company_id, current_user.id
     )
-    return vale
+    return _enrich_vale(vale)
 
 
 @router.get("/vales/{vale_id}", response_model=ValeRead)
@@ -194,10 +204,17 @@ def get_vale(
     current_user: User = Depends(get_current_user),
 ):
     vale = payroll_service.get_vale(db, vale_id, current_user.company_id)
-    return vale
+    return _enrich_vale(vale)
 
 
-# ── Helper ────────────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _enrich_vale(vale) -> dict:
+    d = {c.key: getattr(vale, c.key) for c in vale.__table__.columns}
+    d["installment_items"] = vale.installment_items
+    d["employee_name"] = vale.employee.name if vale.employee else None
+    return d
+
 
 def _enrich(payroll) -> dict:
     """Adiciona employee_name ao holerite para o schema."""

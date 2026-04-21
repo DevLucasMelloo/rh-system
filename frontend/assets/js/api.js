@@ -151,6 +151,7 @@ const Api = (() => {
   const getPayrollPdf     = (id)          => download(`/payroll/${id}/pdf`, null, `holerite_${id}.pdf`);
 
   // ── Vales ─────────────────────────────────────────────────────────────────
+  const getAllVales  = ()             => get('/payroll/vales');
   const getVales    = (empId)        => get(`/payroll/employees/${empId}/vales`);
   const createVale  = (empId, body)  => post(`/payroll/employees/${empId}/vales`, body);
   const getVale     = (id)           => get(`/payroll/vales/${id}`);
@@ -198,7 +199,7 @@ const Api = (() => {
     getSeamstresses, getAllSeamstresses, createSeamstress, updateSeamstress, getSeamstressPayments, createPayment, deleteSeamstressPayment, getSeamstressMonthReport, closeSeamstressMonth,
     getPayrollPeriod, getPayroll, createPayroll, closePayroll, recalcPayroll,
     addPayrollItem, deletePayrollItem, getPayrollPdf,
-    getVales, createVale, getVale,
+    getAllVales, getVales, createVale, getVale,
     getVacations, getEmpVacations, createVacation, startVacation, completeVacation, cancelVacation, getThirteenth,
     getTerminations, createTermination, getTermination,
     getTimesheet, createEntry, updateEntry, getHourBank,

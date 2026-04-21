@@ -379,6 +379,10 @@ def get_vale(db: Session, vale_id: int, company_id: int) -> Vale:
     return vale
 
 
+def list_all_vales(db: Session, company_id: int) -> list[Vale]:
+    return payroll_repo.list_all_vales_by_company(db, company_id)
+
+
 def list_vales_by_employee(db: Session, employee_id: int, company_id: int) -> list[Vale]:
     emp = _get_employee(db, employee_id, company_id)
     return payroll_repo.list_vales_by_employee(db, emp.id)

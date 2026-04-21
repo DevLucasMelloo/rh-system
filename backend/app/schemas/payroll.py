@@ -39,6 +39,7 @@ class ValeInstallmentRead(BaseModel):
 class ValeRead(BaseModel):
     id: int
     employee_id: int
+    employee_name: str | None = None
     total_amount: Decimal
     installments: int
     notes: str | None
