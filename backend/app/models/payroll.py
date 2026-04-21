@@ -59,8 +59,14 @@ class Payroll(Base):
     worked_days = Column(Integer, default=0)
     total_overtime_hours = Column(Numeric(5, 2), default=0)
 
+    # Flags de cálculo
+    pay_overtime = Column(Boolean, default=False)                    # pagar HE em dinheiro
+    use_hour_bank_for_absences = Column(Boolean, default=False)      # usar banco de horas para cobrir faltas
+
+    notes = Column(Text, nullable=True)                              # observação por funcionário
+
     status = Column(Enum(PayrollStatus), default=PayrollStatus.DRAFT, nullable=False)
-    pdf_path = Column(String(500), nullable=True)        # caminho do PDF gerado
+    pdf_path = Column(String(500), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     closed_at = Column(DateTime(timezone=True), nullable=True)

@@ -74,6 +74,11 @@ def update_payroll(db: Session, payroll: Payroll, fields: dict) -> Payroll:
     return payroll
 
 
+def delete_payroll(db: Session, payroll: Payroll) -> None:
+    db.delete(payroll)
+    db.commit()
+
+
 def close_payroll(db: Session, payroll: Payroll, pdf_path: str | None) -> Payroll:
     from datetime import datetime, timezone
     payroll.status = PayrollStatus.CLOSED

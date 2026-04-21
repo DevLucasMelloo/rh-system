@@ -1,41 +1,60 @@
 /**
- * Folha de Pagamento — listagem por período, criação, fechamento, PDF.
+ * Folha de Pagamento — visão por período com todos os funcionários elegíveis.
  */
 const PagePayroll = (() => {
   let month = currentMonth();
   let year  = currentYear();
-  let payrolls = [];
+  let rows  = [];   // EligibleEmployeeRead[]
+  let periodStatus = null;   // 'not_opened' | 'open' | 'closed'
 
+  // ── Render principal ──────────────────────────────────────────────────────
   async function render(container) {
     container.innerHTML = `
       <div class="page-header">
         <div><h1>Folha de Pagamento</h1><p>Holerites por competência</p></div>
-        <button class="btn btn-primary" onclick="PagePayroll.openNew()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Novo Holerite
-        </button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" id="btn-close-all" onclick="PagePayroll.openCloseAll()" style="display:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Fechar Folha
+          </button>
+          <button class="btn btn-primary" id="btn-batch" onclick="PagePayroll.openBatch()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Gerar Folha
+          </button>
+        </div>
       </div>
 
-      <div class="toolbar">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap">
         <div class="period-selector">
           <label>Competência</label>
           <select id="sel-month" onchange="PagePayroll.changePeriod()">${monthOptions(month)}</select>
           <select id="sel-year"  onchange="PagePayroll.changePeriod()">${yearOptions(year)}</select>
         </div>
+        <div id="ponto-badge"></div>
+        <div id="folha-summary" style="margin-left:auto;font-size:13px;color:var(--text-muted)"></div>
       </div>
 
-      <div class="table-wrapper">
-        <table>
+      <div class="table-wrapper" style="overflow-x:auto">
+        <table id="payroll-table" style="min-width:1100px">
           <thead>
             <tr>
-              <th>Funcionário</th><th>Dias Trab.</th><th>Horas Extras</th>
-              <th>Bruto</th><th>Descontos</th><th>Líquido</th>
-              <th>Status</th><th></th>
+              <th style="min-width:160px">Funcionário</th>
+              <th style="text-align:center">Dias</th>
+              <th style="text-align:center">H.E.</th>
+              <th style="text-align:right">Sal. Bruto</th>
+              <th style="text-align:right">VT</th>
+              <th style="text-align:right">Auxílio</th>
+              <th style="text-align:right">INSS</th>
+              <th style="text-align:right">Vales</th>
+              <th style="text-align:right">Faltas</th>
+              <th style="text-align:right">Outros</th>
+              <th style="text-align:right;font-weight:700">Líquido</th>
+              <th style="text-align:center">Status</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody id="payroll-tbody">${loadingRow(8)}</tbody>
+          <tbody id="payroll-tbody">${loadingRow(13)}</tbody>
         </table>
-        <div id="payroll-total" style="padding:14px 20px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted)"></div>
       </div>`;
 
     await loadData();
@@ -43,35 +62,123 @@ const PagePayroll = (() => {
 
   async function loadData() {
     try {
-      payrolls = await Api.getPayrollPeriod(month, year) || [];
+      // Carregar status do ponto e funcionários elegíveis em paralelo
+      const [periodData, eligible] = await Promise.all([
+        Api.getTimesheetPeriod(month, year).catch(() => null),
+        Api.getEligible(month, year),
+      ]);
+
+      rows = eligible || [];
+      periodStatus = periodData ? periodData.status : 'not_opened';
+
+      renderBadge();
+      renderButtons();
       renderTable();
     } catch (e) {
       document.getElementById('payroll-tbody').innerHTML =
-        `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--danger)">${e.message}</td></tr>`;
+        `<tr><td colspan="13" style="padding:24px;text-align:center;color:var(--danger)">${e.message}</td></tr>`;
+    }
+  }
+
+  function renderBadge() {
+    const el = document.getElementById('ponto-badge');
+    if (!el) return;
+    const map = {
+      closed: `<span class="badge badge-success" style="padding:5px 12px;font-size:12px">✓ Ponto Fechado</span>`,
+      open:   `<span class="badge badge-warning" style="padding:5px 12px;font-size:12px">⚠ Ponto Aberto</span>`,
+      not_opened: `<span class="badge badge-gray" style="padding:5px 12px;font-size:12px">Ponto Não Aberto</span>`,
+    };
+    el.innerHTML = map[periodStatus] || '';
+  }
+
+  function renderButtons() {
+    const hasDraft = rows.some(r => r.payroll && r.payroll.status === 'rascunho');
+    const hasAny   = rows.some(r => r.has_payroll);
+    const allDone  = hasAny && rows.every(r => r.has_payroll);
+
+    const btnBatch   = document.getElementById('btn-batch');
+    const btnCloseAll = document.getElementById('btn-close-all');
+    if (btnBatch) btnBatch.style.display = allDone ? 'none' : '';
+    if (btnCloseAll) btnCloseAll.style.display = (hasDraft && periodStatus === 'closed') ? '' : 'none';
+
+    const total = rows.filter(r => r.payroll)
+      .reduce((s, r) => s + parseFloat(r.payroll.net_salary || 0), 0);
+    const summary = document.getElementById('folha-summary');
+    if (summary && hasAny) {
+      const closed = rows.filter(r => r.payroll && r.payroll.status === 'fechado').length;
+      summary.innerHTML = `${rows.filter(r=>r.has_payroll).length} holerite(s) &nbsp;·&nbsp; Total líquido: <strong>${fmt.brl(total)}</strong> &nbsp;·&nbsp; ${closed} fechado(s)`;
+    } else if (summary) {
+      summary.innerHTML = '';
     }
   }
 
   function renderTable() {
-    if (!payrolls.length) {
-      document.getElementById('payroll-tbody').innerHTML = emptyRow('Nenhum holerite para este período.', 8);
-      document.getElementById('payroll-total').textContent = '';
+    if (!rows.length) {
+      document.getElementById('payroll-tbody').innerHTML =
+        `<tr><td colspan="13" style="padding:40px;text-align:center;color:var(--text-muted)">Nenhum funcionário elegível para este período.</td></tr>`;
       return;
     }
 
-    const totalNet = payrolls.reduce((s, p) => s + Number(p.net_salary || 0), 0);
-    document.getElementById('payroll-total').innerHTML =
-      `Total líquido: <strong>${fmt.brl(totalNet)}</strong> &nbsp;·&nbsp; ${payrolls.length} holerite(s)`;
+    document.getElementById('payroll-tbody').innerHTML = rows.map(r => rowHtml(r)).join('');
+  }
 
-    document.getElementById('payroll-tbody').innerHTML = payrolls.map(p => `
-      <tr>
-        <td><strong>${p.employee_name || '—'}</strong></td>
-        <td>${p.worked_days}</td>
-        <td>${Number(p.total_overtime_hours || 0).toFixed(1)}h</td>
-        <td>${fmt.brl(p.gross_salary)}</td>
-        <td style="color:var(--danger)">- ${fmt.brl(p.total_discounts)}</td>
-        <td><strong>${fmt.brl(p.net_salary)}</strong></td>
-        <td>${fmt.status(p.status)}</td>
-        <td class="td-actions">
+  function _getItem(items, types, credit = null) {
+    return (items || [])
+      .filter(i => types.includes(i.item_type) && (credit === null || i.is_credit === credit))
+      .reduce((s, i) => s + parseFloat(i.amount), 0);
+  }
+
+  function rowHtml(r) {
+    if (!r.has_payroll) {
+      return `
+        <tr style="background:var(--bg-subtle,#fafafa)">
+          <td><strong>${r.name}</strong><br><span style="font-size:11px;color:var(--text-muted)">${r.admission_date ? fmt.date(r.admission_date) : ''}</span></td>
+          <td colspan="10" style="text-align:center;color:var(--text-muted);font-size:13px">Sem holerite gerado</td>
+          <td style="text-align:center"><span class="badge badge-gray">—</span></td>
+          <td class="td-actions">
+            <button class="btn btn-sm btn-secondary" onclick="PagePayroll.generateOne(${r.employee_id})">Gerar</button>
+          </td>
+        </tr>`;
+    }
+
+    const p     = r.payroll;
+    const items = p.items || [];
+    const isClosed = p.status === 'fechado';
+
+    const vt      = _getItem(items, ['vale_transporte'], true);
+    const aux     = _getItem(items, ['auxilio'], true);
+    const inss    = _getItem(items, ['inss'], false);
+    const vales   = _getItem(items, ['vale_desconto'], false);
+    const faltas  = _getItem(items, ['falta', 'dsr'], false);
+    const outrosC = _getItem(items, ['outros_credito'], true);
+    const outrosD = _getItem(items, ['outros_desconto'], false);
+    const outros  = outrosC - outrosD;
+    const heH = parseFloat(p.total_overtime_hours || 0);
+
+    const statusBadge = isClosed
+      ? `<span class="badge badge-success">Fechado</span>`
+      : `<span class="badge badge-warning">Rascunho</span>`;
+
+    return `
+      <tr style="cursor:pointer" onclick="PagePayroll.openDetail(${p.id})">
+        <td>
+          <strong>${r.name}</strong>
+          ${p.notes ? `<br><span style="font-size:11px;color:var(--text-muted)">${p.notes}</span>` : ''}
+          ${p.pay_overtime ? `<span style="font-size:10px;color:var(--primary);margin-left:4px">HE</span>` : ''}
+          ${p.use_hour_bank_for_absences ? `<span style="font-size:10px;color:var(--warning,#b45309);margin-left:4px">BH</span>` : ''}
+        </td>
+        <td style="text-align:center">${p.worked_days}</td>
+        <td style="text-align:center;color:${heH > 0 ? 'var(--success)' : 'var(--text-muted)'}">${heH > 0 ? heH.toFixed(1)+'h' : '—'}</td>
+        <td style="text-align:right">${fmt.brl(p.gross_salary)}</td>
+        <td style="text-align:right;color:var(--text-muted)">${vt > 0 ? fmt.brl(vt) : '—'}</td>
+        <td style="text-align:right;color:var(--text-muted)">${aux > 0 ? fmt.brl(aux) : '—'}</td>
+        <td style="text-align:right;color:var(--danger)">${inss > 0 ? fmt.brl(inss) : '—'}</td>
+        <td style="text-align:right;color:var(--danger)">${vales > 0 ? fmt.brl(vales) : '—'}</td>
+        <td style="text-align:right;color:var(--danger)">${faltas > 0 ? fmt.brl(faltas) : '—'}</td>
+        <td style="text-align:right;color:${outros >= 0 ? 'var(--text-muted)' : 'var(--danger)'}">${outros !== 0 ? fmt.brl(Math.abs(outros)) : '—'}</td>
+        <td style="text-align:right;font-weight:700;color:var(--primary)">${fmt.brl(p.net_salary)}</td>
+        <td style="text-align:center">${statusBadge}</td>
+        <td class="td-actions" onclick="event.stopPropagation()">
           <div class="dropdown">
             <button class="btn-icon" onclick="toggleDropdown('pdd-${p.id}')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -79,9 +186,9 @@ const PagePayroll = (() => {
             <div class="dropdown-menu" id="pdd-${p.id}">
               <button class="dropdown-item" onclick="PagePayroll.openDetail(${p.id})">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                Ver Detalhes
+                Ver / Editar
               </button>
-              ${p.status === 'rascunho' ? `
+              ${!isClosed ? `
               <button class="dropdown-item" onclick="PagePayroll.recalc(${p.id})">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3"/></svg>
                 Recalcular
@@ -94,120 +201,213 @@ const PagePayroll = (() => {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Baixar PDF
               </button>
+              <hr style="margin:4px 0;border:none;border-top:1px solid var(--border)">
+              <button class="dropdown-item" style="color:var(--danger)" onclick="PagePayroll.confirmDelete(${p.id}, '${r.name}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                Excluir Holerite
+              </button>
             </div>
           </div>
         </td>
-      </tr>`).join('');
+      </tr>`;
   }
 
-  function changePeriod() {
-    month = parseInt(document.getElementById('sel-month').value);
-    year  = parseInt(document.getElementById('sel-year').value);
-    document.getElementById('payroll-tbody').innerHTML = loadingRow(8);
-    loadData();
-  }
+  // ── Geração ───────────────────────────────────────────────────────────────
 
-  // ── Novo holerite ────────────────────────────────────────────────────────
-  async function openNew() {
-    const empOpts = await employeeSelectOptions();
-    openModal('Novo Holerite', `
-      <div class="form-group"><label>Funcionário *</label>
-        <select class="form-control" id="new-emp"><option value="">Selecione...</option>${empOpts}</select>
-      </div>
+  function openBatch() {
+    openModal('Gerar Folha de Pagamento', `
+      <p style="color:var(--text-muted);margin-bottom:16px">
+        Gera holerites para todos os funcionários elegíveis em <strong>${fmt.month(month)}/${year}</strong> que ainda não têm holerite.
+      </p>
       <div class="form-row">
-        <div class="form-group"><label>Mês *</label>
-          <select class="form-control" id="new-month">${monthOptions(month)}</select>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="batch-he" style="width:16px;height:16px">
+            Pagar Horas Extras (H.E.)
+          </label>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:4px">Fórmula: Salário ÷ 220 × 1,6 × total HE</p>
         </div>
-        <div class="form-group"><label>Ano *</label>
-          <select class="form-control" id="new-year">${yearOptions(year)}</select>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="batch-bh" style="width:16px;height:16px">
+            Usar Banco de Horas para Faltas
+          </label>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:4px">Debita horas do banco em vez de descontar em dinheiro</p>
         </div>
       </div>
-      <div id="new-error"></div>`, `
+      <div id="batch-error"></div>`, `
       <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="PagePayroll.saveNew()">Criar e Calcular</button>`);
+      <button class="btn btn-primary" onclick="PagePayroll.doBatch()">Gerar Todos</button>`);
   }
 
-  async function saveNew() {
-    const empId = parseInt(document.getElementById('new-emp').value);
-    const m = parseInt(document.getElementById('new-month').value);
-    const y = parseInt(document.getElementById('new-year').value);
-    if (!empId) { document.getElementById('new-error').innerHTML = '<div class="alert alert-error">Selecione um funcionário.</div>'; return; }
+  async function doBatch() {
+    const pay_overtime = document.getElementById('batch-he').checked;
+    const use_hour_bank = document.getElementById('batch-bh').checked;
     try {
-      await Api.createPayroll({ employee_id: empId, competence_month: m, competence_year: y });
+      const created = await Api.batchCreatePayroll({
+        competence_month: month,
+        competence_year: year,
+        pay_overtime,
+        use_hour_bank_for_absences: use_hour_bank,
+      });
       closeModal();
-      month = m; year = y;
-      toast('Holerite criado e calculado!');
+      toast(`${created.length} holerite(s) gerado(s)!`);
       await loadData();
     } catch (e) {
-      document.getElementById('new-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      document.getElementById('batch-error').innerHTML =
+        `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
-  // ── Detail ───────────────────────────────────────────────────────────────
+  async function generateOne(empId) {
+    try {
+      await Api.createPayroll({
+        employee_id: empId,
+        competence_month: month,
+        competence_year: year,
+      });
+      toast('Holerite gerado!');
+      await loadData();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── Detail / Edição ───────────────────────────────────────────────────────
+
   async function openDetail(id) {
-    openModal('Detalhes do Holerite', '<div style="padding:20px;text-align:center"><div class="spinner spinner-dark"></div></div>', '', true);
+    openModal('Holerite — Detalhes e Edição',
+      '<div style="padding:32px;text-align:center"><div class="spinner spinner-dark"></div></div>',
+      '', true);
     try {
       const p = await Api.getPayroll(id);
-      const credits = (p.items || []).filter(i => i.is_credit);
-      const debits  = (p.items || []).filter(i => !i.is_credit);
-
-      const itemRows = items => items.map(i => `
-        <li>
-          <span>${i.description}${i.is_manual ? ' <span class="badge badge-gray" style="font-size:10px">manual</span>' : ''}</span>
-          <span class="${i.is_credit ? 'credit' : 'debit'}">${i.is_credit ? '+' : '-'} ${fmt.brl(i.amount)}</span>
-        </li>`).join('');
-
-      document.getElementById('modal-body').innerHTML = `
-        <div class="detail-grid" style="margin-bottom:20px">
-          <div class="detail-item"><label>Funcionário</label><span>${p.employee_name||'—'}</span></div>
-          <div class="detail-item"><label>Competência</label><span>${fmt.month(p.competence_month)}/${p.competence_year}</span></div>
-          <div class="detail-item"><label>Dias Trabalhados</label><span>${p.worked_days}</span></div>
-          <div class="detail-item"><label>Horas Extras</label><span>${Number(p.total_overtime_hours||0).toFixed(1)}h</span></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-          <div><h4 style="margin-bottom:8px;font-size:13px;color:var(--success)">Proventos</h4>
-            <ul class="items-list">${itemRows(credits)}</ul>
-          </div>
-          <div><h4 style="margin-bottom:8px;font-size:13px;color:var(--danger)">Descontos</h4>
-            <ul class="items-list">${itemRows(debits)}</ul>
-          </div>
-        </div>
-        <div style="border-top:2px solid var(--border);margin-top:16px;padding-top:16px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:15px;font-weight:600">Salário Líquido</span>
-          <span style="font-size:20px;font-weight:700;color:var(--primary)">${fmt.brl(p.net_salary)}</span>
-        </div>
-        ${p.status === 'rascunho' ? `
-        <div style="margin-top:16px">
-          <button class="btn btn-secondary btn-sm" onclick="PagePayroll.openAddItem(${id})">+ Item Manual</button>
-        </div>` : ''}`;
+      _renderDetail(p);
     } catch (e) {
-      document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      document.getElementById('modal-body').innerHTML =
+        `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
-  // ── Add manual item ──────────────────────────────────────────────────────
-  async function openAddItem(payrollId) {
-    openModal('Adicionar Item Manual', `
+  function _renderDetail(p) {
+    const isClosed = p.status === 'fechado';
+    const items    = p.items || [];
+    const credits  = items.filter(i =>  i.is_credit);
+    const debits   = items.filter(i => !i.is_credit);
+
+    const itemRow = (i) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1">
+          <span style="font-size:13px">${i.description}</span>
+          ${i.is_manual ? '<span class="badge badge-gray" style="font-size:10px;margin-left:6px">manual</span>' : ''}
+          ${i.notes ? `<span style="font-size:11px;color:var(--text-muted);display:block">${i.notes}</span>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:600;color:${i.is_credit ? 'var(--success)' : 'var(--danger)'}">
+            ${i.is_credit ? '+' : '-'} ${fmt.brl(i.amount)}
+          </span>
+          ${!isClosed ? `
+          <button class="btn-icon" title="Editar" onclick="PagePayroll.openEditItem(${p.id},${i.id},${JSON.stringify(i.amount)},${JSON.stringify(i.description)},${JSON.stringify(i.notes||'')})">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn-icon" title="Remover" onclick="PagePayroll.removeItem(${p.id},${i.id})" style="color:var(--danger)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>` : ''}
+        </div>
+      </div>`;
+
+    document.getElementById('modal-body').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
+        <div class="detail-item"><label>Funcionário</label><span style="font-weight:600">${p.employee_name||'—'}</span></div>
+        <div class="detail-item"><label>Competência</label><span>${fmt.month(p.competence_month)}/${p.competence_year}</span></div>
+        <div class="detail-item"><label>Status</label><span>${fmt.status(p.status)}</span></div>
+        <div class="detail-item"><label>Dias Trabalhados</label><span>${p.worked_days}</span></div>
+        <div class="detail-item"><label>Horas Extras</label><span>${parseFloat(p.total_overtime_hours||0).toFixed(1)}h</span></div>
+        <div class="detail-item"><label>Data Pagamento</label><span>${p.payment_date ? fmt.date(p.payment_date) : '—'}</span></div>
+      </div>
+
+      ${!isClosed ? `
+      <div style="background:var(--bg-subtle,#f8f9fa);border-radius:8px;padding:12px 16px;margin-bottom:16px">
+        <p style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text-muted)">OPÇÕES DE CÁLCULO</p>
+        <div style="display:flex;gap:24px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+            <input type="checkbox" id="flag-he" ${p.pay_overtime ? 'checked' : ''} onchange="PagePayroll.toggleFlag(${p.id},'pay_overtime',this.checked)">
+            Pagar Horas Extras em dinheiro
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+            <input type="checkbox" id="flag-bh" ${p.use_hour_bank_for_absences ? 'checked' : ''} onchange="PagePayroll.toggleFlag(${p.id},'use_hour_bank_for_absences',this.checked)">
+            Usar Banco de Horas para cobrir faltas
+          </label>
+        </div>
+        <div class="form-group" style="margin-top:12px;margin-bottom:0">
+          <label style="font-size:12px">Observação / Comentário</label>
+          <div style="display:flex;gap:8px">
+            <input class="form-control" id="notes-input" value="${p.notes || ''}" placeholder="Observação para este funcionário...">
+            <button class="btn btn-secondary btn-sm" onclick="PagePayroll.saveNotes(${p.id})">Salvar</button>
+          </div>
+        </div>
+      </div>` : p.notes ? `<div class="alert" style="margin-bottom:16px">${p.notes}</div>` : ''}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:16px">
+        <div>
+          <p style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:8px;text-transform:uppercase">Proventos</p>
+          ${credits.map(itemRow).join('') || '<p style="color:var(--text-muted);font-size:13px">Nenhum.</p>'}
+        </div>
+        <div>
+          <p style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:8px;text-transform:uppercase">Descontos</p>
+          ${debits.map(itemRow).join('') || '<p style="color:var(--text-muted);font-size:13px">Nenhum.</p>'}
+        </div>
+      </div>
+
+      <div style="border-top:2px solid var(--border);padding-top:12px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:600">Salário Líquido</span>
+        <span style="font-size:20px;font-weight:700;color:var(--primary)">${fmt.brl(p.net_salary)}</span>
+      </div>
+
+      ${!isClosed ? `
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="PagePayroll.openAddItem(${p.id})">+ Item Manual</button>
+        <button class="btn btn-secondary btn-sm" onclick="PagePayroll.recalc(${p.id})">↺ Recalcular</button>
+      </div>` : ''}`;
+
+    document.getElementById('modal-footer').innerHTML = `
+      <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+      ${!isClosed ? `<button class="btn btn-primary" onclick="PagePayroll.openClose(${p.id})">Fechar Holerite</button>` : ''}`;
+  }
+
+  async function toggleFlag(payrollId, flag, value) {
+    try {
+      const p = await Api.updatePayrollFlags(payrollId, { [flag]: value });
+      toast('Atualizado e recalculado!');
+      _renderDetail(p);
+      await loadData();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function saveNotes(payrollId) {
+    const notes = document.getElementById('notes-input').value.trim() || null;
+    try {
+      const p = await Api.updatePayrollFlags(payrollId, { notes });
+      toast('Observação salva!');
+      _renderDetail(p);
+      await loadData();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── Itens manuais ─────────────────────────────────────────────────────────
+
+  function openAddItem(payrollId) {
+    openModal('Adicionar Item — Outros', `
       <div class="form-group"><label>Descrição *</label>
-        <input class="form-control" id="item-desc" placeholder="Ex: Bônus de produtividade"></div>
+        <input class="form-control" id="item-desc" placeholder="Ex: Bônus, desconto disciplinar..."></div>
       <div class="form-row">
         <div class="form-group"><label>Valor *</label>
-          <input class="form-control" type="number" step="0.01" id="item-amount"></div>
+          <input class="form-control" type="number" step="0.01" min="0" id="item-amount"></div>
         <div class="form-group"><label>Tipo</label>
           <select class="form-control" id="item-credit">
             <option value="true">Crédito (provento)</option>
             <option value="false">Débito (desconto)</option>
-          </select>
-        </div>
+          </select></div>
       </div>
-      <div class="form-group"><label>Tipo de Item</label>
-        <select class="form-control" id="item-type">
-          <option value="outros_credito">Outros Crédito</option>
-          <option value="outros_desconto">Outros Desconto</option>
-          <option value="bonificacao">Bonificação</option>
-          <option value="auxilio">Auxílio</option>
-        </select>
-      </div>
+      <div class="form-group"><label>Observação</label>
+        <input class="form-control" id="item-notes" placeholder="Comentário sobre este item (opcional)"></div>
       <div id="item-error"></div>`, `
       <button class="btn btn-secondary" onclick="PagePayroll.openDetail(${payrollId})">Voltar</button>
       <button class="btn btn-primary" onclick="PagePayroll.saveItem(${payrollId})">Adicionar</button>`);
@@ -217,30 +417,83 @@ const PagePayroll = (() => {
     const desc   = document.getElementById('item-desc').value.trim();
     const amount = parseFloat(document.getElementById('item-amount').value);
     const credit = document.getElementById('item-credit').value === 'true';
-    const type   = document.getElementById('item-type').value;
-    if (!desc || !amount) {
-      document.getElementById('item-error').innerHTML = '<div class="alert alert-error">Preencha descrição e valor.</div>';
+    const notes  = document.getElementById('item-notes').value.trim() || null;
+    if (!desc || !amount || amount <= 0) {
+      document.getElementById('item-error').innerHTML =
+        '<div class="alert alert-error">Preencha descrição e valor válido.</div>';
       return;
     }
     try {
-      await Api.addPayrollItem(payrollId, { item_type: type, description: desc, amount, is_credit: credit });
+      await Api.addPayrollItem(payrollId, {
+        item_type:    credit ? 'outros_credito' : 'outros_desconto',
+        description:  desc,
+        amount,
+        is_credit:    credit,
+        notes,
+      });
       toast('Item adicionado!');
       openDetail(payrollId);
     } catch (e) {
-      document.getElementById('item-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      document.getElementById('item-error').innerHTML =
+        `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
-  // ── Close ────────────────────────────────────────────────────────────────
+  function openEditItem(payrollId, itemId, amount, description, notes) {
+    openModal('Editar Item', `
+      <div class="form-group"><label>Descrição</label>
+        <input class="form-control" id="edit-desc" value="${description}"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Valor</label>
+          <input class="form-control" type="number" step="0.01" min="0" id="edit-amount" value="${amount}"></div>
+      </div>
+      <div class="form-group"><label>Observação</label>
+        <input class="form-control" id="edit-notes" value="${notes}"></div>
+      <div id="edit-error"></div>`, `
+      <button class="btn btn-secondary" onclick="PagePayroll.openDetail(${payrollId})">Cancelar</button>
+      <button class="btn btn-primary" onclick="PagePayroll.doEditItem(${payrollId},${itemId})">Salvar</button>`);
+  }
+
+  async function doEditItem(payrollId, itemId) {
+    const desc   = document.getElementById('edit-desc').value.trim();
+    const amount = parseFloat(document.getElementById('edit-amount').value);
+    const notes  = document.getElementById('edit-notes').value.trim() || null;
+    if (!desc || !amount || amount < 0) {
+      document.getElementById('edit-error').innerHTML =
+        '<div class="alert alert-error">Valor inválido.</div>';
+      return;
+    }
+    try {
+      await Api.updatePayrollItem(payrollId, itemId, { description: desc, amount, notes });
+      toast('Item atualizado!');
+      openDetail(payrollId);
+    } catch (e) {
+      document.getElementById('edit-error').innerHTML =
+        `<div class="alert alert-error">${e.message}</div>`;
+    }
+  }
+
+  async function removeItem(payrollId, itemId) {
+    try {
+      await Api.deletePayrollItem(payrollId, itemId);
+      toast('Item removido!');
+      openDetail(payrollId);
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── Fechar ────────────────────────────────────────────────────────────────
+
   function openClose(id) {
     const today = new Date().toISOString().split('T')[0];
     openModal('Fechar Holerite', `
-      <p style="color:var(--text-muted);margin-bottom:16px">Esta ação é irreversível. O holerite não poderá ser editado após o fechamento.</p>
+      <p style="color:var(--text-muted);margin-bottom:16px">
+        Após o fechamento o holerite não poderá ser editado. Para corrigir, exclua e recrie.
+      </p>
       <div class="form-group"><label>Data de Pagamento</label>
         <input class="form-control" type="date" id="close-date" value="${today}">
       </div>`, `
       <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="PagePayroll.doClose(${id})">Confirmar Fechamento</button>`);
+      <button class="btn btn-primary" onclick="PagePayroll.doClose(${id})">Fechar Holerite</button>`);
   }
 
   async function doClose(id) {
@@ -253,13 +506,75 @@ const PagePayroll = (() => {
     } catch (e) { toast(e.message, 'error'); }
   }
 
+  function openCloseAll() {
+    const today = new Date().toISOString().split('T')[0];
+    const draft = rows.filter(r => r.payroll && r.payroll.status === 'rascunho').length;
+    openModal('Fechar Folha Completa', `
+      <p style="color:var(--text-muted);margin-bottom:16px">
+        Serão fechados <strong>${draft}</strong> holerite(s) em rascunho de <strong>${fmt.month(month)}/${year}</strong>.
+      </p>
+      <div class="form-group"><label>Data de Pagamento</label>
+        <input class="form-control" type="date" id="ca-date" value="${today}">
+      </div>`, `
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="PagePayroll.doCloseAll()">Confirmar Fechamento</button>`);
+  }
+
+  async function doCloseAll() {
+    const dt = document.getElementById('ca-date').value;
+    try {
+      await Api.closeAllPayrolls(month, year, dt);
+      closeModal();
+      toast('Folha fechada com sucesso!');
+      await loadData();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── Recalcular / Excluir ──────────────────────────────────────────────────
+
   async function recalc(id) {
     try {
       await Api.recalcPayroll(id);
       toast('Holerite recalculado!');
       await loadData();
+      openDetail(id);
     } catch (e) { toast(e.message, 'error'); }
   }
 
-  return { render, changePeriod, openNew, saveNew, openDetail, openAddItem, saveItem, openClose, doClose, recalc };
+  function confirmDelete(id, name) {
+    openModal('Excluir Holerite', `
+      <p>Tem certeza que deseja excluir o holerite de <strong>${name}</strong>?</p>
+      <p style="color:var(--danger);font-size:13px;margin-top:8px">
+        Se o holerite estiver fechado, as parcelas de vale serão revertidas para pendente.
+      </p>`, `
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="PagePayroll.doDelete(${id})">Excluir</button>`);
+  }
+
+  async function doDelete(id) {
+    try {
+      await Api.deletePayroll(id);
+      closeModal();
+      toast('Holerite excluído.');
+      await loadData();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── Period selector ───────────────────────────────────────────────────────
+
+  function changePeriod() {
+    month = parseInt(document.getElementById('sel-month').value);
+    year  = parseInt(document.getElementById('sel-year').value);
+    document.getElementById('payroll-tbody').innerHTML = loadingRow(13);
+    loadData();
+  }
+
+  return {
+    render, changePeriod,
+    openBatch, doBatch, generateOne,
+    openDetail, toggleFlag, saveNotes,
+    openAddItem, saveItem, openEditItem, doEditItem, removeItem,
+    openClose, doClose, openCloseAll, doCloseAll,
+    recalc, confirmDelete, doDelete,
+  };
 })();

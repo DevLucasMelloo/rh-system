@@ -141,7 +141,13 @@ const Api = (() => {
   const closeSeamstressMonth     = (body)       => post('/seamstresses/close-month', body);
 
   // ── Payroll ───────────────────────────────────────────────────────────────
-  const getPayrollPeriod  = (month, year) => get('/payroll/period', { month, year });
+  const getPayrollPeriod    = (month, year) => get('/payroll/period', { month, year });
+  const getEligible         = (month, year) => get('/payroll/eligible', { month, year });
+  const batchCreatePayroll  = (body)        => post('/payroll/batch', body);
+  const closeAllPayrolls    = (month, year, payment_date) => request('POST', `/payroll/period/close-all?month=${month}&year=${year}${payment_date ? '&payment_date='+payment_date : ''}`);
+  const deletePayroll       = (id)          => del(`/payroll/${id}`);
+  const updatePayrollFlags  = (id, body)    => patch(`/payroll/${id}/flags`, body);
+  const updatePayrollItem   = (pid, iid, body) => patch(`/payroll/${pid}/items/${iid}`, body);
   const getPayroll        = (id)          => get(`/payroll/${id}`);
   const createPayroll     = (body)        => post('/payroll', body);
   const closePayroll      = (id, date)    => post(`/payroll/${id}/close`, { payment_date: date });
@@ -197,8 +203,9 @@ const Api = (() => {
     getDashboard,
     getEmployees, getInactiveEmployees, getEmployee, getEmployeeHistory, createEmployee, updateEmployee, inactivateEmp, reactivateEmp,
     getSeamstresses, getAllSeamstresses, createSeamstress, updateSeamstress, getSeamstressPayments, createPayment, deleteSeamstressPayment, getSeamstressMonthReport, closeSeamstressMonth,
-    getPayrollPeriod, getPayroll, createPayroll, closePayroll, recalcPayroll,
-    addPayrollItem, deletePayrollItem, getPayrollPdf,
+    getPayrollPeriod, getEligible, batchCreatePayroll, closeAllPayrolls,
+    getPayroll, createPayroll, deletePayroll, closePayroll, recalcPayroll,
+    updatePayrollFlags, addPayrollItem, updatePayrollItem, deletePayrollItem, getPayrollPdf,
     getAllVales, getVales, createVale, getVale,
     getVacations, getEmpVacations, createVacation, startVacation, completeVacation, cancelVacation, getThirteenth,
     getTerminations, createTermination, getTermination,

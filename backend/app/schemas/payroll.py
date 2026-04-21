@@ -76,6 +76,8 @@ class PayrollCreate(BaseModel):
     employee_id: int
     competence_month: int
     competence_year: int
+    pay_overtime: bool = False
+    use_hour_bank_for_absences: bool = False
 
     @field_validator("competence_month")
     @classmethod
@@ -83,6 +85,26 @@ class PayrollCreate(BaseModel):
         if not (1 <= v <= 12):
             raise ValueError("Mês deve estar entre 1 e 12")
         return v
+
+
+class PayrollBatchCreate(BaseModel):
+    competence_month: int
+    competence_year: int
+    pay_overtime: bool = False
+    use_hour_bank_for_absences: bool = False
+
+    @field_validator("competence_month")
+    @classmethod
+    def month_valid(cls, v: int) -> int:
+        if not (1 <= v <= 12):
+            raise ValueError("Mês deve estar entre 1 e 12")
+        return v
+
+
+class PayrollFlagsUpdate(BaseModel):
+    pay_overtime: bool | None = None
+    use_hour_bank_for_absences: bool | None = None
+    notes: str | None = None
 
 
 class PayrollItemRead(BaseModel):
@@ -111,8 +133,20 @@ class PayrollRead(BaseModel):
     net_salary: Decimal
     worked_days: int
     total_overtime_hours: Decimal
+    pay_overtime: bool = False
+    use_hour_bank_for_absences: bool = False
+    notes: str | None = None
     status: str
     pdf_path: str | None
     items: list[PayrollItemRead]
 
     model_config = {"from_attributes": True}
+
+
+class EligibleEmployeeRead(BaseModel):
+    employee_id: int
+    name: str
+    salary: Decimal
+    admission_date: date | None
+    has_payroll: bool
+    payroll: PayrollRead | None = None

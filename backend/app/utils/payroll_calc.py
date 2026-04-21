@@ -86,16 +86,40 @@ def calc_vt(
 # ── DSR (Descanso Semanal Remunerado) ─────────────────────────────────────────
 
 def calc_dsr_discount(base_salary: Decimal, absences_in_month: int) -> Decimal:
-    """
-    Desconto de DSR por faltas injustificadas.
-    Regra simplificada: cada falta injustificada desconta 1 DSR.
-    DSR diário = salário / 30.
-    """
+    """Legado — mantido para compatibilidade. Use calc_dsr_by_week."""
     if absences_in_month <= 0:
         return Decimal("0")
     dsr_diario = base_salary / Decimal("30")
     result = dsr_diario * Decimal(absences_in_month)
     return result.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def calc_dsr_by_week(base_salary: Decimal, absence_dates: list) -> tuple[Decimal, int]:
+    """
+    DSR correto: desconta 1 domingo por semana que teve falta.
+    2+ faltas na mesma semana = 1 DSR. Semanas diferentes = 1 DSR cada.
+    Retorna (valor_total_dsr, numero_semanas_afetadas).
+    """
+    if not absence_dates:
+        return Decimal("0"), 0
+    weeks = set()
+    for d in absence_dates:
+        iso = d.isocalendar()
+        weeks.add((iso[0], iso[1]))
+    dsr_diario = (base_salary / Decimal("30")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    total = (dsr_diario * Decimal(len(weeks))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return total, len(weeks)
+
+
+def count_working_days_in_range(start: date, end: date) -> int:
+    """Conta dias úteis (Seg-Sex) entre start e end, inclusive."""
+    count = 0
+    cur = start
+    while cur <= end:
+        if cur.weekday() < 5:
+            count += 1
+        cur += timedelta(days=1)
+    return count
 
 
 # ── 13º Salário ───────────────────────────────────────────────────────────────
