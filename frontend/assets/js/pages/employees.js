@@ -194,25 +194,24 @@ const PageEmployees = (() => {
 
   function collectForm() {
     const needsTransport = document.getElementById('f-transport').checked;
+    const auxilioVal = document.getElementById('f-auxilio').value;
+    const salaryVal  = parseFloat(document.getElementById('f-salary').value);
     return {
-      name:              document.getElementById('f-name').value.trim(),
-      cpf:               document.getElementById('f-cpf').value.replace(/\D/g,''),
-      role:              document.getElementById('f-role').value.trim(),
-      salary:            parseFloat(document.getElementById('f-salary').value),
-      auxilio:           parseFloat(document.getElementById('f-auxilio').value) || null,
-      needs_transport:   needsTransport,
-      vt_daily:          needsTransport ? (parseFloat(document.getElementById('f-vt').value) || 10.60) : null,
-      admission_date:    document.getElementById('f-admission').value,
-      registration_date: document.getElementById('f-registration').value,
-      rg:                document.getElementById('f-rg').value.trim() || null,
-      date_of_birth:     document.getElementById('f-dob').value || null,
-      phone:             document.getElementById('f-phone').value.trim() || null,
-      weekly_hours:      parseInt(document.getElementById('f-hours').value) || 44,
-      bank_name:         document.getElementById('f-bank').value.trim() || null,
-      pix:               document.getElementById('f-pix').value.trim() || null,
-      address:           document.getElementById('f-address').value.trim() || null,
-      city:              document.getElementById('f-city').value.trim() || null,
-      state:             document.getElementById('f-state').value.trim().toUpperCase() || null,
+      name:            document.getElementById('f-name').value.trim(),
+      role:            document.getElementById('f-role').value.trim(),
+      salary:          isNaN(salaryVal) ? undefined : salaryVal,
+      auxilio:         auxilioVal === '' ? null : (parseFloat(auxilioVal) ?? null),
+      needs_transport: needsTransport,
+      vt_daily:        needsTransport ? (parseFloat(document.getElementById('f-vt').value) || 10.60) : null,
+      rg:              document.getElementById('f-rg').value.trim() || null,
+      date_of_birth:   document.getElementById('f-dob').value || null,
+      phone:           document.getElementById('f-phone').value.trim() || null,
+      weekly_hours:    parseInt(document.getElementById('f-hours').value) || 44,
+      bank_name:       document.getElementById('f-bank').value.trim() || null,
+      pix:             document.getElementById('f-pix').value.trim() || null,
+      address:         document.getElementById('f-address').value.trim() || null,
+      city:            document.getElementById('f-city').value.trim() || null,
+      state:           document.getElementById('f-state').value.trim().toUpperCase() || null,
     };
   }
 
@@ -223,34 +222,46 @@ const PageEmployees = (() => {
   }
 
   async function saveNew() {
-    const data = collectForm();
+    const data = {
+      ...collectForm(),
+      cpf:               document.getElementById('f-cpf').value.replace(/\D/g,''),
+      admission_date:    document.getElementById('f-admission').value,
+      registration_date: document.getElementById('f-registration').value,
+    };
     try {
       await Api.createEmployee(data);
       closeModal();
       toast('Funcionário cadastrado com sucesso!');
       await loadData();
     } catch (e) {
-      document.getElementById('form-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      toast(e.message, 'error');
     }
   }
 
   async function openEdit(id) {
-    const emp = allEmployees.find(e => e.id === id);
-    if (!emp) return;
-    openModal('Editar Funcionário', empForm(emp), `
+    openModal('Editar Funcionário', `<div style="padding:20px;text-align:center"><div class="spinner spinner-dark"></div> Carregando...</div>`, `
       <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="PageEmployees.saveEdit(${id})">Salvar</button>`, true);
+    try {
+      const emp = await Api.getEmployee(id);
+      document.getElementById('modal-body').innerHTML = empForm(emp);
+    } catch (e) {
+      document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    }
   }
 
   async function saveEdit(id) {
     const data = collectForm();
+    const btn = document.querySelector('#modal-footer .btn-primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
     try {
       await Api.updateEmployee(id, data);
       closeModal();
       toast('Funcionário atualizado!');
       await loadData();
     } catch (e) {
-      document.getElementById('form-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      toast(e.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; }
     }
   }
 

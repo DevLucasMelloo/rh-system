@@ -175,6 +175,10 @@ def update_employee(
     changes: dict = {}
     history_entries = []
 
+    # Campos que aceitam null explícito (o usuário pode "zerar" o valor)
+    nullable_fields = {"auxilio", "vt_daily", "phone", "date_of_birth", "address",
+                       "cep", "city", "state", "bank_name", "father_name", "mother_name", "is_intern"}
+
     plain_fields = {
         "name": data.name, "phone": data.phone, "date_of_birth": data.date_of_birth,
         "father_name": data.father_name, "mother_name": data.mother_name,
@@ -191,9 +195,13 @@ def update_employee(
         if old_rg != data.rg:
             history_entries.append(("rg", "***", "***atualizado***"))
 
+    sent_fields = data.model_fields_set  # campos explicitamente enviados no PATCH
+
     for field, new_val in plain_fields.items():
-        if new_val is None:
-            continue
+        if field not in sent_fields:
+            continue  # campo não foi enviado — não alterar
+        if new_val is None and field not in nullable_fields:
+            continue  # campo obrigatório enviado como null — ignorar
         old_val = getattr(emp, field)
         if not _vals_equal(old_val, new_val):
             history_entries.append((field, _fmt_val(old_val), _fmt_val(new_val)))
