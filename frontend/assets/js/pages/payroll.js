@@ -6,6 +6,7 @@ const PagePayroll = (() => {
   let year  = currentYear();
   let rows  = [];   // EligibleEmployeeRead[]
   let periodStatus = null;   // 'not_opened' | 'open' | 'closed'
+  let _currentPayroll = null;  // holerite aberto no modal de detalhe
 
   // ── Render principal ──────────────────────────────────────────────────────
   async function render(container) {
@@ -287,6 +288,7 @@ const PagePayroll = (() => {
   }
 
   function _renderDetail(p) {
+    _currentPayroll = p;
     const isClosed = p.status === 'fechado';
     const items    = p.items || [];
     const credits  = items.filter(i =>  i.is_credit);
@@ -304,7 +306,7 @@ const PagePayroll = (() => {
             ${i.is_credit ? '+' : '-'} ${fmt.brl(i.amount)}
           </span>
           ${!isClosed ? `
-          <button class="btn-icon" title="Editar" onclick="PagePayroll.openEditItem(${p.id},${i.id},${JSON.stringify(i.amount)},${JSON.stringify(i.description)},${JSON.stringify(i.notes||'')})">
+          <button class="btn-icon" title="Editar" onclick="PagePayroll.openEditItem(${p.id},${i.id})">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
           <button class="btn-icon" title="Remover" onclick="PagePayroll.removeItem(${p.id},${i.id})" style="color:var(--danger)">
@@ -439,16 +441,18 @@ const PagePayroll = (() => {
     }
   }
 
-  function openEditItem(payrollId, itemId, amount, description, notes) {
+  function openEditItem(payrollId, itemId) {
+    const item = (_currentPayroll?.items || []).find(i => i.id === itemId);
+    if (!item) { toast('Item não encontrado', 'error'); return; }
     openModal('Editar Item', `
       <div class="form-group"><label>Descrição</label>
-        <input class="form-control" id="edit-desc" value="${description}"></div>
+        <input class="form-control" id="edit-desc" value="${(item.description || '').replace(/"/g, '&quot;')}"></div>
       <div class="form-row">
         <div class="form-group"><label>Valor</label>
-          <input class="form-control" type="number" step="0.01" min="0" id="edit-amount" value="${amount}"></div>
+          <input class="form-control" type="number" step="0.01" min="0" id="edit-amount" value="${item.amount}"></div>
       </div>
       <div class="form-group"><label>Observação</label>
-        <input class="form-control" id="edit-notes" value="${notes}"></div>
+        <input class="form-control" id="edit-notes" value="${(item.notes || '').replace(/"/g, '&quot;')}"></div>
       <div id="edit-error"></div>`, `
       <button class="btn btn-secondary" onclick="PagePayroll.openDetail(${payrollId})">Cancelar</button>
       <button class="btn btn-primary" onclick="PagePayroll.doEditItem(${payrollId},${itemId})">Salvar</button>`);
