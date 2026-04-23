@@ -143,12 +143,21 @@ def _auto_generate_items(db: Session, payroll: Payroll, emp: Employee) -> None:
     _add_auto(db, payroll.id, PayrollItemType.SALARY, "Salário", salary_value, True)
 
     # ── Hora extra (somente se flag ativa) ────────────────────────────────────
+    # Usa o saldo total do banco de horas (inclui HE acumuladas de meses anteriores
+    # que não foram pagas), não apenas as HE do mês corrente.
     ot_value = Decimal("0")
-    if payroll.pay_overtime and total_ot_min > 0:
-        ot_value = calc_overtime_value(base_salary, total_ot_min)
-        h, m_ = divmod(total_ot_min, 60)
-        _add_auto(db, payroll.id, PayrollItemType.OVERTIME,
-                  f"Horas Extras ({h}h{m_:02d}m)", ot_value, True)
+    ot_paid_min = 0
+    if payroll.pay_overtime:
+        hour_bank = ts_repo.get_hour_bank(db, emp.id)
+        bank_balance = hour_bank.balance_minutes if hour_bank else 0
+        total_to_pay = max(0, bank_balance)
+        if total_to_pay > 0:
+            ot_value = calc_overtime_value(base_salary, total_to_pay)
+            h, m_ = divmod(total_to_pay, 60)
+            _add_auto(db, payroll.id, PayrollItemType.OVERTIME,
+                      f"Horas Extras ({h}h{m_:02d}m)", ot_value, True)
+            ts_repo.upsert_hour_bank(db, emp.id, -total_to_pay)
+            ot_paid_min = total_to_pay
 
     # ── Vale Transporte ───────────────────────────────────────────────────────
     if emp.needs_transport:
@@ -209,7 +218,7 @@ def _auto_generate_items(db: Session, payroll: Payroll, emp: Employee) -> None:
     # ── Atualizar metadados ───────────────────────────────────────────────────
     payroll_repo.update_payroll(db, payroll, {
         "worked_days": worked_days,
-        "total_overtime_hours": Decimal(str(total_ot_min)) / Decimal("60"),
+        "total_overtime_hours": Decimal(str(ot_paid_min)) / Decimal("60"),
     })
     db.commit()
     payroll_repo.recalc_totals(db, payroll)
