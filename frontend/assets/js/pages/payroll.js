@@ -100,7 +100,7 @@ const PagePayroll = (() => {
     const btnBatch   = document.getElementById('btn-batch');
     const btnCloseAll = document.getElementById('btn-close-all');
     if (btnBatch) btnBatch.style.display = allDone ? 'none' : '';
-    if (btnCloseAll) btnCloseAll.style.display = (hasDraft && periodStatus === 'closed') ? '' : 'none';
+    if (btnCloseAll) btnCloseAll.style.display = hasDraft ? '' : 'none';
 
     const total = rows.filter(r => r.payroll)
       .reduce((s, r) => s + parseFloat(r.payroll.net_salary || 0), 0);
@@ -517,7 +517,14 @@ const PagePayroll = (() => {
   function openCloseAll() {
     const today = new Date().toISOString().split('T')[0];
     const draft = rows.filter(r => r.payroll && r.payroll.status === 'rascunho').length;
+    const pontoWarning = periodStatus !== 'closed'
+      ? `<div class="alert alert-error" style="margin-bottom:16px">
+           <strong>Atenção:</strong> O ponto de ${fmt.month(month)}/${year} ainda não está fechado.
+           Feche o ponto antes de fechar a folha para garantir que as faltas foram contabilizadas.
+         </div>`
+      : '';
     openModal('Fechar Folha Completa', `
+      ${pontoWarning}
       <p style="color:var(--text-muted);margin-bottom:16px">
         Serão fechados <strong>${draft}</strong> holerite(s) em rascunho de <strong>${fmt.month(month)}/${year}</strong>.
       </p>
