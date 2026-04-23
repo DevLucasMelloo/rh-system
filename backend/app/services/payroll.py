@@ -129,11 +129,17 @@ def _auto_generate_items(db: Session, payroll: Payroll, emp: Employee) -> None:
     total_ot_min    = sum(e.overtime_minutes for e in entries if not e.is_annulled)
     total_late_min  = sum(e.late_minutes     for e in entries if not e.is_annulled)
 
-    # ── Dias trabalhados finais ───────────────────────────────────────────────
-    worked_days = max(0, actual_working_days - absences - vacation_working_days)
+    # ── Dias elegíveis para salário (período ativo menos dias de férias)
+    # Faltas NÃO reduzem o salário aqui — são descontos separados abaixo.
+    salary_eligible_days = max(0, actual_working_days - vacation_working_days)
 
-    # ── Salário proporcional ──────────────────────────────────────────────────
-    salary_value = calc_proportional_salary(base_salary, worked_days, total_working_days)
+    # ── Dias trabalhados (para exibição) ─────────────────────────────────────
+    worked_days = max(0, salary_eligible_days - absences)
+
+    # ── Salário bruto ─────────────────────────────────────────────────────────
+    # Proporcional apenas para funcionários novos (admission > início do mês)
+    # ou quando há dias de férias descontando o período.
+    salary_value = calc_proportional_salary(base_salary, salary_eligible_days, total_working_days)
     _add_auto(db, payroll.id, PayrollItemType.SALARY, "Salário", salary_value, True)
 
     # ── Hora extra (somente se flag ativa) ────────────────────────────────────
