@@ -371,6 +371,10 @@ const PagePayroll = (() => {
 
     document.getElementById('modal-footer').innerHTML = `
       <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+      <button class="btn btn-danger" style="margin-right:auto;order:-1" onclick="PagePayroll.confirmDeleteFromDetail(${p.id},'${(p.employee_name||'').replace(/'/g,"\\'")}')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        Excluir Holerite
+      </button>
       ${!isClosed ? `<button class="btn btn-primary" onclick="PagePayroll.openClose(${p.id})">Fechar Holerite</button>` : ''}`;
   }
 
@@ -555,6 +559,17 @@ const PagePayroll = (() => {
       <button class="btn btn-danger" onclick="PagePayroll.doDelete(${id})">Excluir</button>`);
   }
 
+  function confirmDeleteFromDetail(id, name) {
+    openModal('Excluir Holerite', `
+      <p>Tem certeza que deseja excluir o holerite de <strong>${name}</strong>?</p>
+      <p style="color:var(--danger);font-size:13px;margin-top:8px">
+        O holerite será excluído e poderá ser gerado novamente.<br>
+        Se estiver fechado, as parcelas de vale retornam para pendente.
+      </p>`, `
+      <button class="btn btn-secondary" onclick="PagePayroll.openDetail(${id})">Cancelar</button>
+      <button class="btn btn-danger" onclick="PagePayroll.doDelete(${id})">Excluir</button>`);
+  }
+
   async function doDelete(id) {
     try {
       await Api.deletePayroll(id);
@@ -579,6 +594,6 @@ const PagePayroll = (() => {
     openDetail, toggleFlag, saveNotes,
     openAddItem, saveItem, openEditItem, doEditItem, removeItem,
     openClose, doClose, openCloseAll, doCloseAll,
-    recalc, confirmDelete, doDelete,
+    recalc, confirmDelete, confirmDeleteFromDetail, doDelete,
   };
 })();
