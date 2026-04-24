@@ -189,30 +189,35 @@ def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayroll
     for emp in inactive_with_payroll:
         all_emps.setdefault(emp.id, emp)
 
-    # Histórico de salário de todos de uma vez (evita N+1)
+    # Histórico de salário E auxílio de todos de uma vez (evita N+1)
     all_ids = list(all_emps.keys())
     history_all = (
         db.query(EmployeeHistory)
         .filter(
             EmployeeHistory.employee_id.in_(all_ids),
-            EmployeeHistory.field_changed == "salary",
+            EmployeeHistory.field_changed.in_(["salary", "auxilio"]),
         )
         .order_by(EmployeeHistory.employee_id, EmployeeHistory.changed_at.desc())
         .all()
     )
-    history_by_emp: dict[int, list] = {}
+    salary_hist: dict[int, list] = {}
+    auxilio_hist: dict[int, list] = {}
     for h in history_all:
-        history_by_emp.setdefault(h.employee_id, []).append(h)
+        if h.field_changed == "salary":
+            salary_hist.setdefault(h.employee_id, []).append(h)
+        else:
+            auxilio_hist.setdefault(h.employee_id, []).append(h)
 
-    def salary_at_month_end(emp: Employee, m: int) -> Decimal:
-        """Retorna o salário contratado que estava vigente no último dia do mês."""
+    def _value_at_month_end(current, history_list: list, m: int) -> Decimal | None:
+        """Reconstrói o valor vigente no último dia do mês percorrendo o histórico."""
         last_day = date(year, m, cal.monthrange(year, m)[1])
-        effective = Decimal(str(emp.salary))
-        for h in history_by_emp.get(emp.id, []):
+        effective = Decimal(str(current)) if current is not None else None
+        for h in history_list:
             change_date = h.changed_at.date() if hasattr(h.changed_at, "date") else h.changed_at
             if change_date > last_day:
                 try:
-                    effective = Decimal(str(h.old_value))
+                    old = h.old_value
+                    effective = Decimal(str(old)) if old not in (None, "—", "") else None
                 except Exception:
                     pass
             else:
@@ -222,7 +227,6 @@ def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayroll
     rows = []
     for emp_id, emp in sorted(all_emps.items(), key=lambda x: x[1].name):
         adm = emp.admission_date or date(year, 1, 1)
-        emp_auxilio = Decimal(str(emp.auxilio)) if emp.auxilio else None
 
         today = date.today()
         month_list = []
@@ -236,8 +240,8 @@ def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayroll
                 month_list.append(AnnualEmployeeMonth(month=m))
                 continue
 
-            sal = salary_at_month_end(emp, m)
-            aux = emp_auxilio
+            sal = _value_at_month_end(emp.salary,  salary_hist.get(emp_id, []),  m)
+            aux = _value_at_month_end(emp.auxilio, auxilio_hist.get(emp_id, []), m)
 
             is_inc = sal is not None and prev_salary is not None and sal > prev_salary
             month_list.append(AnnualEmployeeMonth(
