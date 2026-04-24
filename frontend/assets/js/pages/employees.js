@@ -103,6 +103,10 @@ const PageEmployees = (() => {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
             </button>
             <div class="dropdown-menu" id="dd-${e.id}">
+              <button class="dropdown-item" onclick="PageEmployees.openView(${e.id},'${e.name}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Visualizar Dados
+              </button>
               <button class="dropdown-item" onclick="PageEmployees.openEdit(${e.id})">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Editar Funcionário
@@ -459,6 +463,41 @@ const PageEmployees = (() => {
     }
   }
 
+  async function openView(id, name) {
+    openModal(`Dados — ${name}`, `<div style="padding:20px;text-align:center"><div class="spinner spinner-dark"></div> Carregando...</div>`, '', true);
+    try {
+      const e = await Api.getEmployee(id);
+      document.getElementById('modal-body').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:14px">
+          ${row('Nome',            e.name)}
+          ${row('CPF',             fmt.cpf(e.cpf))}
+          ${row('RG',              e.rg || '—')}
+          ${row('Data Nascimento', fmt.date(e.date_of_birth))}
+          ${row('Telefone',        e.phone || '—')}
+          ${row('Cargo',           e.role)}
+          ${row('Salário',         fmt.brl(e.salary))}
+          ${row('Auxílio',         e.auxilio ? fmt.brl(e.auxilio) : '—')}
+          ${row('VT Diário',       e.needs_transport ? fmt.brl(e.vt_daily || 10.60) : '—')}
+          ${row('Admissão',        fmt.date(e.admission_date))}
+          ${row('Registro',        fmt.date(e.registration_date))}
+          ${row('Status',          fmt.status(e.status))}
+          ${row('Banco',           e.bank_name || '—')}
+          ${row('PIX',             e.pix || '—')}
+          ${row('Endereço',        e.address || '—')}
+          ${row('Cidade/UF',       [e.city, e.state].filter(Boolean).join(' / ') || '—')}
+        </div>`;
+    } catch (err) {
+      document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+    }
+
+    function row(label, value) {
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--text-muted);font-size:12px;display:block">${label}</span>
+        <span style="font-weight:500">${value}</span>
+      </div>`;
+    }
+  }
+
   async function openHistory(id, name) {
     openModal(`Histórico — ${name}`, `<div style="padding:20px;text-align:center"><div class="spinner spinner-dark"></div> Carregando...</div>`, '', true);
     try {
@@ -488,5 +527,5 @@ const PageEmployees = (() => {
     }
   }
 
-  return { render, setTab, onSearch, openNew, saveNew, openEdit, saveEdit, confirmInactivate, doInactivate, reactivate, openHistory, openRaise, _onRaiseEmpChange, _onRaiseTypeChange, saveRaise };
+  return { render, setTab, onSearch, openNew, saveNew, openView, openEdit, saveEdit, confirmInactivate, doInactivate, reactivate, openHistory, openRaise, _onRaiseEmpChange, _onRaiseTypeChange, saveRaise };
 })();
