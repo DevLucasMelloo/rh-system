@@ -230,7 +230,7 @@ def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayroll
 
         today = date.today()
         month_list = []
-        prev_salary = None
+        prev_salary = prev_aux = None
         for m in range(1, 13):
             # Meses antes da admissão: em branco
             before_adm = (adm.year == year and m < adm.month) or adm.year > year
@@ -243,16 +243,17 @@ def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayroll
             sal = _value_at_month_end(emp.salary,  salary_hist.get(emp_id, []),  m)
             aux = _value_at_month_end(emp.auxilio, auxilio_hist.get(emp_id, []), m)
 
-            is_inc = sal is not None and prev_salary is not None and sal > prev_salary
+            is_sal_inc = sal is not None and prev_salary is not None and sal > prev_salary
+            is_aux_inc = aux is not None and prev_aux   is not None and aux > prev_aux
             month_list.append(AnnualEmployeeMonth(
                 month=m,
                 gross_salary=sal,
                 auxilio=aux,
-                is_salary_increase=is_inc,
-                is_auxilio_increase=False,
+                is_salary_increase=is_sal_inc,
+                is_auxilio_increase=is_aux_inc,
             ))
-            if sal is not None:
-                prev_salary = sal
+            if sal is not None: prev_salary = sal
+            if aux is not None: prev_aux    = aux
 
         rows.append(AnnualEmployeeRow(
             employee_id=emp_id,

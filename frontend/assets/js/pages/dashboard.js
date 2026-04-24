@@ -24,9 +24,15 @@ const PageDashboard = (() => {
       <div class="card" style="margin-bottom:20px">
         <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
           <span>Folha Anual por Funcionário</span>
-          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)">
-            <span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#fef08a;border:1px solid #ca8a04"></span>
-            Aumento salarial
+          <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text-muted)">
+            <span style="display:flex;align-items:center;gap:4px">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#fef08a;border:1px solid #ca8a04"></span>
+              Aumento salarial
+            </span>
+            <span style="display:flex;align-items:center;gap:4px">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#fed7aa;border:1px solid #ea580c"></span>
+              Aumento de auxílio
+            </span>
           </div>
         </div>
         <div id="annual-table" style="overflow-x:auto;padding:0">
@@ -194,12 +200,12 @@ const PageDashboard = (() => {
       return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
 
-    function monthCell(m, value, isIncrease, admMonth, admYear) {
+    function monthCell(m, value, isIncrease, admMonth, admYear, color) {
       const beforeAdm = (year === admYear && m.month < admMonth) || year < admYear;
       if (beforeAdm) return `<td style="padding:8px 12px"></td>`;
       if (value === null || value === undefined)
         return `<td style="text-align:right;padding:8px 12px;color:var(--border)">—</td>`;
-      const bg = isIncrease ? 'background:#fef08a' : '';
+      const bg = isIncrease ? `background:${color}` : '';
       return `<td style="text-align:right;padding:8px 12px;font-size:13px;${bg}" title="${isIncrease ? 'Aumento' : ''}">${fmtVal(value)}</td>`;
     }
 
@@ -210,11 +216,11 @@ const PageDashboard = (() => {
       const admYear  = emp.admission_year;
 
       const salCells = emp.months.map(m =>
-        monthCell(m, m.gross_salary, m.is_salary_increase, admMonth, admYear)
+        monthCell(m, m.gross_salary, m.is_salary_increase, admMonth, admYear, '#fef08a')
       ).join('');
 
       const auxCells = emp.months.map(m =>
-        monthCell(m, m.auxilio, m.is_auxilio_increase, admMonth, admYear)
+        monthCell(m, m.auxilio, m.is_auxilio_increase, admMonth, admYear, '#fed7aa')
       ).join('');
 
       return `
