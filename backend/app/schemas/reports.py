@@ -32,23 +32,41 @@ class DashboardRead(BaseModel):
     current_year:       int
     payrolls_draft:     int
     payrolls_closed:    int
-    total_net_salary:   Decimal   # soma dos salários líquidos fechados no mês
-
-    # Ponto do mês atual
-    total_absences_month:      int
-    total_overtime_hours_month: Decimal
+    total_net_salary:   Decimal
 
     # Férias
-    vacations_active:       int   # em_gozo
-    vacations_scheduled:    int   # agendadas
-    vacations_expiring_60d: int   # período aquisitivo vence em até 60 dias
+    vacations_active:       int
+    vacations_scheduled:    int
+    vacations_expiring_60d: int
 
     # Costureiras
-    seamstress_pending_month: Decimal   # mensal pendente competência atual
-    seamstress_paid_month:    Decimal   # mensal pago competência atual
-    seamstress_entrega_month: Decimal   # entregas pagas no mês
-    seamstress_total_month:   Decimal   # total geral (pendente + pago + entrega)
+    seamstress_pending_month: Decimal
+    seamstress_paid_month:    Decimal
+    seamstress_entrega_month: Decimal
+    seamstress_total_month:   Decimal
+
+    # Custo total do mês (folha + costureiras)
+    custo_total_month: Decimal
 
     # Listas detalhadas
     birthdays_next_30_days:  list[BirthdayRead]
     expiring_vacations:      list[VacationExpiringRead]
+
+
+# ── Folha Anual por Funcionário ───────────────────────────────────────────────
+
+class AnnualEmployeeMonth(BaseModel):
+    month: int
+    net_salary: Decimal | None = None
+    is_salary_increase: bool = False  # salário maior que mês anterior
+
+
+class AnnualEmployeeRow(BaseModel):
+    employee_id: int
+    name:        str
+    months:      list[AnnualEmployeeMonth]  # 12 items, Jan-Dez
+
+
+class AnnualPayrollRead(BaseModel):
+    year:      int
+    employees: list[AnnualEmployeeRow]

@@ -16,7 +16,7 @@ from app.models.payroll import Payroll, PayrollStatus
 from app.models.timesheet import TimesheetEntry
 from app.models.vacation import Vacation, VacationStatus
 from app.models.termination import Termination
-from app.schemas.reports import DashboardRead, BirthdayRead, VacationExpiringRead
+from app.schemas.reports import DashboardRead, BirthdayRead, VacationExpiringRead, AnnualPayrollRead, AnnualEmployeeRow, AnnualEmployeeMonth
 from app.repositories import seamstress as seamstress_repo
 
 
@@ -56,23 +56,7 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         Decimal(str(p.net_salary)) for p in payrolls if p.status == PayrollStatus.CLOSED
     )
 
-    # ── Ponto do mês ──────────────────────────────────────────────────────────
-    first_day = date(year, month, 1)
-    last_day  = date(year, month, calendar.monthrange(year, month)[1])
-    entries   = (
-        db.query(TimesheetEntry)
-        .join(Employee)
-        .filter(
-            Employee.company_id == company_id,
-            TimesheetEntry.work_date >= first_day,
-            TimesheetEntry.work_date <= last_day,
-            TimesheetEntry.is_annulled == False,
-        )
-        .all()
-    )
-    total_absences  = sum(1 for e in entries if e.is_absence and not e.is_medical_certificate)
-    total_ot_min    = sum(e.overtime_minutes for e in entries)
-    total_ot_hours  = Decimal(str(total_ot_min)) / Decimal("60")
+    # (ponto removido dos cards do dashboard)
 
     # ── Férias ────────────────────────────────────────────────────────────────
     vacs = (
@@ -134,6 +118,11 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
     seamstress_pending, seamstress_paid, seamstress_entrega = seamstress_repo.month_totals(
         db, company_id, month, year
     )
+    seamstress_total = (
+        Decimal(str(seamstress_pending or 0)) +
+        Decimal(str(seamstress_paid or 0)) +
+        Decimal(str(seamstress_entrega or 0))
+    )
 
     return DashboardRead(
         total_employees=len(all_emps),
@@ -145,8 +134,6 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         payrolls_draft=payrolls_draft,
         payrolls_closed=payrolls_closed,
         total_net_salary=total_net,
-        total_absences_month=total_absences,
-        total_overtime_hours_month=total_ot_hours.quantize(Decimal("0.01")),
         vacations_active=vacs_active,
         vacations_scheduled=vacs_scheduled,
         vacations_expiring_60d=len(vacs_expiring),
@@ -155,12 +142,60 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         seamstress_pending_month=Decimal(str(seamstress_pending)) if seamstress_pending else Decimal(0),
         seamstress_paid_month=Decimal(str(seamstress_paid)) if seamstress_paid else Decimal(0),
         seamstress_entrega_month=Decimal(str(seamstress_entrega)) if seamstress_entrega else Decimal(0),
-        seamstress_total_month=(
-            Decimal(str(seamstress_pending or 0)) +
-            Decimal(str(seamstress_paid or 0)) +
-            Decimal(str(seamstress_entrega or 0))
-        ),
+        seamstress_total_month=seamstress_total,
+        custo_total_month=total_net + seamstress_total,
     )
+
+
+# ── Folha Anual por Funcionário ───────────────────────────────────────────────
+
+def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayrollRead:
+    """Retorna o salário líquido mensal de cada funcionário no ano."""
+    payrolls = (
+        db.query(Payroll)
+        .join(Employee)
+        .filter(
+            Employee.company_id == company_id,
+            Payroll.competence_year == year,
+            Payroll.status == PayrollStatus.CLOSED,
+        )
+        .order_by(Employee.name, Payroll.competence_month)
+        .all()
+    )
+
+    # Agrupa por funcionário
+    emp_data: dict[int, dict] = {}
+    for p in payrolls:
+        emp = db.get(Employee, p.employee_id)
+        if not emp:
+            continue
+        if p.employee_id not in emp_data:
+            emp_data[p.employee_id] = {"name": emp.name, "months": {}}
+        emp_data[p.employee_id]["months"][p.competence_month] = Decimal(str(p.net_salary))
+
+    rows = []
+    for emp_id, data in emp_data.items():
+        month_list = []
+        prev_val = None
+        for m in range(1, 13):
+            val = data["months"].get(m)
+            is_increase = False
+            if val is not None and prev_val is not None and val > prev_val:
+                is_increase = True
+            month_list.append(AnnualEmployeeMonth(
+                month=m,
+                net_salary=val,
+                is_salary_increase=is_increase,
+            ))
+            if val is not None:
+                prev_val = val
+        rows.append(AnnualEmployeeRow(
+            employee_id=emp_id,
+            name=data["name"],
+            months=month_list,
+        ))
+
+    return AnnualPayrollRead(year=year, employees=rows)
 
 
 # ── Helpers Excel ─────────────────────────────────────────────────────────────

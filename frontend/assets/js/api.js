@@ -117,7 +117,8 @@ const Api = (() => {
   const changeMyPwd      = (body)       => patch('/users/me/password', body);
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
-  const getDashboard = () => get('/reports/dashboard');
+  const getDashboard      = ()     => get('/reports/dashboard');
+  const getAnnualPayroll  = (year) => get('/reports/annual-payroll', { year });
 
   // ── Employees ─────────────────────────────────────────────────────────────
   const getEmployees         = ()           => get('/employees');
@@ -214,7 +215,7 @@ const Api = (() => {
     getToken, setToken, removeToken, getUser, setUser,
     login, setupAdmin, me,
     getUsers, createUser, updateUser, adminResetPwd, changeMyPwd,
-    getDashboard,
+    getDashboard, getAnnualPayroll,
     getEmployees, getInactiveEmployees, getEmployee, getEmployeeHistory, createEmployee, updateEmployee, inactivateEmp, reactivateEmp,
     getSeamstresses, getAllSeamstresses, createSeamstress, updateSeamstress, getSeamstressPayments, createPayment, deleteSeamstressPayment, getSeamstressMonthReport, closeSeamstressMonth,
     getPayrollPeriod, getEligible, batchCreatePayroll, closeAllPayrolls,

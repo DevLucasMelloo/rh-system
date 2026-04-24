@@ -9,7 +9,7 @@ import io
 from app.db.database import get_db
 from app.core.dependencies import get_current_user, require_rh_or_admin
 from app.models.user import User
-from app.schemas.reports import DashboardRead
+from app.schemas.reports import DashboardRead, AnnualPayrollRead
 from app.services import reports as report_service
 
 router = APIRouter(prefix="/reports", tags=["Relatórios / Dashboard"])
@@ -27,6 +27,15 @@ def get_dashboard(
     férias, aniversários e alertas.
     """
     return report_service.get_dashboard(db, current_user.company_id)
+
+
+@router.get("/annual-payroll", response_model=AnnualPayrollRead)
+def get_annual_payroll(
+    year: int = Query(..., ge=2020),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return report_service.get_annual_payroll(db, current_user.company_id, year)
 
 
 # ── Relatórios Excel ──────────────────────────────────────────────────────────

@@ -1,32 +1,41 @@
 /**
- * Dashboard — estatísticas gerais + gráfico de evolução de folha.
+ * Dashboard — estatísticas gerais + gráfico de evolução + folha anual.
  */
 const PageDashboard = (() => {
+  const MONTHS_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   let chart = null;
 
   async function render(container) {
     container.innerHTML = `
       <div class="page-header">
-        <div>
-          <h1>Dashboard</h1>
-          <p>Visão geral do sistema de RH</p>
-        </div>
+        <div><h1>Dashboard</h1><p>Visão geral do sistema de RH</p></div>
       </div>
 
-      <!-- Stats -->
       <div class="stats-grid" id="stats-grid">
-        ${statSkeleton()} ${statSkeleton()} ${statSkeleton()} ${statSkeleton()} ${statSkeleton()}
+        ${statSkeleton()} ${statSkeleton()} ${statSkeleton()} ${statSkeleton()}
       </div>
 
-      <!-- Chart -->
       <div class="chart-container">
         <div class="chart-title">Evolução da Folha (6 meses)</div>
         <canvas id="payroll-chart" height="90"></canvas>
       </div>
 
+      <!-- Folha anual por funcionário -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Folha Anual por Funcionário</span>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#fef08a;border:1px solid #ca8a04"></span>
+            Aumento salarial
+          </div>
+        </div>
+        <div id="annual-table" style="overflow-x:auto;padding:0">
+          <div style="padding:20px;text-align:center;color:var(--text-muted)">Carregando...</div>
+        </div>
+      </div>
+
       <!-- Bottom row -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-        <!-- Férias expirando -->
         <div class="card">
           <div class="card-header" style="display:flex;align-items:center;gap:8px">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -36,8 +45,6 @@ const PageDashboard = (() => {
             <div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Carregando...</div>
           </div>
         </div>
-
-        <!-- Aniversários -->
         <div class="card">
           <div class="card-header" style="display:flex;align-items:center;gap:8px">
             🎂 Aniversários (30 dias)
@@ -56,10 +63,15 @@ const PageDashboard = (() => {
   }
 
   async function loadData() {
+    const year = new Date().getFullYear();
     try {
-      const d = await Api.getDashboard();
+      const [d, annual] = await Promise.all([
+        Api.getDashboard(),
+        Api.getAnnualPayroll(year),
+      ]);
       renderStats(d);
       renderChart(d);
+      renderAnnualTable(annual);
       renderVacationExpiring(d.expiring_vacations || []);
       renderBirthdays(d.birthdays_next_30_days || []);
     } catch (e) {
@@ -72,7 +84,9 @@ const PageDashboard = (() => {
     const m = fmt.month(d.current_month);
     const y = d.current_year;
     document.getElementById('stats-grid').innerHTML = `
-      <div class="stat-card">
+
+      <!-- Funcionários Ativos -->
+      <div class="stat-card" style="cursor:pointer" onclick="navigate('employees')" title="Ver Funcionários">
         <div class="stat-info">
           <h3>Funcionários Ativos</h3>
           <div class="stat-value">${d.active_employees}</div>
@@ -82,36 +96,20 @@ const PageDashboard = (() => {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </div>
       </div>
-      <div class="stat-card">
+
+      <!-- Folha de Pagamento -->
+      <div class="stat-card" style="cursor:pointer" onclick="navigate('payroll')" title="Ver Folha de Pagamento">
         <div class="stat-info">
           <h3>Folha de Pagamento</h3>
           <div class="stat-value primary">${fmt.brl(d.total_net_salary)}</div>
-          <div class="stat-sub">Competência ${m}/${y}</div>
+          <div class="stat-sub">Competência ${m}/${y}${d.payrolls_draft > 0 ? ` · ${d.payrolls_draft} rascunho(s)` : ''}</div>
         </div>
         <div class="stat-icon blue">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <h3>Horas Extras (mês)</h3>
-          <div class="stat-value">${Number(d.total_overtime_hours_month || 0).toFixed(1)}h</div>
-          <div class="stat-sub">${d.total_absences_month} falta(s) registrada(s)</div>
-        </div>
-        <div class="stat-icon green">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-info">
-          <h3>Férias Vencidas</h3>
-          <div class="stat-value ${d.vacations_expiring_60d > 0 ? 'warning' : ''}">${d.vacations_expiring_60d}</div>
-          <div class="stat-sub">${d.vacations_active} em gozo | ${d.vacations_scheduled} agendadas</div>
-        </div>
-        <div class="stat-icon ${d.vacations_expiring_60d > 0 ? 'orange' : 'green'}">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>
-        </div>
-      </div>
+
+      <!-- Costureiras -->
       <div class="stat-card" style="cursor:pointer" onclick="navigate('seamstresses')" title="Ver Folha de Costureiras">
         <div class="stat-info">
           <h3>Costureiras ${m}/${y}</h3>
@@ -121,20 +119,30 @@ const PageDashboard = (() => {
         <div class="stat-icon ${Number(d.seamstress_pending_month) > 0 ? 'orange' : 'green'}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>
         </div>
+      </div>
+
+      <!-- Custo Total -->
+      <div class="stat-card" style="cursor:pointer" onclick="navigate('payroll')" title="Folha + Costureiras">
+        <div class="stat-info">
+          <h3>Custo Total ${m}/${y}</h3>
+          <div class="stat-value" style="color:var(--danger)">${fmt.brl(d.custo_total_month)}</div>
+          <div class="stat-sub">Folha + Costureiras</div>
+        </div>
+        <div class="stat-icon orange">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
       </div>`;
   }
 
   async function renderChart(d) {
-    // Build last 6 months labels
     const labels = [];
     const values = [];
     const now = new Date();
     for (let i = 5; i >= 0; i--) {
       const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      labels.push(fmt.month(dt.getMonth()+1) + '/' + String(dt.getFullYear()).slice(2));
-      values.push(0); // placeholder — could fetch per month
+      labels.push(MONTHS_SHORT[dt.getMonth()] + '/' + String(dt.getFullYear()).slice(2));
+      values.push(0);
     }
-    // Use current month value
     values[5] = Number(d.total_net_salary || 0);
 
     const ctx = document.getElementById('payroll-chart')?.getContext('2d');
@@ -157,9 +165,7 @@ const PageDashboard = (() => {
         responsive: true,
         plugins: {
           legend: { display: false },
-          tooltip: {
-            callbacks: { label: ctx => fmt.brl(ctx.raw) }
-          }
+          tooltip: { callbacks: { label: ctx => fmt.brl(ctx.raw) } }
         },
         scales: {
           y: {
@@ -170,6 +176,51 @@ const PageDashboard = (() => {
         }
       }
     });
+  }
+
+  function renderAnnualTable(data) {
+    const el = document.getElementById('annual-table');
+    if (!data || !data.employees || !data.employees.length) {
+      el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Nenhuma folha fechada em ${data?.year || ''}.</div>`;
+      return;
+    }
+
+    const headerCells = MONTHS_SHORT.map(m =>
+      `<th style="text-align:right;padding:8px 12px;font-weight:600;font-size:12px;color:var(--text-muted);white-space:nowrap">${m}</th>`
+    ).join('');
+
+    const rows = data.employees.map(emp => {
+      // Sublinhas: salário + auxílio (se tiver)
+      const salaryCells = emp.months.map(m => {
+        if (m.net_salary === null || m.net_salary === undefined) {
+          return `<td style="text-align:right;padding:8px 12px;color:var(--border)">—</td>`;
+        }
+        const val = Number(m.net_salary).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        const bg = m.is_salary_increase ? 'background:#fef08a' : '';
+        return `<td style="text-align:right;padding:8px 12px;font-size:13px;${bg}" title="${m.is_salary_increase ? 'Aumento salarial' : ''}">${val}</td>`;
+      }).join('');
+
+      return `<tr>
+        <td style="padding:8px 12px;white-space:nowrap;font-weight:600;font-size:13px;position:sticky;left:0;background:var(--card-bg);border-right:1px solid var(--border)">
+          ${emp.name}
+          <span style="font-weight:400;font-size:11px;color:var(--text-muted);margin-left:4px">salário</span>
+        </td>
+        ${salaryCells}
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;min-width:700px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:8px 12px;font-size:12px;color:var(--text-muted);position:sticky;left:0;background:var(--card-bg)">Funcionário</th>
+            ${headerCells}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>`;
   }
 
   function renderVacationExpiring(list) {
