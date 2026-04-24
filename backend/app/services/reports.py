@@ -174,28 +174,20 @@ def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayroll
         .all()
     )
 
-    # Folhas fechadas no ano por funcionário
-    payrolls = (
-        db.query(Payroll)
-        .join(Employee)
+    # Inclui também inativos que tinham folha no ano (saíram durante o ano)
+    all_emps: dict[int, Employee] = {e.id: e for e in active_emps}
+    inactive_with_payroll = (
+        db.query(Employee)
+        .join(Payroll)
         .filter(
             Employee.company_id == company_id,
+            Employee.status == EmployeeStatus.INACTIVE,
             Payroll.competence_year == year,
-            Payroll.status == PayrollStatus.CLOSED,
         )
         .all()
     )
-    payroll_months: dict[int, set[int]] = {}
-    for p in payrolls:
-        payroll_months.setdefault(p.employee_id, set()).add(p.competence_month)
-
-    # Inclui inativos que tiveram folha fechada no ano (saíram durante o ano)
-    all_emps: dict[int, Employee] = {e.id: e for e in active_emps}
-    for emp_id in payroll_months:
-        if emp_id not in all_emps:
-            emp = db.get(Employee, emp_id)
-            if emp and emp.company_id == company_id:
-                all_emps[emp_id] = emp
+    for emp in inactive_with_payroll:
+        all_emps.setdefault(emp.id, emp)
 
     # Histórico de salário de todos de uma vez (evita N+1)
     all_ids = list(all_emps.keys())
@@ -230,24 +222,22 @@ def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayroll
     rows = []
     for emp_id, emp in sorted(all_emps.items(), key=lambda x: x[1].name):
         adm = emp.admission_date or date(year, 1, 1)
-        emp_months = payroll_months.get(emp_id, set())
         emp_auxilio = Decimal(str(emp.auxilio)) if emp.auxilio else None
 
+        today = date.today()
         month_list = []
         prev_salary = None
         for m in range(1, 13):
-            # Meses antes da admissão ficam em branco
+            # Meses antes da admissão: em branco
             before_adm = (adm.year == year and m < adm.month) or adm.year > year
-            if before_adm:
+            # Meses futuros do ano corrente: em branco
+            future = (year == today.year and m > today.month)
+            if before_adm or future:
                 month_list.append(AnnualEmployeeMonth(month=m))
                 continue
 
-            if m in emp_months:
-                sal = salary_at_month_end(emp, m)
-                aux = emp_auxilio
-            else:
-                sal = None
-                aux = None
+            sal = salary_at_month_end(emp, m)
+            aux = emp_auxilio
 
             is_inc = sal is not None and prev_salary is not None and sal > prev_salary
             month_list.append(AnnualEmployeeMonth(
