@@ -150,7 +150,31 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
 # ── Folha Anual por Funcionário ───────────────────────────────────────────────
 
 def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayrollRead:
-    """Retorna salário bruto e auxílio (campo fixo do funcionário) por mês no ano."""
+    """
+    Retorna para cada funcionário ativo:
+    - Salário contratado em cada mês (reconstruído pelo histórico de alterações)
+    - Auxílio fixo cadastrado no funcionário
+    Meses com folha fechada mostram o valor; sem folha, mostra —.
+    Meses anteriores à admissão ficam em branco.
+    """
+    import calendar as cal
+    from app.models.employee import EmployeeHistory
+
+    year_end = date(year, 12, 31)
+
+    # Todos os funcionários que entraram até o fim do ano (ativos + inativos com folha no ano)
+    active_emps = (
+        db.query(Employee)
+        .filter(
+            Employee.company_id == company_id,
+            Employee.status == EmployeeStatus.ACTIVE,
+            Employee.admission_date <= year_end,
+        )
+        .order_by(Employee.name)
+        .all()
+    )
+
+    # Folhas fechadas no ano por funcionário
     payrolls = (
         db.query(Payroll)
         .join(Employee)
@@ -159,54 +183,88 @@ def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayroll
             Payroll.competence_year == year,
             Payroll.status == PayrollStatus.CLOSED,
         )
-        .order_by(Employee.name, Payroll.competence_month)
         .all()
     )
-
-    # Agrupa por funcionário
-    emp_data: dict[int, dict] = {}
+    payroll_months: dict[int, set[int]] = {}
     for p in payrolls:
-        emp = db.get(Employee, p.employee_id)
-        if not emp:
-            continue
-        if p.employee_id not in emp_data:
-            adm = emp.admission_date or date(year, 1, 1)
-            emp_data[p.employee_id] = {
-                "name": emp.name,
-                "admission_month": adm.month,
-                "admission_year":  adm.year,
-                "auxilio": Decimal(str(emp.auxilio)) if emp.auxilio else None,
-                "months": {},
-            }
-        emp_data[p.employee_id]["months"][p.competence_month] = Decimal(str(p.gross_salary))
+        payroll_months.setdefault(p.employee_id, set()).add(p.competence_month)
+
+    # Inclui inativos que tiveram folha fechada no ano (saíram durante o ano)
+    all_emps: dict[int, Employee] = {e.id: e for e in active_emps}
+    for emp_id in payroll_months:
+        if emp_id not in all_emps:
+            emp = db.get(Employee, emp_id)
+            if emp and emp.company_id == company_id:
+                all_emps[emp_id] = emp
+
+    # Histórico de salário de todos de uma vez (evita N+1)
+    all_ids = list(all_emps.keys())
+    history_all = (
+        db.query(EmployeeHistory)
+        .filter(
+            EmployeeHistory.employee_id.in_(all_ids),
+            EmployeeHistory.field_changed == "salary",
+        )
+        .order_by(EmployeeHistory.employee_id, EmployeeHistory.changed_at.desc())
+        .all()
+    )
+    history_by_emp: dict[int, list] = {}
+    for h in history_all:
+        history_by_emp.setdefault(h.employee_id, []).append(h)
+
+    def salary_at_month_end(emp: Employee, m: int) -> Decimal:
+        """Retorna o salário contratado que estava vigente no último dia do mês."""
+        last_day = date(year, m, cal.monthrange(year, m)[1])
+        effective = Decimal(str(emp.salary))
+        for h in history_by_emp.get(emp.id, []):
+            change_date = h.changed_at.date() if hasattr(h.changed_at, "date") else h.changed_at
+            if change_date > last_day:
+                try:
+                    effective = Decimal(str(h.old_value))
+                except Exception:
+                    pass
+            else:
+                break
+        return effective
 
     rows = []
-    for emp_id, data in emp_data.items():
+    for emp_id, emp in sorted(all_emps.items(), key=lambda x: x[1].name):
+        adm = emp.admission_date or date(year, 1, 1)
+        emp_months = payroll_months.get(emp_id, set())
+        emp_auxilio = Decimal(str(emp.auxilio)) if emp.auxilio else None
+
         month_list = []
-        prev_gross = None
-        emp_auxilio = data["auxilio"]
+        prev_salary = None
         for m in range(1, 13):
-            gross = data["months"].get(m)
-            # auxílio só aparece nos meses em que há folha fechada
-            aux_val = emp_auxilio if gross is not None else None
+            # Meses antes da admissão ficam em branco
+            before_adm = (adm.year == year and m < adm.month) or adm.year > year
+            if before_adm:
+                month_list.append(AnnualEmployeeMonth(month=m))
+                continue
 
-            is_sal_inc = gross is not None and prev_gross is not None and gross > prev_gross
+            if m in emp_months:
+                sal = salary_at_month_end(emp, m)
+                aux = emp_auxilio
+            else:
+                sal = None
+                aux = None
 
+            is_inc = sal is not None and prev_salary is not None and sal > prev_salary
             month_list.append(AnnualEmployeeMonth(
                 month=m,
-                gross_salary=gross,
-                auxilio=aux_val,
-                is_salary_increase=is_sal_inc,
-                is_auxilio_increase=False,  # auxílio fixo não aumenta mês a mês
+                gross_salary=sal,
+                auxilio=aux,
+                is_salary_increase=is_inc,
+                is_auxilio_increase=False,
             ))
-            if gross is not None:
-                prev_gross = gross
+            if sal is not None:
+                prev_salary = sal
 
         rows.append(AnnualEmployeeRow(
             employee_id=emp_id,
-            name=data["name"],
-            admission_month=data["admission_month"],
-            admission_year=data["admission_year"],
+            name=emp.name,
+            admission_month=adm.month,
+            admission_year=adm.year,
             months=month_list,
         ))
 
