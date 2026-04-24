@@ -279,17 +279,19 @@ def apply_raise(
 
     if data.raise_type == "salary":
         if data.new_salary is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Novo salário é obrigatório")
-        old = f"{emp.salary:.2f}"
-        changes["salary"] = data.new_salary
-        history_entries.append(("salary", old, f"{data.new_salary:.2f}"))
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Valor do aumento é obrigatório")
+        old = Decimal(str(emp.salary))
+        new_salary = old + Decimal(str(data.new_salary))
+        changes["salary"] = new_salary
+        history_entries.append(("salary", f"{old:.2f}", f"{new_salary:.2f}"))
 
     elif data.raise_type == "auxilio":
         if data.new_auxilio is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Novo auxílio é obrigatório")
-        old = f"{emp.auxilio:.2f}" if emp.auxilio else "0.00"
-        changes["auxilio"] = data.new_auxilio
-        history_entries.append(("auxilio", old, f"{data.new_auxilio:.2f}"))
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Valor do aumento é obrigatório")
+        old = Decimal(str(emp.auxilio)) if emp.auxilio else Decimal("0")
+        new_auxilio = old + Decimal(str(data.new_auxilio))
+        changes["auxilio"] = new_auxilio
+        history_entries.append(("auxilio", f"{old:.2f}", f"{new_auxilio:.2f}"))
 
     elif data.raise_type == "incorporate":
         auxilio = Decimal(str(emp.auxilio)) if emp.auxilio else Decimal("0")

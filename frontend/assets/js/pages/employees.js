@@ -348,12 +348,14 @@ const PageEmployees = (() => {
 
       <div id="raise-fields" style="display:none">
         <div class="form-group" id="raise-salary-group">
-          <label>Novo Salário (R$) *</label>
-          <input class="form-control" type="number" step="0.01" id="raise-new-salary" placeholder="0.00">
+          <label>Valor do Aumento de Salário (R$) *</label>
+          <input class="form-control" type="number" step="0.01" id="raise-new-salary" placeholder="0.00" oninput="PageEmployees._onRaiseTypeChange()">
+          <div id="raise-salary-preview" style="display:none;font-size:12px;color:var(--text-muted);margin-top:4px"></div>
         </div>
         <div class="form-group" id="raise-auxilio-group" style="display:none">
-          <label>Novo Auxílio (R$) *</label>
-          <input class="form-control" type="number" step="0.01" id="raise-new-auxilio" placeholder="0.00">
+          <label>Valor do Aumento de Auxílio (R$) *</label>
+          <input class="form-control" type="number" step="0.01" id="raise-new-auxilio" placeholder="0.00" oninput="PageEmployees._onRaiseTypeChange()">
+          <div id="raise-auxilio-preview" style="display:none;font-size:12px;color:var(--text-muted);margin-top:4px"></div>
         </div>
         <div id="raise-incorporate-preview" style="display:none;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
           Novo salário: <strong id="raise-inc-result">—</strong>
@@ -390,17 +392,37 @@ const PageEmployees = (() => {
 
   function _onRaiseTypeChange() {
     const type = document.querySelector('input[name="raise-type"]:checked')?.value;
-    document.getElementById('raise-salary-group').style.display     = type === 'salary'      ? 'block' : 'none';
-    document.getElementById('raise-auxilio-group').style.display    = type === 'auxilio'     ? 'block' : 'none';
+    document.getElementById('raise-salary-group').style.display        = type === 'salary'      ? 'block' : 'none';
+    document.getElementById('raise-auxilio-group').style.display       = type === 'auxilio'     ? 'block' : 'none';
     document.getElementById('raise-incorporate-preview').style.display = type === 'incorporate' ? 'block' : 'none';
 
-    if (type === 'incorporate') {
-      const empId = parseInt(document.getElementById('raise-emp').value);
-      const emp = allEmployees.find(e => e.id === empId);
-      if (emp) {
-        const newSal = parseFloat(emp.salary) + parseFloat(emp.auxilio || 0);
-        document.getElementById('raise-inc-result').textContent = fmt.brl(newSal);
+    const empId = parseInt(document.getElementById('raise-emp').value);
+    const emp = allEmployees.find(e => e.id === empId);
+    if (!emp) return;
+
+    if (type === 'salary') {
+      const raise = parseFloat(document.getElementById('raise-new-salary').value) || 0;
+      const prev  = document.getElementById('raise-salary-preview');
+      if (raise > 0) {
+        const result = parseFloat(emp.salary) + raise;
+        prev.textContent = `${fmt.brl(emp.salary)} + ${fmt.brl(raise)} = ${fmt.brl(result)}`;
+        prev.style.display = 'block';
+      } else {
+        prev.style.display = 'none';
       }
+    } else if (type === 'auxilio') {
+      const raise = parseFloat(document.getElementById('raise-new-auxilio').value) || 0;
+      const prev  = document.getElementById('raise-auxilio-preview');
+      if (raise > 0) {
+        const result = parseFloat(emp.auxilio || 0) + raise;
+        prev.textContent = `${fmt.brl(emp.auxilio || 0)} + ${fmt.brl(raise)} = ${fmt.brl(result)}`;
+        prev.style.display = 'block';
+      } else {
+        prev.style.display = 'none';
+      }
+    } else if (type === 'incorporate') {
+      const newSal = parseFloat(emp.salary) + parseFloat(emp.auxilio || 0);
+      document.getElementById('raise-inc-result').textContent = fmt.brl(newSal);
     }
   }
 
