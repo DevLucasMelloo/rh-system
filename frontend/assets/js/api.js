@@ -127,6 +127,7 @@ const Api = (() => {
   const getEmployeeHistory = (id)         => get(`/employees/${id}/history`);
   const createEmployee     = (body)       => post('/employees', body);
   const updateEmployee     = (id, body)   => patch(`/employees/${id}`, body);
+  const raiseEmployee      = (id, body)   => patch(`/employees/${id}/raise`, body);
   const inactivateEmp      = (id, reason) => post(`/employees/${id}/inactivate`, { reason });
   const reactivateEmp      = (id)         => post(`/employees/${id}/reactivate`, {});
 
@@ -216,7 +217,7 @@ const Api = (() => {
     login, setupAdmin, me,
     getUsers, createUser, updateUser, adminResetPwd, changeMyPwd,
     getDashboard, getAnnualPayroll,
-    getEmployees, getInactiveEmployees, getEmployee, getEmployeeHistory, createEmployee, updateEmployee, inactivateEmp, reactivateEmp,
+    getEmployees, getInactiveEmployees, getEmployee, getEmployeeHistory, createEmployee, updateEmployee, raiseEmployee, inactivateEmp, reactivateEmp,
     getSeamstresses, getAllSeamstresses, createSeamstress, updateSeamstress, getSeamstressPayments, createPayment, deleteSeamstressPayment, getSeamstressMonthReport, closeSeamstressMonth,
     getPayrollPeriod, getEligible, batchCreatePayroll, closeAllPayrolls,
     getPayroll, createPayroll, deletePayroll, closePayroll, recalcPayroll,

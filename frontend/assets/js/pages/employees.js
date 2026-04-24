@@ -10,10 +10,16 @@ const PageEmployees = (() => {
     container.innerHTML = `
       <div class="page-header">
         <div><h1>Funcionários</h1><p>Gerencie o cadastro de funcionários</p></div>
-        <button class="btn btn-primary" onclick="PageEmployees.openNew()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Novo Funcionário
-        </button>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+          <button class="btn btn-primary" onclick="PageEmployees.openNew()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Novo Funcionário
+          </button>
+          <button class="btn btn-secondary" onclick="PageEmployees.openRaise()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            Aumento
+          </button>
+        </div>
       </div>
 
       <div class="toolbar">
@@ -297,6 +303,140 @@ const PageEmployees = (() => {
     } catch (e) { toast(e.message, 'error'); }
   }
 
+  function openRaise() {
+    const empOptions = allEmployees
+      .filter(e => e.status === 'ativo')
+      .sort((a,b) => a.name.localeCompare(b.name))
+      .map(e => `<option value="${e.id}">${e.name}</option>`)
+      .join('');
+
+    openModal('Aumento de Salário / Auxílio', `
+      <div class="form-group">
+        <label>Funcionário *</label>
+        <select class="form-control" id="raise-emp" onchange="PageEmployees._onRaiseEmpChange()">
+          <option value="">Selecione...</option>
+          ${empOptions}
+        </select>
+      </div>
+
+      <div id="raise-current" style="display:none;background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+        <div style="display:flex;gap:24px">
+          <span>Salário atual: <strong id="raise-cur-sal">—</strong></span>
+          <span>Auxílio atual: <strong id="raise-cur-aux">—</strong></span>
+        </div>
+      </div>
+
+      <div class="form-group" id="raise-type-group" style="display:none">
+        <label>Tipo de Ajuste *</label>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400">
+            <input type="radio" name="raise-type" value="salary" onchange="PageEmployees._onRaiseTypeChange()" checked>
+            Aumento de Salário
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400">
+            <input type="radio" name="raise-type" value="auxilio" onchange="PageEmployees._onRaiseTypeChange()">
+            Aumento de Auxílio
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-weight:400">
+            <input type="radio" name="raise-type" value="incorporate" style="margin-top:3px" onchange="PageEmployees._onRaiseTypeChange()">
+            <span>Incorporar Auxílio ao Salário
+              <span style="display:block;font-size:12px;color:var(--text-muted)">Novo salário = salário + auxílio · auxílio será zerado</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div id="raise-fields" style="display:none">
+        <div class="form-group" id="raise-salary-group">
+          <label>Novo Salário (R$) *</label>
+          <input class="form-control" type="number" step="0.01" id="raise-new-salary" placeholder="0.00">
+        </div>
+        <div class="form-group" id="raise-auxilio-group" style="display:none">
+          <label>Novo Auxílio (R$) *</label>
+          <input class="form-control" type="number" step="0.01" id="raise-new-auxilio" placeholder="0.00">
+        </div>
+        <div id="raise-incorporate-preview" style="display:none;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+          Novo salário: <strong id="raise-inc-result">—</strong>
+          <div style="color:var(--text-muted);font-size:12px;margin-top:4px">O campo auxílio será zerado após a incorporação.</div>
+        </div>
+        <div class="form-group">
+          <label>Motivo *</label>
+          <input class="form-control" id="raise-reason" placeholder="Ex: Reajuste anual, promoção...">
+        </div>
+      </div>
+      <div id="form-error"></div>
+    `, `
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="PageEmployees.saveRaise()">Aplicar Aumento</button>
+    `);
+  }
+
+  function _onRaiseEmpChange() {
+    const empId = parseInt(document.getElementById('raise-emp').value);
+    const emp = allEmployees.find(e => e.id === empId);
+    if (!emp) {
+      document.getElementById('raise-current').style.display = 'none';
+      document.getElementById('raise-type-group').style.display = 'none';
+      document.getElementById('raise-fields').style.display = 'none';
+      return;
+    }
+    document.getElementById('raise-cur-sal').textContent = fmt.brl(emp.salary);
+    document.getElementById('raise-cur-aux').textContent = emp.auxilio ? fmt.brl(emp.auxilio) : '—';
+    document.getElementById('raise-current').style.display = 'block';
+    document.getElementById('raise-type-group').style.display = 'block';
+    document.getElementById('raise-fields').style.display = 'block';
+    _onRaiseTypeChange();
+  }
+
+  function _onRaiseTypeChange() {
+    const type = document.querySelector('input[name="raise-type"]:checked')?.value;
+    document.getElementById('raise-salary-group').style.display     = type === 'salary'      ? 'block' : 'none';
+    document.getElementById('raise-auxilio-group').style.display    = type === 'auxilio'     ? 'block' : 'none';
+    document.getElementById('raise-incorporate-preview').style.display = type === 'incorporate' ? 'block' : 'none';
+
+    if (type === 'incorporate') {
+      const empId = parseInt(document.getElementById('raise-emp').value);
+      const emp = allEmployees.find(e => e.id === empId);
+      if (emp) {
+        const newSal = parseFloat(emp.salary) + parseFloat(emp.auxilio || 0);
+        document.getElementById('raise-inc-result').textContent = fmt.brl(newSal);
+      }
+    }
+  }
+
+  async function saveRaise() {
+    const empId = parseInt(document.getElementById('raise-emp').value);
+    if (!empId) { toast('Selecione um funcionário', 'error'); return; }
+
+    const type   = document.querySelector('input[name="raise-type"]:checked')?.value;
+    const reason = document.getElementById('raise-reason').value.trim();
+    if (!reason) { toast('Informe o motivo do ajuste', 'error'); return; }
+
+    const body = { raise_type: type, reason };
+
+    if (type === 'salary') {
+      const val = parseFloat(document.getElementById('raise-new-salary').value);
+      if (isNaN(val) || val <= 0) { toast('Informe o novo salário', 'error'); return; }
+      body.new_salary = val;
+    } else if (type === 'auxilio') {
+      const val = parseFloat(document.getElementById('raise-new-auxilio').value);
+      if (isNaN(val) || val < 0) { toast('Informe o novo auxílio', 'error'); return; }
+      body.new_auxilio = val;
+    }
+
+    const btn = document.querySelector('#modal-footer .btn-primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Aplicando...'; }
+    try {
+      await Api.raiseEmployee(empId, body);
+      closeModal();
+      toast('Ajuste aplicado com sucesso!');
+      await loadData();
+    } catch (e) {
+      toast(e.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Aplicar Aumento'; }
+    }
+  }
+
   async function openHistory(id, name) {
     openModal(`Histórico — ${name}`, `<div style="padding:20px;text-align:center"><div class="spinner spinner-dark"></div> Carregando...</div>`, '', true);
     try {
@@ -326,5 +466,5 @@ const PageEmployees = (() => {
     }
   }
 
-  return { render, setTab, onSearch, openNew, saveNew, openEdit, saveEdit, confirmInactivate, doInactivate, reactivate, openHistory };
+  return { render, setTab, onSearch, openNew, saveNew, openEdit, saveEdit, confirmInactivate, doInactivate, reactivate, openHistory, openRaise, _onRaiseEmpChange, _onRaiseTypeChange, saveRaise };
 })();

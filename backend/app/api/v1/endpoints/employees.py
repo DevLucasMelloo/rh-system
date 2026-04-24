@@ -5,7 +5,7 @@ from app.db.database import get_db
 from app.core.dependencies import get_current_user, require_rh_or_admin
 from app.schemas.employee import (
     EmployeeCreate, EmployeeUpdate, EmployeeRead,
-    EmployeeListItem, EmployeeHistoryRead, SalaryUpdate, InactivateEmployee,
+    EmployeeListItem, EmployeeHistoryRead, SalaryUpdate, InactivateEmployee, RaiseApply,
 )
 from app.services import employee as emp_service
 from app.models.user import User
@@ -58,6 +58,16 @@ def update_salary(
     db: Session = Depends(get_db),
 ):
     return emp_service.update_salary(db, employee_id, data, current_user.company_id, current_user.id)
+
+
+@router.patch("/{employee_id}/raise", response_model=EmployeeRead)
+def apply_raise(
+    employee_id: int,
+    data: RaiseApply,
+    current_user: User = Depends(require_rh_or_admin),
+    db: Session = Depends(get_db),
+):
+    return emp_service.apply_raise(db, employee_id, data, current_user.company_id, current_user.id)
 
 
 @router.post("/{employee_id}/inactivate", response_model=EmployeeRead)

@@ -143,6 +143,20 @@ class SalaryUpdate(BaseModel):
         return v.strip()
 
 
+class RaiseApply(BaseModel):
+    raise_type: str          # "salary" | "auxilio" | "incorporate"
+    new_salary:  Decimal | None = None
+    new_auxilio: Decimal | None = None
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def reason_required(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Motivo é obrigatório")
+        return v.strip()
+
+
 class InactivateEmployee(BaseModel):
     reason: str
 

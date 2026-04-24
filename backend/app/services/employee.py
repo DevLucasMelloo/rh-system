@@ -10,7 +10,7 @@ from fastapi import HTTPException, status
 from app.core.security import encrypt_field, decrypt_field
 from app.repositories import employee as emp_repo
 from app.repositories import audit_log as audit_repo
-from app.schemas.employee import EmployeeCreate, EmployeeUpdate, SalaryUpdate, InactivateEmployee
+from app.schemas.employee import EmployeeCreate, EmployeeUpdate, SalaryUpdate, InactivateEmployee, RaiseApply
 from app.models.employee import Employee, EmployeeStatus
 
 
@@ -259,6 +259,58 @@ def update_salary(
         db, action="salary_change", user_id=updated_by_id,
         entity="employee", entity_id=emp.id,
         description=f"Salário de '{emp.name}' alterado de R${old_salary} para R${data.new_salary}. Motivo: {data.reason}",
+    )
+    return _decrypt_employee(emp)
+
+
+def apply_raise(
+    db: Session,
+    employee_id: int,
+    data: RaiseApply,
+    company_id: int,
+    updated_by_id: int,
+) -> dict:
+    emp = _get_or_404(db, employee_id, company_id)
+    if emp.status == EmployeeStatus.INACTIVE:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Funcionário inativo")
+
+    changes: dict = {}
+    history_entries: list[tuple] = []
+
+    if data.raise_type == "salary":
+        if data.new_salary is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Novo salário é obrigatório")
+        old = f"{emp.salary:.2f}"
+        changes["salary"] = data.new_salary
+        history_entries.append(("salary", old, f"{data.new_salary:.2f}"))
+
+    elif data.raise_type == "auxilio":
+        if data.new_auxilio is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Novo auxílio é obrigatório")
+        old = f"{emp.auxilio:.2f}" if emp.auxilio else "0.00"
+        changes["auxilio"] = data.new_auxilio
+        history_entries.append(("auxilio", old, f"{data.new_auxilio:.2f}"))
+
+    elif data.raise_type == "incorporate":
+        auxilio = Decimal(str(emp.auxilio)) if emp.auxilio else Decimal("0")
+        new_salary = Decimal(str(emp.salary)) + auxilio
+        history_entries.append(("salary",  f"{emp.salary:.2f}", f"{new_salary:.2f}"))
+        history_entries.append(("auxilio", f"{auxilio:.2f}",    "0.00"))
+        changes["salary"]  = new_salary
+        changes["auxilio"] = Decimal("0")
+
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de ajuste inválido")
+
+    emp_repo.update_employee(db, emp, changes)
+
+    for field, old_v, new_v in history_entries:
+        emp_repo.add_history(db, emp.id, updated_by_id, field, old_v, new_v, reason=data.reason)
+
+    audit_repo.create_log(
+        db, action="raise_applied", user_id=updated_by_id,
+        entity="employee", entity_id=emp.id,
+        description=f"Ajuste '{data.raise_type}' em '{emp.name}'. Motivo: {data.reason}",
     )
     return _decrypt_employee(emp)
 
