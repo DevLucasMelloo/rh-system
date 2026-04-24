@@ -150,7 +150,7 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
 # ── Folha Anual por Funcionário ───────────────────────────────────────────────
 
 def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayrollRead:
-    """Retorna o salário líquido mensal de cada funcionário no ano."""
+    """Retorna salário bruto e auxílio (campo fixo do funcionário) por mês no ano."""
     payrolls = (
         db.query(Payroll)
         .join(Employee)
@@ -170,28 +170,43 @@ def get_annual_payroll(db: Session, company_id: int, year: int) -> AnnualPayroll
         if not emp:
             continue
         if p.employee_id not in emp_data:
-            emp_data[p.employee_id] = {"name": emp.name, "months": {}}
-        emp_data[p.employee_id]["months"][p.competence_month] = Decimal(str(p.net_salary))
+            adm = emp.admission_date or date(year, 1, 1)
+            emp_data[p.employee_id] = {
+                "name": emp.name,
+                "admission_month": adm.month,
+                "admission_year":  adm.year,
+                "auxilio": Decimal(str(emp.auxilio)) if emp.auxilio else None,
+                "months": {},
+            }
+        emp_data[p.employee_id]["months"][p.competence_month] = Decimal(str(p.gross_salary))
 
     rows = []
     for emp_id, data in emp_data.items():
         month_list = []
-        prev_val = None
+        prev_gross = None
+        emp_auxilio = data["auxilio"]
         for m in range(1, 13):
-            val = data["months"].get(m)
-            is_increase = False
-            if val is not None and prev_val is not None and val > prev_val:
-                is_increase = True
+            gross = data["months"].get(m)
+            # auxílio só aparece nos meses em que há folha fechada
+            aux_val = emp_auxilio if gross is not None else None
+
+            is_sal_inc = gross is not None and prev_gross is not None and gross > prev_gross
+
             month_list.append(AnnualEmployeeMonth(
                 month=m,
-                net_salary=val,
-                is_salary_increase=is_increase,
+                gross_salary=gross,
+                auxilio=aux_val,
+                is_salary_increase=is_sal_inc,
+                is_auxilio_increase=False,  # auxílio fixo não aumenta mês a mês
             ))
-            if val is not None:
-                prev_val = val
+            if gross is not None:
+                prev_gross = gross
+
         rows.append(AnnualEmployeeRow(
             employee_id=emp_id,
             name=data["name"],
+            admission_month=data["admission_month"],
+            admission_year=data["admission_year"],
             months=month_list,
         ))
 

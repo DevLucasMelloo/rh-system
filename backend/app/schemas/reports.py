@@ -57,14 +57,18 @@ class DashboardRead(BaseModel):
 
 class AnnualEmployeeMonth(BaseModel):
     month: int
-    net_salary: Decimal | None = None
-    is_salary_increase: bool = False  # salário maior que mês anterior
+    gross_salary: Decimal | None = None   # salário bruto do mês
+    auxilio:      Decimal | None = None   # VT + auxílio alimentação
+    is_salary_increase:  bool = False
+    is_auxilio_increase: bool = False
 
 
 class AnnualEmployeeRow(BaseModel):
-    employee_id: int
-    name:        str
-    months:      list[AnnualEmployeeMonth]  # 12 items, Jan-Dez
+    employee_id:     int
+    name:            str
+    admission_month: int
+    admission_year:  int
+    months:          list[AnnualEmployeeMonth]  # 12 items, Jan-Dez
 
 
 class AnnualPayrollRead(BaseModel):

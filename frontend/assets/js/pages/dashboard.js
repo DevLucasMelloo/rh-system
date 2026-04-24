@@ -185,28 +185,53 @@ const PageDashboard = (() => {
       return;
     }
 
+    const year = data.year;
     const headerCells = MONTHS_SHORT.map(m =>
       `<th style="text-align:right;padding:8px 12px;font-weight:600;font-size:12px;color:var(--text-muted);white-space:nowrap">${m}</th>`
     ).join('');
 
-    const rows = data.employees.map(emp => {
-      // Sublinhas: salário + auxílio (se tiver)
-      const salaryCells = emp.months.map(m => {
-        if (m.net_salary === null || m.net_salary === undefined) {
-          return `<td style="text-align:right;padding:8px 12px;color:var(--border)">—</td>`;
-        }
-        const val = Number(m.net_salary).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-        const bg = m.is_salary_increase ? 'background:#fef08a' : '';
-        return `<td style="text-align:right;padding:8px 12px;font-size:13px;${bg}" title="${m.is_salary_increase ? 'Aumento salarial' : ''}">${val}</td>`;
-      }).join('');
+    function fmtVal(v) {
+      return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
 
-      return `<tr>
-        <td style="padding:8px 12px;white-space:nowrap;font-weight:600;font-size:13px;position:sticky;left:0;background:var(--card-bg);border-right:1px solid var(--border)">
-          ${emp.name}
-          <span style="font-weight:400;font-size:11px;color:var(--text-muted);margin-left:4px">salário</span>
-        </td>
-        ${salaryCells}
-      </tr>`;
+    function monthCell(m, value, isIncrease, admMonth, admYear) {
+      const beforeAdm = (year === admYear && m.month < admMonth) || year < admYear;
+      if (beforeAdm) return `<td style="padding:8px 12px"></td>`;
+      if (value === null || value === undefined)
+        return `<td style="text-align:right;padding:8px 12px;color:var(--border)">—</td>`;
+      const bg = isIncrease ? 'background:#fef08a' : '';
+      return `<td style="text-align:right;padding:8px 12px;font-size:13px;${bg}" title="${isIncrease ? 'Aumento' : ''}">${fmtVal(value)}</td>`;
+    }
+
+    const stickyStyle = 'padding:8px 12px;white-space:nowrap;font-size:13px;position:sticky;left:0;background:var(--card-bg);border-right:1px solid var(--border)';
+
+    const rows = data.employees.map(emp => {
+      const admMonth = emp.admission_month;
+      const admYear  = emp.admission_year;
+
+      const salCells = emp.months.map(m =>
+        monthCell(m, m.gross_salary, m.is_salary_increase, admMonth, admYear)
+      ).join('');
+
+      const auxCells = emp.months.map(m =>
+        monthCell(m, m.auxilio, m.is_auxilio_increase, admMonth, admYear)
+      ).join('');
+
+      return `
+        <tr style="border-top:1px solid var(--border)">
+          <td style="${stickyStyle};font-weight:600">
+            ${emp.name}
+            <span style="font-weight:400;font-size:11px;color:var(--text-muted);margin-left:4px">salário</span>
+          </td>
+          ${salCells}
+        </tr>
+        <tr style="border-bottom:2px solid var(--border)">
+          <td style="${stickyStyle};color:var(--text-muted)">
+            ${emp.name}
+            <span style="font-size:11px;margin-left:4px">auxílio</span>
+          </td>
+          ${auxCells}
+        </tr>`;
     }).join('');
 
     el.innerHTML = `
