@@ -408,7 +408,7 @@ def get_employee_days(
             db.query(Vacation)
             .filter(
                 Vacation.employee_id == employee_id,
-                Vacation.status.in_([VacationStatus.ACTIVE, VacationStatus.COMPLETED]),
+                Vacation.status.in_([VacationStatus.SCHEDULED, VacationStatus.ACTIVE, VacationStatus.COMPLETED]),
                 Vacation.sell_all_days.isnot(True),
                 Vacation.enjoyment_start.isnot(None),
             )

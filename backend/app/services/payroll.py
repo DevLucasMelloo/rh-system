@@ -103,7 +103,7 @@ def _auto_generate_items(db: Session, payroll: Payroll, emp: Employee) -> None:
             db.query(Vacation)
             .filter(
                 Vacation.employee_id == emp.id,
-                Vacation.status.in_([VacationStatus.ACTIVE, VacationStatus.COMPLETED]),
+                Vacation.status.in_([VacationStatus.SCHEDULED, VacationStatus.ACTIVE, VacationStatus.COMPLETED]),
                 Vacation.sell_all_days.isnot(True),
                 Vacation.enjoyment_start.isnot(None),
             )
