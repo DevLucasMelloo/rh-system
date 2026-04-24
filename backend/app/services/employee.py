@@ -184,6 +184,7 @@ def update_employee(
         "father_name": data.father_name, "mother_name": data.mother_name,
         "address": data.address, "cep": data.cep, "city": data.city, "state": data.state,
         "role": data.role, "salary": data.salary, "weekly_hours": data.weekly_hours,
+        "admission_date": data.admission_date, "registration_date": data.registration_date,
         "bank_name": data.bank_name, "is_intern": data.is_intern,
         "auxilio": data.auxilio, "needs_transport": data.needs_transport, "vt_daily": data.vt_daily,
     }

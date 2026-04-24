@@ -9,9 +9,25 @@ from app.db.database import Base, engine
 import app.models  # noqa: F401 — garante que todos os modelos sejam registrados
 
 
+def _run_migrations():
+    """Aplica colunas novas em tabelas existentes (SQLite não tem ADD COLUMN IF NOT EXISTS)."""
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE vacations ADD COLUMN sell_all_days BOOLEAN DEFAULT 0",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                pass  # coluna já existe
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _run_migrations()
     logger.info(f"Sistema de RH iniciado — ambiente: {settings.ENVIRONMENT}")
     yield
 

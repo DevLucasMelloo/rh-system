@@ -11,11 +11,12 @@ from app.repositories import payroll as payroll_repo
 from app.repositories import employee as emp_repo
 from app.repositories import timesheet as ts_repo
 from app.repositories import audit_log as audit_repo
+from app.services.timesheet import sync_hour_bank
 from app.models.payroll import Payroll, PayrollItem, Vale, PayrollItemType, PayrollStatus
 from app.models.employee import Employee, EmployeeStatus
 from app.schemas.payroll import (
     PayrollCreate, PayrollBatchCreate, PayrollFlagsUpdate,
-    PayrollItemCreate, PayrollItemUpdate, ValeCreate,
+    PayrollItemCreate, PayrollItemUpdate, ValeCreate, ValeUpdate,
 )
 from app.utils.payroll_calc import (
     working_days_in_month, count_working_days_in_range,
@@ -103,6 +104,8 @@ def _auto_generate_items(db: Session, payroll: Payroll, emp: Employee) -> None:
             .filter(
                 Vacation.employee_id == emp.id,
                 Vacation.status.in_([VacationStatus.ACTIVE, VacationStatus.COMPLETED]),
+                Vacation.sell_all_days.isnot(True),
+                Vacation.enjoyment_start.isnot(None),
             )
             .all()
         )
@@ -129,35 +132,43 @@ def _auto_generate_items(db: Session, payroll: Payroll, emp: Employee) -> None:
     total_ot_min    = sum(e.overtime_minutes for e in entries if not e.is_annulled)
     total_late_min  = sum(e.late_minutes     for e in entries if not e.is_annulled)
 
-    # ── Dias elegíveis para salário (período ativo menos dias de férias)
-    # Faltas NÃO reduzem o salário aqui — são descontos separados abaixo.
-    salary_eligible_days = max(0, actual_working_days - vacation_working_days)
-
     # ── Dias trabalhados (para exibição) ─────────────────────────────────────
-    worked_days = max(0, salary_eligible_days - absences)
+    worked_days = max(0, actual_working_days - vacation_working_days - absences)
 
     # ── Salário bruto ─────────────────────────────────────────────────────────
-    # Proporcional apenas para funcionários novos (admission > início do mês)
-    # ou quando há dias de férias descontando o período.
-    salary_value = calc_proportional_salary(base_salary, salary_eligible_days, total_working_days)
+    salary_value = calc_proportional_salary(base_salary, actual_working_days, total_working_days)
     _add_auto(db, payroll.id, PayrollItemType.SALARY, "Salário", salary_value, True)
 
-    # ── Hora extra (somente se flag ativa) ────────────────────────────────────
-    # Usa o saldo total do banco de horas (inclui HE acumuladas de meses anteriores
-    # que não foram pagas), não apenas as HE do mês corrente.
+    # ── Dedução de Férias em Gozo ─────────────────────────────────────────────
+    # Os dias de gozo já foram pagos via recibo de férias — desconta do salário mensal.
+    vac_deduction = Decimal("0")
+    if vacation_working_days > 0:
+        vac_deduction = calc_proportional_salary(base_salary, vacation_working_days, total_working_days)
+        _add_auto(db, payroll.id, PayrollItemType.ABSENCE,
+                  f"Férias em Gozo ({vacation_working_days} dias úteis)", vac_deduction, False)
+
+    # Salário efetivo (após férias) — usado para INSS e demais cálculos
+    salary_value = (salary_value - vac_deduction).quantize(Decimal("0.01"))
+
+    # ── Hora extra ────────────────────────────────────────────────────────────
+    # Quando pay_overtime=False: registra HE do mês só para exibição (sem pagar).
+    # Quando pay_overtime=True:  paga o saldo TOTAL do banco de horas (HE
+    # acumuladas de meses anteriores + mês atual). O banco é debitado apenas no
+    # momento do FECHAMENTO do holerite, não aqui, para evitar duplo débito em
+    # recálculos.
     ot_value = Decimal("0")
-    ot_paid_min = 0
+    # Cabeçalho sempre mostra o saldo total do banco de horas.
+    hour_bank = ts_repo.get_hour_bank(db, emp.id)
+    bank_balance = hour_bank.balance_minutes if hour_bank else 0
+    ot_display_min = max(0, bank_balance)
+
     if payroll.pay_overtime:
-        hour_bank = ts_repo.get_hour_bank(db, emp.id)
-        bank_balance = hour_bank.balance_minutes if hour_bank else 0
-        total_to_pay = max(0, bank_balance)
+        total_to_pay = ot_display_min
         if total_to_pay > 0:
             ot_value = calc_overtime_value(base_salary, total_to_pay)
             h, m_ = divmod(total_to_pay, 60)
             _add_auto(db, payroll.id, PayrollItemType.OVERTIME,
                       f"Horas Extras ({h}h{m_:02d}m)", ot_value, True)
-            ts_repo.upsert_hour_bank(db, emp.id, -total_to_pay)
-            ot_paid_min = total_to_pay
 
     # ── Vale Transporte ───────────────────────────────────────────────────────
     if emp.needs_transport:
@@ -175,11 +186,10 @@ def _auto_generate_items(db: Session, payroll: Payroll, emp: Employee) -> None:
                   "Auxílio", Decimal(str(emp.auxilio)), True)
 
     # ── Faltas e DSR ──────────────────────────────────────────────────────────
+    # O débito do banco para use_hour_bank_for_absences ocorre APENAS no fechamento,
+    # nunca aqui, para evitar múltiplos débitos em recálculos.
     if absences > 0:
         if payroll.use_hour_bank_for_absences:
-            # Debitar do banco de horas (8h por falta)
-            absence_minutes = absences * 480
-            ts_repo.upsert_hour_bank(db, emp.id, -absence_minutes)
             h_abs = absences * 8
             _add_auto(db, payroll.id, PayrollItemType.ABSENCE,
                       f"Faltas cobertas por Banco de Horas ({absences}d = {h_abs}h)",
@@ -218,7 +228,7 @@ def _auto_generate_items(db: Session, payroll: Payroll, emp: Employee) -> None:
     # ── Atualizar metadados ───────────────────────────────────────────────────
     payroll_repo.update_payroll(db, payroll, {
         "worked_days": worked_days,
-        "total_overtime_hours": Decimal(str(ot_paid_min)) / Decimal("60"),
+        "total_overtime_hours": Decimal(str(ot_display_min)) / Decimal("60"),
     })
     db.commit()
     payroll_repo.recalc_totals(db, payroll)
@@ -390,8 +400,11 @@ def list_by_period(db: Session, month: int, year: int, company_id: int) -> list[
 def delete_payroll(db: Session, payroll_id: int, company_id: int, user_id: int) -> None:
     payroll = _get_payroll_or_404(db, payroll_id, company_id)
 
+    was_closed = payroll.status == PayrollStatus.CLOSED
+    employee_id = payroll.employee_id
+
     # Se estava fechado: reverter parcelas de vale
-    if payroll.status == PayrollStatus.CLOSED:
+    if was_closed:
         from app.models.payroll import ValeInstallment
         insts = (
             db.query(ValeInstallment)
@@ -409,6 +422,10 @@ def delete_payroll(db: Session, payroll_id: int, company_id: int, user_id: int) 
         description=f"Holerite ID {payroll_id} excluído para reprocessamento",
     )
     payroll_repo.delete_payroll(db, payroll)
+
+    # Recalcula banco do zero após excluir holerite fechado
+    if was_closed:
+        sync_hour_bank(db, employee_id)
 
 
 def add_manual_item(
@@ -490,6 +507,9 @@ def close_payroll(
 
     closed = payroll_repo.close_payroll(db, payroll, None)
 
+    # Recalcula banco do zero após fechar (garante saldo sempre correto)
+    sync_hour_bank(db, payroll.employee_id)
+
     audit_repo.create_log(
         db, action="payroll_closed", user_id=user_id,
         entity="payroll", entity_id=payroll_id,
@@ -524,7 +544,9 @@ def close_all_payrolls(
             payroll_repo.mark_installment_paid(db, inst, p.id)
         if payment_date:
             payroll_repo.update_payroll(db, p, {"payment_date": payment_date})
+
         payroll_repo.close_payroll(db, p, None)
+        sync_hour_bank(db, p.employee_id)
         closed.append(p)
 
     audit_repo.create_log(
@@ -550,8 +572,11 @@ def create_vale(
     last_amount = data.total_amount - inst_amount * (data.installments - 1)
 
     installments_data = []
-    y, m = data.issued_date.year, data.issued_date.month
-    y, m = next_month(y, m)
+    if data.first_due_month and data.first_due_year:
+        y, m = data.first_due_year, data.first_due_month
+    else:
+        y, m = data.issued_date.year, data.issued_date.month
+        y, m = next_month(y, m)
     for i in range(1, data.installments + 1):
         installments_data.append({
             "installment_number": i,
@@ -585,6 +610,44 @@ def get_vale(db: Session, vale_id: int, company_id: int) -> Vale:
     if not emp or emp.company_id != company_id:
         raise HTTPException(status_code=404, detail="Vale não encontrado")
     return vale
+
+
+def update_vale(
+    db: Session, vale_id: int, data: ValeUpdate, company_id: int, user_id: int
+) -> Vale:
+    vale = get_vale(db, vale_id, company_id)
+
+    if data.notes is not None:
+        vale.notes = data.notes
+
+    if data.first_due_month and data.first_due_year:
+        unpaid = sorted(
+            [i for i in vale.installment_items if not i.is_paid],
+            key=lambda i: i.installment_number,
+        )
+        if not unpaid:
+            raise HTTPException(status_code=400, detail="Não há parcelas pendentes para reagendar")
+        y, m = data.first_due_year, data.first_due_month
+        for inst in unpaid:
+            inst.due_month = m
+            inst.due_year = y
+            y, m = next_month(y, m)
+
+    db.commit()
+    db.refresh(vale)
+    return vale
+
+
+def delete_vale(db: Session, vale_id: int, company_id: int, user_id: int) -> None:
+    vale = get_vale(db, vale_id, company_id)
+    has_paid = any(i.is_paid for i in vale.installment_items)
+    if has_paid:
+        raise HTTPException(
+            status_code=400,
+            detail="Vale possui parcelas já descontadas em folha fechada. Não é possível excluir.",
+        )
+    db.delete(vale)
+    db.commit()
 
 
 def list_all_vales(db: Session, company_id: int) -> list[Vale]:

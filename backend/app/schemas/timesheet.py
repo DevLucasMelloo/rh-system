@@ -104,6 +104,7 @@ class PeriodEmployeeInfo(BaseModel):
     total_days: int       # calendar days in the period for this employee
     filled_workdays: int  # Mon-Fri with entries
     total_workdays: int   # Mon-Fri in period
+    balance_minutes: int = 0  # monthly bank delta for this employee
 
 
 class PeriodRead(BaseModel):
@@ -132,6 +133,7 @@ class DayRead(BaseModel):
     is_holiday: bool
     justification: str | None
     is_annulled: bool
+    is_vacation: bool = False
 
 
 class HourBankRead(BaseModel):

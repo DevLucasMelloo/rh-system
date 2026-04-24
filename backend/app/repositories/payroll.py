@@ -1,6 +1,6 @@
 from datetime import date
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 
 from app.models.payroll import Payroll, PayrollItem, Vale, ValeInstallment, PayrollStatus
 
@@ -183,16 +183,22 @@ def list_vales_by_employee(db: Session, employee_id: int) -> list[Vale]:
 def list_pending_installments(
     db: Session, employee_id: int, month: int, year: int
 ) -> list[ValeInstallment]:
-    """Parcelas de vale pendentes para descontar no holerite do mês/ano."""
+    """Parcelas de vale pendentes até o mês/ano da folha (inclusive atrasadas)."""
     return (
         db.query(ValeInstallment)
         .join(Vale)
         .filter(and_(
             Vale.employee_id == employee_id,
-            ValeInstallment.due_month == month,
-            ValeInstallment.due_year == year,
             ValeInstallment.is_paid == False,
+            or_(
+                ValeInstallment.due_year < year,
+                and_(
+                    ValeInstallment.due_year == year,
+                    ValeInstallment.due_month <= month,
+                ),
+            ),
         ))
+        .order_by(ValeInstallment.due_year, ValeInstallment.due_month, ValeInstallment.installment_number)
         .all()
     )
 

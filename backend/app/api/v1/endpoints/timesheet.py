@@ -101,6 +101,23 @@ def get_entry(
     return ts_service.get_entry(db, entry_id, current_user.company_id)
 
 
+@router.get("/bank-summary")
+def bank_summary(
+    year: int = Query(..., ge=2000, le=2100),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ts_service.get_bank_summary(db, year, current_user.company_id)
+
+
+@router.post("/recalculate-all-banks")
+def recalculate_all_banks(
+    current_user: User = Depends(require_rh_or_admin),
+    db: Session = Depends(get_db),
+):
+    return ts_service.recalculate_all_banks(db, current_user.company_id)
+
+
 @router.get("/{employee_id}/report", response_model=MonthlyReport)
 def monthly_report(
     employee_id: int,
@@ -119,6 +136,15 @@ def hour_bank(
     db: Session = Depends(get_db),
 ):
     return ts_service.get_hour_bank(db, employee_id, current_user.company_id)
+
+
+@router.post("/{employee_id}/hour-bank/recalculate", response_model=HourBankRead)
+def recalculate_hour_bank(
+    employee_id: int,
+    current_user: User = Depends(require_rh_or_admin),
+    db: Session = Depends(get_db),
+):
+    return ts_service.recalculate_hour_bank(db, employee_id, current_user.company_id)
 
 
 @router.post("/{employee_id}", response_model=TimesheetEntryRead, status_code=201)

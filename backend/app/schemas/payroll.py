@@ -9,6 +9,8 @@ class ValeCreate(BaseModel):
     installments: int = 1
     notes: str | None = None
     issued_date: date
+    first_due_month: int | None = None  # mês do 1º desconto (padrão: mês seguinte à emissão)
+    first_due_year: int | None = None
 
     @field_validator("total_amount")
     @classmethod
@@ -47,6 +49,12 @@ class ValeRead(BaseModel):
     installment_items: list[ValeInstallmentRead]
 
     model_config = {"from_attributes": True}
+
+
+class ValeUpdate(BaseModel):
+    notes: str | None = None
+    first_due_month: int | None = None  # reagenda parcelas pendentes a partir deste mês
+    first_due_year: int | None = None
 
 
 class PayrollItemCreate(BaseModel):

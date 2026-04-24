@@ -251,7 +251,11 @@ const PageEmployees = (() => {
   }
 
   async function saveEdit(id) {
-    const data = collectForm();
+    const data = {
+      ...collectForm(),
+      admission_date:    document.getElementById('f-admission').value || null,
+      registration_date: document.getElementById('f-registration').value || null,
+    };
     const btn = document.querySelector('#modal-footer .btn-primary');
     if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
     try {

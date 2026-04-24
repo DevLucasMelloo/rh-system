@@ -1,5 +1,5 @@
 """
-Férias — suporta gozo integral, fracionado e alertas de vencimento.
+Férias — suporta gozo integral, fracionado, venda total e itens manuais.
 """
 import enum
 from sqlalchemy import (
@@ -17,6 +17,11 @@ class VacationStatus(str, enum.Enum):
     CANCELLED = "cancelada"
 
 
+class VacationItemType(str, enum.Enum):
+    CREDIT = "credito"
+    DEBIT = "debito"
+
+
 class Vacation(Base):
     """Registro de período de férias de um funcionário."""
     __tablename__ = "vacations"
@@ -31,15 +36,18 @@ class Vacation(Base):
 
     # Período de gozo
     enjoyment_start = Column(Date, nullable=True)
-    enjoyment_days = Column(Integer, default=30)     # dias de gozo (pode ser fracionado)
+    enjoyment_days = Column(Integer, default=30)
+
+    # Venda total (funcionário recebe todos os dias em dinheiro, sem gozar)
+    sell_all_days = Column(Boolean, default=False, nullable=True)
 
     # Fracionamento
     is_fractioned = Column(Boolean, default=False)
-    paid_days_in_payroll = Column(Integer, default=0)  # dias pagos em folha (sem gozo)
+    paid_days_in_payroll = Column(Integer, default=0)
 
-    # Valores calculados (gravados para imutabilidade)
+    # Valores calculados (editáveis manualmente)
     base_salary = Column(Numeric(10, 2), nullable=True)
-    one_third_bonus = Column(Numeric(10, 2), nullable=True)   # 1/3 constitucional
+    one_third_bonus = Column(Numeric(10, 2), nullable=True)
     inss_discount = Column(Numeric(10, 2), nullable=True)
     net_vacation_pay = Column(Numeric(10, 2), nullable=True)
 
@@ -51,3 +59,20 @@ class Vacation(Base):
 
     employee = relationship("Employee", back_populates="vacations")
     created_by = relationship("User")
+    items = relationship(
+        "VacationItem", back_populates="vacation",
+        cascade="all, delete-orphan", order_by="VacationItem.id"
+    )
+
+
+class VacationItem(Base):
+    """Itens adicionais de férias (créditos e débitos manuais)."""
+    __tablename__ = "vacation_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vacation_id = Column(Integer, ForeignKey("vacations.id", ondelete="CASCADE"), nullable=False)
+    item_type = Column(Enum(VacationItemType), nullable=False)
+    description = Column(String(200), nullable=False)
+    value = Column(Numeric(10, 2), nullable=False, default=0)
+
+    vacation = relationship("Vacation", back_populates="items")

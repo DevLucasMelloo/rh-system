@@ -138,6 +138,7 @@ const PAGES = {
   rescisao:     PageRescisao,
   vacation:     PageVacation,
   timesheet:    PageTimesheet,
+  bankhours:    PageBankHours,
   reports:      PageReports,
   settings:     PageSettings,
   audit:        PageAudit,

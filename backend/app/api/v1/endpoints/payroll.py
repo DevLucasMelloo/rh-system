@@ -13,7 +13,7 @@ from app.models.user import User
 from app.schemas.payroll import (
     PayrollCreate, PayrollBatchCreate, PayrollFlagsUpdate, PayrollRead,
     PayrollItemCreate, PayrollItemUpdate, PayrollItemRead,
-    ValeCreate, ValeRead, EligibleEmployeeRead,
+    ValeCreate, ValeUpdate, ValeRead, EligibleEmployeeRead,
 )
 from app.services import payroll as payroll_service
 
@@ -260,6 +260,26 @@ def get_vale(
     current_user: User = Depends(get_current_user),
 ):
     return _enrich_vale(payroll_service.get_vale(db, vale_id, current_user.company_id))
+
+
+@router.patch("/vales/{vale_id}", response_model=ValeRead)
+def update_vale(
+    vale_id: int = Path(...),
+    data: ValeUpdate = ...,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_rh_or_admin),
+):
+    vale = payroll_service.update_vale(db, vale_id, data, current_user.company_id, current_user.id)
+    return _enrich_vale(vale)
+
+
+@router.delete("/vales/{vale_id}", status_code=204)
+def delete_vale(
+    vale_id: int = Path(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_rh_or_admin),
+):
+    payroll_service.delete_vale(db, vale_id, current_user.company_id, current_user.id)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

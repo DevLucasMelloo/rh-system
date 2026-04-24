@@ -112,6 +112,8 @@ class EmployeeUpdate(BaseModel):
     state: str | None = None
     role: str | None = None
     salary: Decimal | None = None
+    admission_date: date | None = None
+    registration_date: date | None = None
     weekly_hours: int | None = None
     auxilio: Decimal | None = None
     needs_transport: bool | None = None

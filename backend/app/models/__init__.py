@@ -4,7 +4,7 @@ from app.models.employee import Employee, EmployeeStatus, EmployeeHistory
 from app.models.seamstress import Seamstress, SeamstressPayment
 from app.models.timesheet import TimesheetEntry, HourBank
 from app.models.payroll import Payroll, PayrollItem, Vale
-from app.models.vacation import Vacation, VacationStatus
+from app.models.vacation import Vacation, VacationStatus, VacationItem, VacationItemType
 from app.models.termination import Termination, TerminationReason
 from app.models.audit_log import AuditLog
 
@@ -14,7 +14,7 @@ __all__ = [
     "Seamstress", "SeamstressPayment",
     "TimesheetEntry", "HourBank",
     "Payroll", "PayrollItem", "Vale",
-    "Vacation", "VacationStatus",
+    "Vacation", "VacationStatus", "VacationItem", "VacationItemType",
     "Termination", "TerminationReason",
     "AuditLog",
 ]

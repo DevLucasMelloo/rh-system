@@ -87,6 +87,15 @@ def upsert_hour_bank(db: Session, employee_id: int, delta: int) -> HourBank:
     return bank
 
 
+def get_all_entries(db: Session, employee_id: int) -> list[TimesheetEntry]:
+    return (
+        db.query(TimesheetEntry)
+        .filter(TimesheetEntry.employee_id == employee_id)
+        .order_by(TimesheetEntry.work_date)
+        .all()
+    )
+
+
 def get_entries_range(
     db: Session, employee_id: int, start: date, end: date
 ) -> list[TimesheetEntry]:

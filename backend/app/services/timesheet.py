@@ -295,6 +295,17 @@ def _period_employee_info(emp: Employee, month: int, year: int, entries: list) -
         1 for d in (date(year, month, day) for day in range(start.day, last.day + 1))
         if d.weekday() < 5 and d in entry_dates
     )
+
+    balance_minutes = 0
+    for e in entries:
+        if getattr(e, 'is_holiday', False):
+            continue
+        exp = expected_minutes(e.work_date, emp.is_intern, emp.weekly_hours)
+        balance_minutes += calc_bank_delta(
+            e.worked_minutes, exp,
+            e.is_absence, e.is_medical_certificate, e.is_annulled,
+        )
+
     return PeriodEmployeeInfo(
         employee_id=emp.id,
         name=emp.name,
@@ -304,6 +315,7 @@ def _period_employee_info(emp: Employee, month: int, year: int, entries: list) -
         total_days=total_days,
         filled_workdays=filled_workdays,
         total_workdays=total_workdays,
+        balance_minutes=balance_minutes,
     )
 
 
@@ -373,6 +385,7 @@ def get_period_info(
 def get_employee_days(
     db: Session, employee_id: int, month: int, year: int, company_id: int
 ) -> list[DayRead]:
+    from datetime import timedelta
     emp = emp_repo.get_employee(db, employee_id)
     if not emp or emp.company_id != company_id:
         raise HTTPException(status_code=404, detail="Funcionário não encontrado")
@@ -387,11 +400,37 @@ def get_employee_days(
         for e in ts_repo.get_entries_range(db, employee_id, start, last)
     }
 
+    # Identificar dias de gozo de férias para o mês
+    vacation_dates: set[date] = set()
+    try:
+        from app.models.vacation import Vacation, VacationStatus
+        vacations = (
+            db.query(Vacation)
+            .filter(
+                Vacation.employee_id == employee_id,
+                Vacation.status.in_([VacationStatus.ACTIVE, VacationStatus.COMPLETED]),
+                Vacation.sell_all_days.isnot(True),
+                Vacation.enjoyment_start.isnot(None),
+            )
+            .all()
+        )
+        for v in vacations:
+            if v.enjoyment_start and v.enjoyment_days:
+                vac_end = v.enjoyment_start + timedelta(days=v.enjoyment_days - 1)
+                d = v.enjoyment_start
+                while d <= vac_end:
+                    if first <= d <= last:
+                        vacation_dates.add(d)
+                    d += timedelta(days=1)
+    except Exception:
+        pass
+
     days = []
     cur = start
     while cur <= last:
-        wd = cur.weekday()
+        wd    = cur.weekday()
         entry = entries_map.get(cur)
+        is_vac = cur in vacation_dates
         days.append(DayRead(
             work_date=cur,
             weekday=wd,
@@ -410,8 +449,8 @@ def get_employee_days(
             is_holiday=entry.is_holiday if entry else False,
             justification=entry.justification if entry else None,
             is_annulled=entry.is_annulled if entry else False,
+            is_vacation=is_vac,
         ))
-        from datetime import timedelta
         cur += timedelta(days=1)
     return days
 
@@ -514,6 +553,140 @@ def bulk_save_entries(
         saved += 1
 
     return {"saved": saved}
+
+
+def _month_absence_minutes(entries, year: int, month: int, emp) -> int:
+    """Soma minutos esperados das ausências de um determinado mês (para uso_banco_faltas)."""
+    total = 0
+    for e in entries:
+        if (e.is_absence
+                and not getattr(e, 'is_holiday', False)
+                and e.work_date.year == year
+                and e.work_date.month == month):
+            total += expected_minutes(e.work_date, emp.is_intern, emp.weekly_hours)
+    return total
+
+
+def get_bank_summary(db: Session, year: int, company_id: int) -> list[dict]:
+    """Retorna o saldo mensal do banco de horas por funcionário para o ano informado."""
+    from app.repositories import payroll as payroll_repo
+    from app.models.payroll import PayrollStatus
+
+    employees = emp_repo.list_active(db, company_id)
+    result = []
+
+    for emp in employees:
+        months_data = {}
+        for month in range(1, 13):
+            entries = ts_repo.list_entries_by_month(db, emp.id, month, year)
+            monthly_delta = 0
+            for e in entries:
+                if getattr(e, 'is_holiday', False):
+                    continue
+                if e.is_annulled or e.is_medical_certificate:
+                    continue
+                exp = expected_minutes(e.work_date, emp.is_intern, emp.weekly_hours)
+                if e.is_absence:
+                    monthly_delta -= exp  # mostra impacto visual da falta
+                else:
+                    monthly_delta += (e.worked_minutes or 0) - exp
+
+            payroll = payroll_repo.get_payroll_by_period(db, emp.id, month, year)
+            paid_overtime = False
+            paid_minutes = 0
+            salary_deducted_minutes = 0
+            if payroll and payroll.status == PayrollStatus.CLOSED:
+                if payroll.pay_overtime and payroll.total_overtime_hours:
+                    paid_overtime = True
+                    paid_minutes = int(payroll.total_overtime_hours * 60)
+                absence_min = _month_absence_minutes(entries, year, month, emp)
+                if payroll.use_hour_bank_for_absences:
+                    pass  # banco já foi debitado — nenhum badge adicional
+                else:
+                    # faltas cobertas por desconto salarial: mostra badge "descontado"
+                    salary_deducted_minutes = absence_min
+
+            months_data[month] = {
+                'balance_minutes': monthly_delta,
+                'paid_overtime': paid_overtime,
+                'paid_minutes': paid_minutes,
+                'salary_deducted_minutes': salary_deducted_minutes,
+            }
+
+        bank = ts_repo.get_hour_bank(db, emp.id)
+        result.append({
+            'employee_id': emp.id,
+            'name': emp.name,
+            'months': months_data,
+            'total_balance_minutes': bank.balance_minutes if bank else 0,
+        })
+
+    return result
+
+
+def sync_hour_bank(db: Session, employee_id: int) -> int:
+    """
+    Recalcula e persiste o banco de horas do zero (uso interno, sem check de empresa).
+    Fórmula:
+      - Dias normais (não falta/atestado/anulado): delta trabalhado vs esperado
+      - Faltas com desconto salarial: neutras para o banco
+      - Faltas cobertas pelo banco (use_hour_bank_for_absences=True): debitam o banco
+      - HE pagas em holerites fechados: debitam o banco
+    """
+    from app.repositories import payroll as payroll_repo
+    from app.models.payroll import PayrollStatus
+
+    emp = emp_repo.get_employee(db, employee_id)
+    if not emp:
+        return 0
+
+    all_entries = ts_repo.get_all_entries(db, employee_id)
+    balance = 0
+
+    # Dias normais: conta o delta (positivo = HE, negativo = atraso/saída antecipada)
+    # Faltas/atestados/anulados: não afetam o banco aqui
+    for e in all_entries:
+        if getattr(e, 'is_holiday', False):
+            continue
+        if e.is_annulled or e.is_medical_certificate or e.is_absence:
+            continue
+        exp = expected_minutes(e.work_date, emp.is_intern, emp.weekly_hours)
+        balance += (e.worked_minutes or 0) - exp
+
+    for p in payroll_repo.list_payrolls_by_employee(db, employee_id):
+        if p.status != PayrollStatus.CLOSED:
+            continue
+        if p.pay_overtime and p.total_overtime_hours:
+            balance -= int(p.total_overtime_hours * 60)
+        if p.use_hour_bank_for_absences:
+            # Faltas cobertas pelo banco debitam aqui (e não via desconto salarial)
+            balance -= _month_absence_minutes(all_entries, p.competence_year, p.competence_month, emp)
+
+    ts_repo.set_hour_bank(db, employee_id, balance)
+    return balance
+
+
+def recalculate_hour_bank(db: Session, employee_id: int, company_id: int) -> dict:
+    """Endpoint público — valida empresa antes de chamar sync_hour_bank."""
+    emp = emp_repo.get_employee(db, employee_id)
+    if not emp or emp.company_id != company_id:
+        raise HTTPException(status_code=404, detail="Funcionário não encontrado")
+    balance = sync_hour_bank(db, employee_id)
+    return {
+        "employee_id": employee_id,
+        "balance_minutes": balance,
+        "balance_hours": format_minutes(balance),
+    }
+
+
+def recalculate_all_banks(db: Session, company_id: int) -> dict:
+    """Recalcula o banco de horas de todos os funcionários ativos da empresa."""
+    employees = emp_repo.list_active(db, company_id)
+    count = 0
+    for emp in employees:
+        sync_hour_bank(db, emp.id)
+        count += 1
+    return {"recalculated": count}
 
 
 def get_hour_bank(db: Session, employee_id: int, company_id: int) -> dict:

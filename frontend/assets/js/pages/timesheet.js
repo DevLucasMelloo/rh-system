@@ -110,10 +110,21 @@ const PageTimesheet = (() => {
         : '';
       const pct = e.total_workdays > 0 ? Math.round(e.filled_workdays / e.total_workdays * 100) : 0;
       const barColor = pct === 100 ? 'var(--success)' : pct > 50 ? 'var(--warning)' : 'var(--danger)';
+
+      const bal = e.balance_minutes || 0;
+      const balAbs = Math.abs(bal);
+      const balH = Math.floor(balAbs / 60);
+      const balM = balAbs % 60;
+      const balStr = bal === 0
+        ? '0'
+        : (bal > 0 ? '+' : '-') + balH + 'h' + String(balM).padStart(2,'0');
+      const balColor = bal > 0 ? 'var(--success)' : bal < 0 ? 'var(--danger)' : 'inherit';
+
       return `<tr>
         <td><strong>${e.name}</strong>${since}</td>
         <td>${adm}</td>
         <td style="font-size:12px;color:var(--text-muted)">${fmt.date(e.start_date)} a ${fmt.date(e.end_date)}</td>
+        <td style="font-weight:600;color:${balColor};white-space:nowrap">${balStr}</td>
         <td>
           <div style="display:flex;align-items:center;gap:8px">
             <div style="flex:1;background:var(--border);border-radius:4px;height:6px">
@@ -134,7 +145,7 @@ const PageTimesheet = (() => {
     el.innerHTML = `
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Funcionário</th><th>Admissão</th><th>Período</th><th>Preenchimento</th><th></th></tr></thead>
+          <thead><tr><th>Funcionário</th><th>Admissão</th><th>Período</th><th>Saldo</th><th>Preenchimento</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
@@ -218,7 +229,28 @@ const PageTimesheet = (() => {
     const isClosed = periodData?.status === 'closed';
 
     const rows = daysData.map((d, i) => {
-      const isWe = d.is_weekend;
+      const isWe  = d.is_weekend;
+      const isVac = d.is_vacation;
+
+      // Linha de férias: read-only, sem inputs de hora
+      if (isVac) {
+        return `<tr style="background:#f0f9ff" data-idx="${i}" data-vacation="1">
+          <td style="white-space:nowrap">
+            <strong>${fmt.date(d.work_date)}</strong>
+            <span style="color:var(--text-muted);font-size:11px;margin-left:4px">${d.weekday_name}</span>
+          </td>
+          <td colspan="4" style="color:#0369a1;font-size:12px;font-style:italic;text-align:center">
+            — Férias —
+          </td>
+          <td colspan="2">
+            <span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;color:#0369a1;background:#bae6fd">
+              Férias
+            </span>
+          </td>
+          <td style="color:var(--text-muted);font-size:12px">—</td>
+        </tr>`;
+      }
+
       const rowStyle = isWe ? 'background:var(--bg)' : '';
 
       // Determine situation
@@ -276,10 +308,12 @@ const PageTimesheet = (() => {
 
     const footer = document.getElementById('ts-days-footer');
     if (footer) {
+      const recalcBtn = `<button class="btn btn-secondary" onclick="PageTimesheet.recalcBank()" title="Recalcula o banco de horas do zero a partir de todos os lançamentos de ponto e holerites fechados">↻ Recalcular Banco</button>`;
       footer.innerHTML = isClosed
-        ? '<span style="color:var(--text-muted)">Período fechado — somente leitura.</span>'
+        ? `<span style="color:var(--text-muted)">Período fechado — somente leitura.</span>${recalcBtn}`
         : `<button class="btn btn-primary" onclick="PageTimesheet.saveAll()">Salvar Tudo</button>
-           <button class="btn btn-secondary" onclick="PageTimesheet.backToPeriod()">Cancelar</button>`;
+           <button class="btn btn-secondary" onclick="PageTimesheet.backToPeriod()">Cancelar</button>
+           ${recalcBtn}`;
     }
   }
 
@@ -309,6 +343,9 @@ const PageTimesheet = (() => {
     const entries = [];
 
     rows.forEach(row => {
+      // Pular linhas de férias (read-only, não salvar no ponto)
+      if (row.dataset.vacation) return;
+
       const idx = parseInt(row.dataset.idx);
       const day = daysData[idx];
       if (!day) return;
@@ -351,6 +388,16 @@ const PageTimesheet = (() => {
     }
   }
 
+  async function recalcBank() {
+    if (!selEmpId) return;
+    try {
+      const r = await Api.recalculateHourBank(selEmpId);
+      toast(`Banco de horas recalculado: ${r.balance_hours}`);
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   function _getPeriodSel() {
@@ -366,6 +413,6 @@ const PageTimesheet = (() => {
 
   return {
     render, onPeriodChange, openPeriod, confirmClosePeriod, doClosePeriod,
-    openEmployeeDays, backToPeriod, _onSitChange, saveAll,
+    openEmployeeDays, backToPeriod, _onSitChange, saveAll, recalcBank,
   };
 })();

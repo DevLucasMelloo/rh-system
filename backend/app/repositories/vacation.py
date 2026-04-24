@@ -1,19 +1,25 @@
 """Operações de banco para Férias e Rescisões."""
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.vacation import Vacation, VacationStatus
+from app.models.vacation import Vacation, VacationStatus, VacationItem
 from app.models.termination import Termination
 
 
 # ── Férias ────────────────────────────────────────────────────────────────────
 
 def get_vacation(db: Session, vacation_id: int) -> Vacation | None:
-    return db.get(Vacation, vacation_id)
+    return (
+        db.query(Vacation)
+        .options(joinedload(Vacation.items))
+        .filter(Vacation.id == vacation_id)
+        .first()
+    )
 
 
 def list_by_employee(db: Session, employee_id: int) -> list[Vacation]:
     return (
         db.query(Vacation)
+        .options(joinedload(Vacation.items))
         .filter(Vacation.employee_id == employee_id)
         .order_by(Vacation.acquisition_start.desc())
         .all()
@@ -25,6 +31,7 @@ def list_active_by_company(db: Session, company_id: int) -> list[Vacation]:
     return (
         db.query(Vacation)
         .join(Employee)
+        .options(joinedload(Vacation.items))
         .filter(
             Employee.company_id == company_id,
             Vacation.status.in_([VacationStatus.SCHEDULED, VacationStatus.ACTIVE]),
@@ -40,6 +47,17 @@ def count_completed_by_employee(db: Session, employee_id: int) -> int:
         .filter(
             Vacation.employee_id == employee_id,
             Vacation.status == VacationStatus.COMPLETED,
+        )
+        .count()
+    )
+
+
+def count_non_cancelled_by_employee(db: Session, employee_id: int) -> int:
+    return (
+        db.query(Vacation)
+        .filter(
+            Vacation.employee_id == employee_id,
+            Vacation.status != VacationStatus.CANCELLED,
         )
         .count()
     )
@@ -68,7 +86,7 @@ def create_vacation(db: Session, data: dict) -> Vacation:
     db.add(vac)
     db.commit()
     db.refresh(vac)
-    return vac
+    return get_vacation(db, vac.id)
 
 
 def update_vacation(db: Session, vac: Vacation, data: dict) -> Vacation:
@@ -76,7 +94,39 @@ def update_vacation(db: Session, vac: Vacation, data: dict) -> Vacation:
         setattr(vac, k, v)
     db.commit()
     db.refresh(vac)
-    return vac
+    return get_vacation(db, vac.id)
+
+
+def delete_vacation(db: Session, vac: Vacation) -> None:
+    db.delete(vac)
+    db.commit()
+
+
+# ── Itens de Férias ───────────────────────────────────────────────────────────
+
+def get_vacation_item(db: Session, item_id: int) -> VacationItem | None:
+    return db.get(VacationItem, item_id)
+
+
+def create_vacation_item(db: Session, data: dict) -> VacationItem:
+    item = VacationItem(**data)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def update_vacation_item(db: Session, item: VacationItem, data: dict) -> VacationItem:
+    for k, v in data.items():
+        setattr(item, k, v)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_vacation_item(db: Session, item: VacationItem) -> None:
+    db.delete(item)
+    db.commit()
 
 
 # ── Rescisão ──────────────────────────────────────────────────────────────────

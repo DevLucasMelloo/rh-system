@@ -161,15 +161,26 @@ const Api = (() => {
   const getVales    = (empId)        => get(`/payroll/employees/${empId}/vales`);
   const createVale  = (empId, body)  => post(`/payroll/employees/${empId}/vales`, body);
   const getVale     = (id)           => get(`/payroll/vales/${id}`);
+  const updateVale  = (id, body)     => patch(`/payroll/vales/${id}`, body);
+  const deleteVale  = (id)           => del(`/payroll/vales/${id}`);
 
   // ── Vacation ──────────────────────────────────────────────────────────────
-  const getVacations      = ()           => get('/vacation/active');
-  const getEmpVacations   = (id)         => get(`/vacation/employee/${id}`);
-  const createVacation    = (body)       => post('/vacation', body);
-  const startVacation     = (id, body)   => post(`/vacation/${id}/start`, body);
-  const completeVacation  = (id)         => post(`/vacation/${id}/complete`, {});
-  const cancelVacation    = (id)         => post(`/vacation/${id}/cancel`, {});
-  const getThirteenth     = (id, year, parcela) => get(`/vacation/thirteenth/${id}`, { year, parcela });
+  const getVacationOverview    = ()                => get('/vacation/company-overview');
+  const getVacations           = ()                => get('/vacation/active');
+  const getEmpVacations        = (id)              => get(`/vacation/employee/${id}`);
+  const getVacation            = (id)              => get(`/vacation/${id}`);
+  const getVacationEligibility = (id)              => get(`/vacation/employee/${id}/eligibility`);
+  const previewVacation        = (body)            => post('/vacation/preview', body);
+  const createVacation         = (body)            => post('/vacation', body);
+  const updateVacation         = (id, body)        => patch(`/vacation/${id}`, body);
+  const deleteVacation         = (id)              => del(`/vacation/${id}`);
+  const startVacation          = (id, body)        => post(`/vacation/${id}/start`, body);
+  const completeVacation       = (id)              => post(`/vacation/${id}/complete`, {});
+  const cancelVacation         = (id)              => post(`/vacation/${id}/cancel`, {});
+  const addVacationItem        = (id, body)        => post(`/vacation/${id}/items`, body);
+  const updateVacationItem     = (id, iid, body)   => patch(`/vacation/${id}/items/${iid}`, body);
+  const deleteVacationItem     = (id, iid)         => del(`/vacation/${id}/items/${iid}`);
+  const getThirteenth          = (id, year, parcela) => get(`/vacation/thirteenth/${id}`, { year, parcela });
 
   // ── Termination ───────────────────────────────────────────────────────────
   const getTerminations   = ()      => get('/vacation/terminations');
@@ -180,13 +191,16 @@ const Api = (() => {
   const getTimesheet  = (empId, month, year) => get(`/timesheet/${empId}/report`, { month, year });
   const createEntry   = (body)               => post(`/timesheet/${body.employee_id}`, body);
   const updateEntry   = (id, body)           => patch(`/timesheet/entry/${id}`, body);
-  const getHourBank   = (empId)              => get(`/timesheet/${empId}/hour-bank`);
+  const getHourBank         = (empId) => get(`/timesheet/${empId}/hour-bank`);
+  const recalculateHourBank = (empId) => post(`/timesheet/${empId}/hour-bank/recalculate`, {});
   // Períodos
   const getTimesheetPeriod    = (m, y)        => get(`/timesheet/periods/${m}/${y}`);
   const openTimesheetPeriod   = (body)        => post('/timesheet/periods', body);
   const closeTimesheetPeriod  = (m, y)        => post(`/timesheet/periods/${m}/${y}/close`, {});
   const getEmployeeDays       = (empId, m, y) => get(`/timesheet/periods/${m}/${y}/employee/${empId}/days`);
   const saveEmployeeDays      = (empId, m, y, body) => post(`/timesheet/periods/${m}/${y}/employee/${empId}/save`, body);
+  const getBankSummary        = (year)              => get('/timesheet/bank-summary', { year });
+  const recalculateAllBanks  = ()                  => post('/timesheet/recalculate-all-banks', {});
 
   // ── Reports ───────────────────────────────────────────────────────────────
   const dlPayroll      = (m, y) => download('/reports/payroll',      { month: m, year: y }, `folha_${m}_${y}.xlsx`);
@@ -206,11 +220,14 @@ const Api = (() => {
     getPayrollPeriod, getEligible, batchCreatePayroll, closeAllPayrolls,
     getPayroll, createPayroll, deletePayroll, closePayroll, recalcPayroll,
     updatePayrollFlags, addPayrollItem, updatePayrollItem, deletePayrollItem, getPayrollPdf,
-    getAllVales, getVales, createVale, getVale,
-    getVacations, getEmpVacations, createVacation, startVacation, completeVacation, cancelVacation, getThirteenth,
+    getAllVales, getVales, createVale, getVale, updateVale, deleteVale,
+    getVacationOverview, getVacations, getEmpVacations, getVacation, getVacationEligibility, previewVacation,
+    createVacation, updateVacation, deleteVacation,
+    startVacation, completeVacation, cancelVacation,
+    addVacationItem, updateVacationItem, deleteVacationItem, getThirteenth,
     getTerminations, createTermination, getTermination,
-    getTimesheet, createEntry, updateEntry, getHourBank,
-    getTimesheetPeriod, openTimesheetPeriod, closeTimesheetPeriod, getEmployeeDays, saveEmployeeDays,
+    getTimesheet, createEntry, updateEntry, getHourBank, recalculateHourBank, recalculateAllBanks,
+    getTimesheetPeriod, openTimesheetPeriod, closeTimesheetPeriod, getEmployeeDays, saveEmployeeDays, getBankSummary,
     dlPayroll, dlTimesheet, dlEmployees, dlVacations, dlTerminations, dlHourBank,
   };
 })();

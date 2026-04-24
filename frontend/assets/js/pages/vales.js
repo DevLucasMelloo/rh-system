@@ -179,6 +179,17 @@ const PageVales = (() => {
 
   async function openNew() {
     const empOpts = await employeeSelectOptions();
+    const now = new Date();
+    const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                    'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const monthOpts = MONTHS.map((name, i) => {
+      const sel = (i + 1 === now.getMonth() + 1) ? 'selected' : '';
+      return `<option value="${i+1}" ${sel}>${name}</option>`;
+    }).join('');
+    const yearOpts = [now.getFullYear(), now.getFullYear()+1].map(y =>
+      `<option value="${y}" ${y === now.getFullYear() ? 'selected' : ''}>${y}</option>`
+    ).join('');
+
     openModal('Novo Vale', `
       <div class="form-group"><label>Funcionário *</label>
         <select class="form-control" id="nv-emp"><option value="">Selecione...</option>${empOpts}</select>
@@ -198,8 +209,16 @@ const PageVales = (() => {
           </select>
         </div>
       </div>
-      <div class="form-group"><label>Data de Emissão *</label>
-        <input class="form-control" type="date" id="nv-date" value="${new Date().toISOString().split('T')[0]}">
+      <div class="form-row">
+        <div class="form-group"><label>Data de Emissão *</label>
+          <input class="form-control" type="date" id="nv-date" value="${now.toISOString().split('T')[0]}">
+        </div>
+        <div class="form-group"><label>1º Desconto em *</label>
+          <div style="display:flex;gap:6px">
+            <select class="form-control" id="nv-first-month" style="flex:2">${monthOpts}</select>
+            <select class="form-control" id="nv-first-year" style="flex:1">${yearOpts}</select>
+          </div>
+        </div>
       </div>
       <div class="form-group"><label>Observações</label>
         <input class="form-control" id="nv-notes" placeholder="Ex: Compra de uniforme, adiantamento salarial...">
@@ -221,10 +240,12 @@ const PageVales = (() => {
       return;
     }
     const data = {
-      total_amount:  amount,
-      installments:  parseInt(document.getElementById('nv-installments').value),
-      issued_date:   document.getElementById('nv-date').value,
-      notes:         document.getElementById('nv-notes').value.trim() || null,
+      total_amount:      amount,
+      installments:      parseInt(document.getElementById('nv-installments').value),
+      issued_date:       document.getElementById('nv-date').value,
+      notes:             document.getElementById('nv-notes').value.trim() || null,
+      first_due_month:   parseInt(document.getElementById('nv-first-month').value),
+      first_due_year:    parseInt(document.getElementById('nv-first-year').value),
     };
     try {
       await Api.createVale(empId, data);
@@ -240,42 +261,131 @@ const PageVales = (() => {
     openModal('Detalhes do Vale', '<div style="padding:32px;text-align:center"><div class="spinner spinner-dark"></div></div>', '', true);
     try {
       const v = await Api.getVale(id);
-      const items = v.installment_items || [];
-      const paidCount = items.filter(i => i.is_paid).length;
-      const restante  = items.filter(i => !i.is_paid).reduce((s, i) => s + parseFloat(i.amount), 0);
-
-      const rows = items.map(inst => `
-        <tr>
-          <td style="font-weight:500">${inst.installment_number}ª parcela</td>
-          <td>${fmt.brl(inst.amount)}</td>
-          <td>${inst.due_month ? `${String(inst.due_month).padStart(2,'0')}/${inst.due_year}` : '—'}</td>
-          <td>${inst.is_paid
-            ? '<span class="badge badge-success">Pago</span>'
-            : '<span class="badge badge-gray">Pendente</span>'}</td>
-        </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--text-muted)">Sem parcelas.</td></tr>';
-
-      document.getElementById('modal-body').innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
-          <div class="detail-item"><label>Funcionário</label><span style="font-weight:600">${v.employee_name || '—'}</span></div>
-          <div class="detail-item"><label>Emissão</label><span>${fmt.date(v.issued_date)}</span></div>
-          <div class="detail-item"><label>Valor Total</label><span style="font-weight:600">${fmt.brl(v.total_amount)}</span></div>
-          <div class="detail-item"><label>Parcelas</label><span>${v.installments}x de ${fmt.brl(parseFloat(v.total_amount)/v.installments)}</span></div>
-          <div class="detail-item"><label>Pagas</label><span>${paidCount}/${items.length}</span></div>
-          <div class="detail-item"><label>Restante</label><span style="color:${restante > 0 ? 'var(--danger)' : 'var(--success)'};font-weight:600">${fmt.brl(restante)}</span></div>
-          ${v.notes ? `<div class="detail-item" style="grid-column:1/-1"><label>Observação</label><span>${v.notes}</span></div>` : ''}
-        </div>
-        <div class="table-wrapper" style="border:none;margin:0">
-          <table>
-            <thead><tr><th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Status</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>`;
-      document.getElementById('modal-footer').innerHTML =
-        `<button class="btn btn-secondary" onclick="closeModal()">Fechar</button>`;
+      _renderDetail(v);
     } catch (e) {
       document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
-  return { render, setTab, onSearch, openNew, saveNew, openDetail };
+  function _renderDetail(v) {
+    const items     = v.installment_items || [];
+    const paidCount = items.filter(i => i.is_paid).length;
+    const restante  = items.filter(i => !i.is_paid).reduce((s, i) => s + parseFloat(i.amount), 0);
+    const hasPaid   = paidCount > 0;
+
+    const rows = items.map(inst => `
+      <tr>
+        <td style="font-weight:500">${inst.installment_number}ª parcela</td>
+        <td>${fmt.brl(inst.amount)}</td>
+        <td>${inst.due_month ? `${String(inst.due_month).padStart(2,'0')}/${inst.due_year}` : '—'}</td>
+        <td>${inst.is_paid
+          ? '<span class="badge badge-success">Pago</span>'
+          : '<span class="badge badge-gray">Pendente</span>'}</td>
+      </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--text-muted)">Sem parcelas.</td></tr>';
+
+    document.getElementById('modal-body').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="detail-item"><label>Funcionário</label><span style="font-weight:600">${v.employee_name || '—'}</span></div>
+        <div class="detail-item"><label>Emissão</label><span>${fmt.date(v.issued_date)}</span></div>
+        <div class="detail-item"><label>Valor Total</label><span style="font-weight:600">${fmt.brl(v.total_amount)}</span></div>
+        <div class="detail-item"><label>Parcelas</label><span>${v.installments}x de ${fmt.brl(parseFloat(v.total_amount)/v.installments)}</span></div>
+        <div class="detail-item"><label>Pagas</label><span>${paidCount}/${items.length}</span></div>
+        <div class="detail-item"><label>Restante</label><span style="color:${restante > 0 ? 'var(--danger)' : 'var(--success)'};font-weight:600">${fmt.brl(restante)}</span></div>
+        ${v.notes ? `<div class="detail-item" style="grid-column:1/-1"><label>Observação</label><span>${v.notes}</span></div>` : ''}
+      </div>
+      <div class="table-wrapper" style="border:none;margin:0">
+        <table>
+          <thead><tr><th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+
+    document.getElementById('modal-footer').innerHTML = `
+      <button class="btn btn-danger" onclick="PageVales.confirmDelete(${v.id})" style="margin-right:auto"
+        ${hasPaid ? 'disabled title="Possui parcelas já pagas em folha fechada"' : ''}>
+        Excluir
+      </button>
+      <button class="btn btn-secondary" onclick="PageVales.openEdit(${v.id})">Editar</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>`;
+  }
+
+  function confirmDelete(id) {
+    openModal('Excluir Vale', `
+      <p>Tem certeza que deseja excluir este vale? Esta ação não pode ser desfeita.</p>
+      <p style="margin-top:8px;color:var(--text-muted);font-size:13px">Apenas vales sem parcelas descontadas em folha fechada podem ser excluídos.</p>`,
+      `<button class="btn btn-secondary" onclick="PageVales.openDetail(${id})">Cancelar</button>
+       <button class="btn btn-danger" onclick="PageVales.doDelete(${id})">Excluir</button>`);
+  }
+
+  async function doDelete(id) {
+    try {
+      await Api.deleteVale(id);
+      closeModal();
+      toast('Vale excluído.');
+      await loadAll();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  async function openEdit(id) {
+    const v = await Api.getVale(id);
+    const items = v.installment_items || [];
+    const unpaid = items.filter(i => !i.is_paid);
+    const now = new Date();
+    const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                    'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+    // Mês/ano da primeira parcela pendente como padrão
+    const firstUnpaid = unpaid.sort((a,b) => a.due_year - b.due_year || a.due_month - b.due_month)[0];
+    const defMonth = firstUnpaid ? firstUnpaid.due_month : now.getMonth() + 1;
+    const defYear  = firstUnpaid ? firstUnpaid.due_year  : now.getFullYear();
+
+    const monthOpts = MONTHS.map((name, i) =>
+      `<option value="${i+1}" ${i+1 === defMonth ? 'selected' : ''}>${name}</option>`
+    ).join('');
+    const years = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1];
+    const yearOpts = years.map(y =>
+      `<option value="${y}" ${y === defYear ? 'selected' : ''}>${y}</option>`
+    ).join('');
+
+    openModal('Editar Vale', `
+      <div class="form-group">
+        <label>Observações</label>
+        <input class="form-control" id="ev-notes" value="${v.notes || ''}" placeholder="Ex: Adiantamento salarial...">
+      </div>
+      ${unpaid.length > 0 ? `
+      <div class="form-group">
+        <label>Reagendar parcelas pendentes (1º desconto em)</label>
+        <div style="display:flex;gap:6px">
+          <select class="form-control" id="ev-month" style="flex:2">${monthOpts}</select>
+          <select class="form-control" id="ev-year"  style="flex:1">${yearOpts}</select>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:4px">${unpaid.length} parcela(s) pendente(s) serão redistribuídas a partir deste mês.</p>
+      </div>` : '<p style="color:var(--text-muted)">Todas as parcelas já foram pagas.</p>'}
+      <div id="ev-error"></div>`,
+      `<button class="btn btn-secondary" onclick="PageVales.openDetail(${id})">Cancelar</button>
+       <button class="btn btn-primary" onclick="PageVales.saveEdit(${id},${unpaid.length > 0})">Salvar</button>`);
+  }
+
+  async function saveEdit(id, hasUnpaid) {
+    const body = {
+      notes: document.getElementById('ev-notes').value.trim() || null,
+    };
+    if (hasUnpaid) {
+      body.first_due_month = parseInt(document.getElementById('ev-month').value);
+      body.first_due_year  = parseInt(document.getElementById('ev-year').value);
+    }
+    try {
+      const v = await Api.updateVale(id, body);
+      toast('Vale atualizado!');
+      _renderDetail({...v, employee_name: v.employee_name});
+    } catch (e) {
+      const err = document.getElementById('ev-error');
+      if (err) err.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      else toast(e.message, 'error');
+    }
+  }
+
+  return { render, setTab, onSearch, openNew, saveNew, openDetail, confirmDelete, doDelete, openEdit, saveEdit };
 })();
