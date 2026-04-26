@@ -204,6 +204,13 @@ const Api = (() => {
   const getBankSummary        = (year)              => get('/timesheet/bank-summary', { year });
   const recalculateAllBanks  = ()                  => post('/timesheet/recalculate-all-banks', {});
 
+  // ── Audit ─────────────────────────────────────────────────────────────────
+  const getAuditLogs     = (p) => get('/audit/logs',    p);
+  const getAuditStats    = ()  => get('/audit/stats');
+  const getAuditUsers    = ()  => get('/audit/users');
+  const getAuditActions  = ()  => get('/audit/actions');
+  const dlAuditLogs      = (p) => download('/audit/export', p, 'auditoria.xlsx');
+
   // ── Reports ───────────────────────────────────────────────────────────────
   const dlPayroll      = (m, y) => download('/reports/payroll',      { month: m, year: y }, `folha_${m}_${y}.xlsx`);
   const dlTimesheet    = (m, y, eid) => download('/reports/timesheet', { month: m, year: y, employee_id: eid }, `ponto_${m}_${y}.xlsx`);
@@ -230,6 +237,7 @@ const Api = (() => {
     getTerminations, createTermination, getTermination,
     getTimesheet, createEntry, updateEntry, getHourBank, recalculateHourBank, recalculateAllBanks,
     getTimesheetPeriod, openTimesheetPeriod, closeTimesheetPeriod, getEmployeeDays, saveEmployeeDays, getBankSummary,
+    getAuditLogs, getAuditStats, getAuditUsers, getAuditActions, dlAuditLogs,
     dlPayroll, dlTimesheet, dlEmployees, dlVacations, dlTerminations, dlHourBank,
   };
 })();

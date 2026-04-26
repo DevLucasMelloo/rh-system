@@ -109,23 +109,7 @@ function switchLoginTab(tab) {
   document.getElementById('form-register').classList.toggle('hidden', tab !== 'register');
 }
 
-// ── Audit page ────────────────────────────────────────────────────────────────
-// (PageSettings is defined in pages/settings.js loaded before this file)
-const PageAudit = {
-  async render(container) {
-    container.innerHTML = `
-      <div class="page-header">
-        <div><h1>Auditoria</h1><p>Histórico de ações do sistema</p></div>
-      </div>
-      <div class="table-wrapper">
-        <table>
-          <thead><tr><th>Data</th><th>Ação</th><th>Entidade</th><th>Descrição</th></tr></thead>
-          <tbody id="audit-tbody">${loadingRow(4)}</tbody>
-        </table>
-      </div>`;
-    document.getElementById('audit-tbody').innerHTML = emptyRow('Nenhum registro de auditoria.', 4);
-  }
-};
+// PageAudit is defined in pages/audit.js
 
 // ── Router ────────────────────────────────────────────────────────────────────
 // Declarado APÓS PageAudit e PageSettings para evitar temporal dead zone
