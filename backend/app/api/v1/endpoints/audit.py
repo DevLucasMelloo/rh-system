@@ -29,6 +29,7 @@ def _serialize(log) -> dict:
 def list_logs(
     user_id:    int | None  = Query(None),
     action:     str | None  = Query(None),
+    actions:    str | None  = Query(None),
     search:     str | None  = Query(None),
     date_start: date | None = Query(None),
     date_end:   date | None = Query(None),
@@ -39,7 +40,7 @@ def list_logs(
 ):
     logs = audit_repo.list_logs(
         db, current_user.company_id,
-        user_id=user_id, action=action, search=search,
+        user_id=user_id, action=action, actions=actions, search=search,
         date_start=date_start, date_end=date_end,
         limit=limit, offset=offset,
     )
@@ -74,6 +75,7 @@ def list_actions(
 def export_logs(
     user_id:    int | None  = Query(None),
     action:     str | None  = Query(None),
+    actions:    str | None  = Query(None),
     search:     str | None  = Query(None),
     date_start: date | None = Query(None),
     date_end:   date | None = Query(None),
@@ -82,7 +84,7 @@ def export_logs(
 ):
     logs = audit_repo.list_logs(
         db, current_user.company_id,
-        user_id=user_id, action=action, search=search,
+        user_id=user_id, action=action, actions=actions, search=search,
         date_start=date_start, date_end=date_end,
         limit=5000, offset=0,
     )

@@ -52,15 +52,17 @@ const PageAudit = (() => {
   };
 
   const ENTITY_LABEL = {
-    employee:    'Funcionários',
-    payroll:     'Folha de Pagamento',
-    vale:        'Vales',
-    vacation:    'Férias',
-    termination: 'Rescisão',
-    seamstress:  'Costureiras',
-    timesheet:   'Ponto',
-    user:        'Usuários',
-    system:      'Sistema',
+    employee:           'Funcionários',
+    payroll:            'Folha de Pagamento',
+    vale:               'Vales',
+    vacation:           'Férias',
+    termination:        'Rescisão',
+    seamstress:         'Costureiras',
+    seamstress_payment: 'Pgto Costureira',
+    timesheet:          'Ponto',
+    timesheet_period:   'Período de Ponto',
+    user:               'Usuários',
+    system:             'Sistema',
   };
 
   function actionBadge(action) {
@@ -170,9 +172,15 @@ const PageAudit = (() => {
       users.forEach(u => selUser.insertAdjacentHTML('beforeend', `<option value="${u.id}">${u.name}</option>`));
 
       const selAction = document.getElementById('audit-action');
+      const seenLabels = new Set();
       actions.forEach(a => {
         const cfg = ACTION_CFG[a] || { label: a };
-        selAction.insertAdjacentHTML('beforeend', `<option value="${a}">${cfg.label} (${a})</option>`);
+        const label = cfg.label;
+        if (seenLabels.has(label)) return;
+        seenLabels.add(label);
+        // value: todos os action keys que compartilham esse label
+        const keys = actions.filter(k => (ACTION_CFG[k]?.label || k) === label).join(',');
+        selAction.insertAdjacentHTML('beforeend', `<option value="${keys}">${label}</option>`);
       });
     } catch {}
   }
@@ -184,7 +192,7 @@ const PageAudit = (() => {
       const params = {
         search:     document.getElementById('audit-search')?.value     || undefined,
         user_id:    document.getElementById('audit-user')?.value       || undefined,
-        action:     document.getElementById('audit-action')?.value     || undefined,
+        actions:    document.getElementById('audit-action')?.value     || undefined,
         date_start: document.getElementById('audit-date-start')?.value || undefined,
         date_end:   document.getElementById('audit-date-end')?.value   || undefined,
       };
@@ -227,7 +235,7 @@ const PageAudit = (() => {
       await Api.dlAuditLogs({
         search:     document.getElementById('audit-search')?.value     || undefined,
         user_id:    document.getElementById('audit-user')?.value       || undefined,
-        action:     document.getElementById('audit-action')?.value     || undefined,
+        actions:    document.getElementById('audit-action')?.value     || undefined,
         date_start: document.getElementById('audit-date-start')?.value || undefined,
         date_end:   document.getElementById('audit-date-end')?.value   || undefined,
       });

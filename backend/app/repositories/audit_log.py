@@ -40,6 +40,7 @@ def list_logs(
     company_id: int,
     user_id: int | None = None,
     action: str | None = None,
+    actions: str | None = None,   # vírgula-separado, ex: "payroll_created,payroll_closed"
     search: str | None = None,
     date_start: date | None = None,
     date_end: date | None = None,
@@ -49,7 +50,10 @@ def list_logs(
     query = _base_query(db, company_id)
     if user_id:
         query = query.filter(AuditLog.user_id == user_id)
-    if action:
+    if actions:
+        keys = [a.strip() for a in actions.split(',') if a.strip()]
+        query = query.filter(AuditLog.action.in_(keys))
+    elif action:
         query = query.filter(AuditLog.action == action)
     if search:
         query = query.filter(AuditLog.description.ilike(f"%{search}%"))
