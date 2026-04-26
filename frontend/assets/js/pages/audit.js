@@ -3,28 +3,52 @@
  */
 const PageAudit = (() => {
   const ACTION_CFG = {
-    employee_created:     { label: 'Cadastro',          bg: '#dcfce7', color: '#16a34a' },
-    employee_updated:     { label: 'Edição',            bg: '#ede9fe', color: '#7c3aed' },
-    salary_change:        { label: 'Edição',            bg: '#ede9fe', color: '#7c3aed' },
-    raise_applied:        { label: 'Edição',            bg: '#ede9fe', color: '#7c3aed' },
-    employee_inactivated: { label: 'Inativação',        bg: '#fee2e2', color: '#dc2626' },
-    employee_reactivated: { label: 'Reativação',        bg: '#dcfce7', color: '#16a34a' },
-    payroll_created:      { label: 'Folha de Pagamento',bg: '#f3e8ff', color: '#9333ea' },
-    payroll_closed:       { label: 'Folha de Pagamento',bg: '#f3e8ff', color: '#9333ea' },
-    payroll_deleted:      { label: 'Folha de Pagamento',bg: '#f3e8ff', color: '#9333ea' },
-    vale_created:         { label: 'Vale',              bg: '#fef9c3', color: '#ca8a04' },
-    vale_updated:         { label: 'Vale',              bg: '#fef9c3', color: '#ca8a04' },
-    vale_deleted:         { label: 'Vale',              bg: '#fef9c3', color: '#ca8a04' },
-    vacation_created:     { label: 'Férias',            bg: '#ccfbf1', color: '#0d9488' },
-    vacation_updated:     { label: 'Férias',            bg: '#ccfbf1', color: '#0d9488' },
-    vacation_started:     { label: 'Férias',            bg: '#ccfbf1', color: '#0d9488' },
-    vacation_completed:   { label: 'Férias',            bg: '#ccfbf1', color: '#0d9488' },
-    vacation_cancelled:   { label: 'Férias',            bg: '#ccfbf1', color: '#0d9488' },
-    termination_created:  { label: 'Rescisão',          bg: '#ffedd5', color: '#ea580c' },
-    seamstress_payment:   { label: 'Costureira',        bg: '#fce7f3', color: '#db2777' },
-    seamstress_month_closed:{ label: 'Costureira',      bg: '#fce7f3', color: '#db2777' },
-    login:                { label: 'Login',             bg: '#dbeafe', color: '#2563eb' },
-    logout:               { label: 'Login',             bg: '#dbeafe', color: '#2563eb' },
+    // Funcionários
+    employee_created:          { label: 'Cadastro',           bg: '#dcfce7', color: '#16a34a' },
+    employee_updated:          { label: 'Edição',             bg: '#ede9fe', color: '#7c3aed' },
+    salary_change:             { label: 'Alteração Salarial', bg: '#ede9fe', color: '#7c3aed' },
+    raise_applied:             { label: 'Aumento',            bg: '#ede9fe', color: '#7c3aed' },
+    employee_inactivated:      { label: 'Inativação',         bg: '#fee2e2', color: '#dc2626' },
+    employee_reactivated:      { label: 'Reativação',         bg: '#dcfce7', color: '#16a34a' },
+    // Folha de Pagamento
+    payroll_created:           { label: 'Folha Criada',       bg: '#f3e8ff', color: '#9333ea' },
+    payroll_batch_created:     { label: 'Folha em Lote',      bg: '#f3e8ff', color: '#9333ea' },
+    payroll_closed:            { label: 'Folha Fechada',      bg: '#f3e8ff', color: '#9333ea' },
+    payroll_batch_closed:      { label: 'Folha Lote Fechada', bg: '#f3e8ff', color: '#9333ea' },
+    payroll_deleted:           { label: 'Folha Excluída',     bg: '#fee2e2', color: '#dc2626' },
+    // Vales
+    vale_created:              { label: 'Vale',               bg: '#fef9c3', color: '#ca8a04' },
+    vale_updated:              { label: 'Vale Editado',        bg: '#fef9c3', color: '#ca8a04' },
+    vale_deleted:              { label: 'Vale Excluído',       bg: '#fef9c3', color: '#ca8a04' },
+    // Férias
+    vacation_scheduled:        { label: 'Férias Agendadas',   bg: '#ccfbf1', color: '#0d9488' },
+    vacation_created:          { label: 'Férias Criadas',     bg: '#ccfbf1', color: '#0d9488' },
+    vacation_updated:          { label: 'Férias Editadas',    bg: '#ccfbf1', color: '#0d9488' },
+    vacation_started:          { label: 'Férias Iniciadas',   bg: '#ccfbf1', color: '#0d9488' },
+    vacation_completed:        { label: 'Férias Concluídas',  bg: '#ccfbf1', color: '#0d9488' },
+    vacation_cancelled:        { label: 'Férias Canceladas',  bg: '#ccfbf1', color: '#0d9488' },
+    vacation_deleted:          { label: 'Férias Excluídas',   bg: '#fee2e2', color: '#dc2626' },
+    // Rescisão
+    termination_created:       { label: 'Rescisão',           bg: '#ffedd5', color: '#ea580c' },
+    // Costureiras
+    seamstress_created:        { label: 'Costureira Cadastro',bg: '#fce7f3', color: '#db2777' },
+    seamstress_updated:        { label: 'Costureira Edição',  bg: '#fce7f3', color: '#db2777' },
+    seamstress_payment_created:{ label: 'Pgto Costureira',    bg: '#fce7f3', color: '#db2777' },
+    seamstress_payment_deleted:{ label: 'Pgto Excluído',      bg: '#fee2e2', color: '#dc2626' },
+    seamstress_month_closed:   { label: 'Mês Costureira',     bg: '#fce7f3', color: '#db2777' },
+    // Ponto
+    timesheet_updated:         { label: 'Ponto Lançado',      bg: '#e0f2fe', color: '#0284c7' },
+    timesheet_annulled:        { label: 'Ponto Anulado',      bg: '#fee2e2', color: '#dc2626' },
+    timesheet_period_opened:   { label: 'Período Aberto',     bg: '#e0f2fe', color: '#0284c7' },
+    timesheet_period_closed:   { label: 'Período Fechado',    bg: '#e0f2fe', color: '#0284c7' },
+    // Usuários / Sistema
+    user_created:              { label: 'Usuário Criado',     bg: '#f0fdf4', color: '#15803d' },
+    user_updated:              { label: 'Usuário Editado',    bg: '#ede9fe', color: '#7c3aed' },
+    password_reset:            { label: 'Senha Redefinida',   bg: '#fef9c3', color: '#ca8a04' },
+    password_changed:          { label: 'Senha Alterada',     bg: '#fef9c3', color: '#ca8a04' },
+    login:                     { label: 'Login',              bg: '#dbeafe', color: '#2563eb' },
+    login_failed:              { label: 'Login Falhou',       bg: '#fee2e2', color: '#dc2626' },
+    logout:                    { label: 'Logout',             bg: '#dbeafe', color: '#2563eb' },
   };
 
   const ENTITY_LABEL = {
