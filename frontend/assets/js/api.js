@@ -195,9 +195,10 @@ const Api = (() => {
   const exportThirteenth        = (year, parcela)   => download('/thirteenth/export', { year, parcela }, '13_salario.xlsx');
 
   // ── Termination ───────────────────────────────────────────────────────────
-  const getTerminations   = ()      => get('/vacation/terminations');
-  const createTermination = (body)  => post('/vacation/termination', body);
-  const getTermination    = (id)    => get(`/vacation/termination/${id}`);
+  const getTerminations    = ()         => get('/vacation/terminations');
+  const createTermination  = (body)     => post('/vacation/termination', body);
+  const getTermination     = (id)       => get(`/vacation/termination/${id}`);
+  const updateTermination  = (id, body) => put(`/vacation/termination/${id}`, body);
 
   // ── Timesheet ─────────────────────────────────────────────────────────────
   const getTimesheet  = (empId, month, year) => get(`/timesheet/${empId}/report`, { month, year });
@@ -245,7 +246,7 @@ const Api = (() => {
     createVacation, updateVacation, deleteVacation,
     startVacation, completeVacation, cancelVacation,
     addVacationItem, updateVacationItem, deleteVacationItem, getThirteenth, getThirteenthBatch,
-    getTerminations, createTermination, getTermination,
+    getTerminations, createTermination, getTermination, updateTermination,
     getTimesheet, createEntry, updateEntry, getHourBank, recalculateHourBank, recalculateAllBanks,
     getTimesheetPeriod, openTimesheetPeriod, closeTimesheetPeriod, getEmployeeDays, saveEmployeeDays, getBankSummary, batchDayLaunch,
     getAuditLogs, getAuditStats, getAuditUsers, getAuditActions, dlAuditLogs,

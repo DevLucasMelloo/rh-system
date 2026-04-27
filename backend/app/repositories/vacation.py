@@ -160,3 +160,11 @@ def create_termination(db: Session, data: dict) -> Termination:
     db.commit()
     db.refresh(term)
     return term
+
+
+def update_termination(db: Session, term: Termination, data: dict) -> Termination:
+    for key, value in data.items():
+        setattr(term, key, value)
+    db.commit()
+    db.refresh(term)
+    return term

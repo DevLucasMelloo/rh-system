@@ -165,11 +165,28 @@ class ThirteenthRead(BaseModel):
 # ── Rescisão ──────────────────────────────────────────────────────────────────
 
 class TerminationCreate(BaseModel):
-    employee_id:      int
-    termination_date: date
-    reason:           TerminationReason
-    notice_worked:    bool       = False
-    notes:            str | None = None
+    employee_id:       int
+    termination_date:  date
+    reason:            TerminationReason
+    notice_worked:     bool       = False
+    notice_start_date: date | None = None   # início do aviso prévio (se trabalhado)
+    notes:             str | None = None
+
+
+class TerminationUpdate(BaseModel):
+    notice_start_date:       date    | None = None
+    notice_worked:           bool    | None = None
+    saldo_salario:           Decimal | None = None
+    ferias_proporcionais:    Decimal | None = None
+    um_terco_ferias_prop:    Decimal | None = None
+    ferias_vencidas:         Decimal | None = None
+    um_terco_ferias_venc:    Decimal | None = None
+    decimo_terceiro_prop:    Decimal | None = None
+    aviso_previo_indenizado: Decimal | None = None
+    aviso_previo_desconto:   Decimal | None = None
+    multa_fgts:              Decimal | None = None
+    inss_rescisao:           Decimal | None = None
+    notes:                   str     | None = None
 
 
 class TerminationRead(BaseModel):
@@ -180,6 +197,8 @@ class TerminationRead(BaseModel):
     reason:                 TerminationReason
     notice_days:            int
     notice_worked:          bool
+    notice_start_date:      date | None = None
+    notice_end_date:        date | None = None   # computed: notice_start_date + notice_days
     saldo_salario:          Decimal
     ferias_proporcionais:   Decimal
     um_terco_ferias_prop:   Decimal

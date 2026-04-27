@@ -29,8 +29,9 @@ class Termination(Base):
 
     termination_date = Column(Date, nullable=False)
     reason           = Column(Enum(TerminationReason), nullable=False)
-    notice_days      = Column(Integer,  default=0)    # dias de aviso prévio calculados
-    notice_worked    = Column(Boolean,  default=False) # aviso trabalhado (True) ou indenizado (False)
+    notice_days       = Column(Integer,  default=0)    # dias de aviso prévio calculados
+    notice_worked     = Column(Boolean,  default=False) # aviso trabalhado (True) ou indenizado (False)
+    notice_start_date = Column(Date, nullable=True)    # início do aviso prévio (quando trabalhado)
 
     # ── Verbas (gravadas para imutabilidade) ───────────────────────────────────
     saldo_salario           = Column(Numeric(10, 2), default=0)  # dias trabalhados no mês

@@ -13,7 +13,7 @@ from app.schemas.vacation import (
     VacationItemCreate, VacationItemUpdate,
     VacationOverviewEmployee,
     ThirteenthRead,
-    TerminationCreate, TerminationRead,
+    TerminationCreate, TerminationUpdate, TerminationRead,
 )
 from app.services import vacation as vac_service
 
@@ -132,6 +132,17 @@ def get_termination(
     current_user: User = Depends(get_current_user),
 ):
     term = vac_service.get_termination(db, termination_id, current_user.company_id)
+    return _enrich_termination(term, db)
+
+
+@router.put("/termination/{termination_id}", response_model=TerminationRead)
+def update_termination(
+    data: TerminationUpdate,
+    termination_id: int = Path(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_rh_or_admin),
+):
+    term = vac_service.update_termination(db, termination_id, data, current_user.company_id)
     return _enrich_termination(term, db)
 
 
@@ -264,7 +275,12 @@ def _enrich_vacation(vac: object, db: Session) -> dict:
 
 def _enrich_termination(term: object, db: Session) -> dict:
     from app.repositories import employee as emp_repo
+    from datetime import timedelta
     d = {c.name: getattr(term, c.name) for c in term.__table__.columns}
     emp = emp_repo.get_employee(db, term.employee_id)
     d["employee_name"] = emp.name if emp else None
+    if term.notice_start_date and term.notice_days:
+        d["notice_end_date"] = term.notice_start_date + timedelta(days=term.notice_days - 1)
+    else:
+        d["notice_end_date"] = None
     return d
