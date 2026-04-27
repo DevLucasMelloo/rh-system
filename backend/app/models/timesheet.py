@@ -37,6 +37,11 @@ class TimesheetEntry(Base):
     # Dia anulado (atestado aprovado — não conta como falta nem extra)
     is_annulled = Column(Boolean, default=False)
 
+    # Tipos especiais
+    is_recess       = Column(Boolean, default=False)  # recesso coletivo (não trabalhado, sem remuneração)
+    is_compensar    = Column(Boolean, default=False)  # dia para compensar (horas negativas no banco)
+    is_dsr_deducted = Column(Boolean, default=False)  # sáb/dom/feriado descontado automaticamente por DSR
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -14,6 +14,10 @@ def _run_migrations():
     from sqlalchemy import text
     migrations = [
         "ALTER TABLE vacations ADD COLUMN sell_all_days BOOLEAN DEFAULT 0",
+        "ALTER TABLE vacations ADD COLUMN abono_days INTEGER DEFAULT 0",
+        "ALTER TABLE timesheet_entries ADD COLUMN is_recess BOOLEAN DEFAULT 0",
+        "ALTER TABLE timesheet_entries ADD COLUMN is_compensar BOOLEAN DEFAULT 0",
+        "ALTER TABLE timesheet_entries ADD COLUMN is_dsr_deducted BOOLEAN DEFAULT 0",
     ]
     with engine.connect() as conn:
         for sql in migrations:

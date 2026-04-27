@@ -41,7 +41,7 @@ const PagePayroll = (() => {
             <tr>
               <th style="min-width:160px">Funcionário</th>
               <th style="text-align:center">Dias</th>
-              <th style="text-align:center">H.E.</th>
+              <th style="text-align:center">Banco H.</th>
               <th style="text-align:right">Sal. Bruto</th>
               <th style="text-align:right">VT</th>
               <th style="text-align:right">Auxílio</th>
@@ -154,7 +154,7 @@ const PagePayroll = (() => {
     const outrosC = _getItem(items, ['outros_credito'], true);
     const outrosD = _getItem(items, ['outros_desconto'], false);
     const outros  = outrosC - outrosD;
-    const heH = parseFloat(p.total_overtime_hours || 0);
+    const bankH = parseFloat(p.total_overtime_hours || 0);
 
     const statusBadge = isClosed
       ? `<span class="badge badge-success">Fechado</span>`
@@ -169,7 +169,7 @@ const PagePayroll = (() => {
           ${p.use_hour_bank_for_absences ? `<span style="font-size:10px;color:var(--warning,#b45309);margin-left:4px">BH</span>` : ''}
         </td>
         <td style="text-align:center">${p.worked_days}</td>
-        <td style="text-align:center;color:${heH > 0 ? 'var(--success)' : 'var(--text-muted)'}">${heH > 0 ? heH.toFixed(1)+'h' : '—'}</td>
+        <td style="text-align:center;color:${bankH > 0 ? 'var(--success)' : bankH < 0 ? 'var(--danger)' : 'var(--text-muted)'}">${bankH !== 0 ? (bankH > 0 ? '+' : '') + bankH.toFixed(1)+'h' : '—'}</td>
         <td style="text-align:right">${fmt.brl(p.gross_salary)}</td>
         <td style="text-align:right;color:var(--text-muted)">${vt > 0 ? fmt.brl(vt) : '—'}</td>
         <td style="text-align:right;color:var(--text-muted)">${aux > 0 ? fmt.brl(aux) : '—'}</td>
@@ -224,9 +224,9 @@ const PagePayroll = (() => {
         <div class="form-group">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
             <input type="checkbox" id="batch-he" style="width:16px;height:16px">
-            Pagar Horas Extras (H.E.)
+            Pagar Banco de Horas positivo
           </label>
-          <p style="font-size:12px;color:var(--text-muted);margin-top:4px">Fórmula: Salário ÷ 220 × 1,6 × total HE</p>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:4px">Paga saldo positivo do banco: Salário ÷ 220 × 1,6 × horas</p>
         </div>
         <div class="form-group">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -321,24 +321,13 @@ const PagePayroll = (() => {
         <div class="detail-item"><label>Competência</label><span>${fmt.month(p.competence_month)}/${p.competence_year}</span></div>
         <div class="detail-item"><label>Status</label><span>${fmt.status(p.status)}</span></div>
         <div class="detail-item"><label>Dias Trabalhados</label><span>${p.worked_days}</span></div>
-        <div class="detail-item"><label>Horas Extras</label><span>${parseFloat(p.total_overtime_hours||0).toFixed(1)}h</span></div>
+        <div class="detail-item"><label>Banco Horas</label><span style="color:${parseFloat(p.total_overtime_hours||0) > 0 ? 'var(--success)' : parseFloat(p.total_overtime_hours||0) < 0 ? 'var(--danger)' : 'inherit'}">${(() => { const bh = parseFloat(p.total_overtime_hours||0); const abs = Math.abs(bh); const h = Math.floor(abs); const m = Math.round((abs - h) * 60); return bh === 0 ? '0h00' : (bh > 0 ? '+' : '-') + h + 'h' + String(m).padStart(2,'0'); })()}</span></div>
         <div class="detail-item"><label>Data Pagamento</label><span>${p.payment_date ? fmt.date(p.payment_date) : '—'}</span></div>
       </div>
 
       ${!isClosed ? `
       <div style="background:var(--bg-subtle,#f8f9fa);border-radius:8px;padding:12px 16px;margin-bottom:16px">
-        <p style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text-muted)">OPÇÕES DE CÁLCULO</p>
-        <div style="display:flex;gap:24px;flex-wrap:wrap">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-            <input type="checkbox" id="flag-he" ${p.pay_overtime ? 'checked' : ''} onchange="PagePayroll.toggleFlag(${p.id},'pay_overtime',this.checked)">
-            Pagar Horas Extras em dinheiro
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-            <input type="checkbox" id="flag-bh" ${p.use_hour_bank_for_absences ? 'checked' : ''} onchange="PagePayroll.toggleFlag(${p.id},'use_hour_bank_for_absences',this.checked)">
-            Usar Banco de Horas para cobrir faltas
-          </label>
-        </div>
-        <div class="form-group" style="margin-top:12px;margin-bottom:0">
+        <div class="form-group" style="margin:0">
           <label style="font-size:12px">Observação / Comentário</label>
           <div style="display:flex;gap:8px">
             <input class="form-control" id="notes-input" value="${p.notes || ''}" placeholder="Observação para este funcionário...">
@@ -364,9 +353,14 @@ const PagePayroll = (() => {
       </div>
 
       ${!isClosed ? `
-      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-secondary btn-sm" onclick="PagePayroll.openAddItem(${p.id})">+ Item Manual</button>
         <button class="btn btn-secondary btn-sm" onclick="PagePayroll.recalc(${p.id})">↺ Recalcular</button>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-sm" style="background:#16a34a;color:#fff;border:none" onclick="PagePayroll.payPositiveBank(${p.id},${p.employee_id})" title="Paga saldo positivo do banco: Salário ÷ 220 × horas">💰 Pagar Banco Positivo</button>
+        <button class="btn btn-sm" style="background:#7c3aed;color:#fff;border:none" onclick="PagePayroll.deductNegativeBank(${p.id},${p.employee_id})" title="Desconta horas negativas do banco: Salário ÷ 220 × horas devidas">⚠ Descontar Banco Negativo</button>
+        <button class="btn btn-sm" style="background:${p.use_hour_bank_for_absences ? '#0e7490' : '#0891b2'};color:#fff;border:${p.use_hour_bank_for_absences ? '2px solid #164e63' : 'none'}" onclick="PagePayroll.toggleBancoFaltas(${p.id},${p.use_hour_bank_for_absences})" title="Usa horas do banco para cobrir faltas em vez de descontar em dinheiro">${p.use_hour_bank_for_absences ? '✓ Banco p/ Faltas (ON)' : '🔄 Banco p/ Faltas'}</button>
       </div>` : ''}`;
 
     document.getElementById('modal-footer').innerHTML = `
@@ -595,6 +589,119 @@ const PagePayroll = (() => {
     loadData();
   }
 
+  async function deductNegativeBank(payrollId, employeeId) {
+    try {
+      const bank = await Api.getHourBank(employeeId);
+      const balMin = bank.balance_minutes || 0;
+      if (balMin >= 0) {
+        toast('Este funcionário não possui horas negativas no banco.', 'error');
+        return;
+      }
+      const absMin  = Math.abs(balMin);
+      const absHrs  = absMin / 60;
+      const p       = _currentPayroll;
+      const salary  = parseFloat(p.gross_salary || 0);
+      const hourRate = salary / 220;
+      const deduction = Math.round(hourRate * absHrs * 100) / 100;
+      const hStr    = Math.floor(absMin / 60) + 'h' + String(absMin % 60).padStart(2,'0');
+
+      openModal('Descontar Banco de Horas Negativo',
+        `<div style="display:flex;flex-direction:column;gap:12px">
+          <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 16px">
+            <p style="font-weight:600;margin-bottom:4px">Resumo do desconto</p>
+            <p style="font-size:13px">Horas devidas: <strong>${hStr}</strong></p>
+            <p style="font-size:13px">Taxa horária: <strong>${fmt.brl(hourRate)}/h</strong> (Salário ÷ 220)</p>
+            <p style="font-size:16px;margin-top:8px">Desconto: <strong style="color:var(--danger)">${fmt.brl(deduction)}</strong></p>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Observação (opcional)</label>
+            <input class="form-control" id="bank-deduct-notes" placeholder="Ex: Compensação de horas negativas — ${hStr}">
+          </div>
+        </div>`,
+        `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+         <button class="btn btn-primary" onclick="PagePayroll._confirmBankDeduct(${payrollId},${deduction},'${hStr}')">Descontar</button>`
+      );
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function _confirmBankDeduct(payrollId, amount, hStr) {
+    const notes = document.getElementById('bank-deduct-notes')?.value || `Desconto banco de horas — ${hStr}`;
+    try {
+      await Api.addPayrollItem(payrollId, {
+        item_type:      'outros_desconto',
+        description:    `Desconto Banco de Horas (${hStr})`,
+        amount:         amount,
+        is_credit:      false,
+        notes:          notes,
+        show_on_payslip: true,
+      });
+      toast('Desconto de banco de horas lançado!');
+      await loadData();
+      openDetail(payrollId);
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function payPositiveBank(payrollId, employeeId) {
+    try {
+      const bank = await Api.getHourBank(employeeId);
+      const balMin = bank.balance_minutes || 0;
+      if (balMin <= 0) {
+        toast('Este funcionário não possui horas positivas no banco.', 'error');
+        return;
+      }
+      const absHrs   = balMin / 60;
+      const p        = _currentPayroll;
+      const salary   = parseFloat(p.gross_salary || 0);
+      const hourRate = salary / 220;
+      const heRate   = hourRate * 1.6;
+      const payment  = Math.round(heRate * absHrs * 100) / 100;
+      const hStr     = Math.floor(balMin / 60) + 'h' + String(balMin % 60).padStart(2,'0');
+
+      openModal('Pagar Banco de Horas Positivo',
+        `<div style="display:flex;flex-direction:column;gap:12px">
+          <div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:12px 16px">
+            <p style="font-weight:600;margin-bottom:4px">Resumo do pagamento</p>
+            <p style="font-size:13px">Horas a pagar: <strong>${hStr}</strong></p>
+            <p style="font-size:13px">Taxa horária: <strong>${fmt.brl(heRate)}/h</strong> (Salário ÷ 220 × 1,6)</p>
+            <p style="font-size:16px;margin-top:8px">Pagamento: <strong style="color:#16a34a">${fmt.brl(payment)}</strong></p>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Observação (opcional)</label>
+            <input class="form-control" id="bank-pay-notes" placeholder="Ex: Pagamento banco de horas — ${hStr}">
+          </div>
+        </div>`,
+        `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+         <button class="btn btn-primary" style="background:#16a34a;border-color:#16a34a" onclick="PagePayroll._confirmBankPay(${payrollId},${payment},'${hStr}')">Pagar</button>`
+      );
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function _confirmBankPay(payrollId, amount, hStr) {
+    const notes = document.getElementById('bank-pay-notes')?.value || `Pagamento banco de horas — ${hStr}`;
+    try {
+      await Api.addPayrollItem(payrollId, {
+        item_type:      'outros_credito',
+        description:    `Horas Extras (${hStr})`,
+        amount:         amount,
+        is_credit:      true,
+        notes:          notes,
+        show_on_payslip: true,
+      });
+      toast('Horas extras lançadas!');
+      await loadData();
+      openDetail(payrollId);
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function toggleBancoFaltas(payrollId, currentValue) {
+    try {
+      const p = await Api.updatePayrollFlags(payrollId, { use_hour_bank_for_absences: !currentValue });
+      toast(!currentValue ? 'Banco de Horas ativado para cobrir faltas!' : 'Banco de Horas desativado para faltas.');
+      _renderDetail(p);
+      await loadData();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
   return {
     render, changePeriod,
     openBatch, doBatch, generateOne,
@@ -602,5 +709,8 @@ const PagePayroll = (() => {
     openAddItem, saveItem, openEditItem, doEditItem, removeItem,
     openClose, doClose, openCloseAll, doCloseAll,
     recalc, confirmDelete, confirmDeleteFromDetail, doDelete,
+    deductNegativeBank, _confirmBankDeduct,
+    payPositiveBank, _confirmBankPay,
+    toggleBancoFaltas,
   };
 })();

@@ -35,6 +35,7 @@ class VacationCreate(BaseModel):
     enjoyment_start:   date | None = None
     enjoyment_days:    int         = 30
     sell_all_days:     bool        = False
+    abono_days:        int         = 0
     is_fractioned:     bool        = False
     notes:             str | None  = None
     # Valores manuais (sobrepõem o cálculo automático)
@@ -56,6 +57,7 @@ class VacationUpdate(BaseModel):
     enjoyment_start:   date | None = None
     enjoyment_days:    int | None  = None
     sell_all_days:     bool | None = None
+    abono_days:        int | None  = None
     notes:             str | None  = None
     base_salary:       Decimal | None = None
     one_third_bonus:   Decimal | None = None
@@ -70,6 +72,7 @@ class VacationPreviewRequest(BaseModel):
     employee_id:   int
     enjoyment_days: int = 30
     sell_all_days:  bool = False
+    abono_days:     int  = 0
 
 
 class VacationPeriodInfo(BaseModel):
@@ -96,6 +99,8 @@ class VacationPreviewRead(BaseModel):
     employee_id:     int
     enjoyment_days:  int
     sell_all_days:   bool
+    abono_days:      int = 0
+    total_paid_days: int = 30
     base_salary:     Decimal
     one_third_bonus: Decimal
     inss_discount:   Decimal
@@ -105,12 +110,14 @@ class VacationPreviewRead(BaseModel):
 class VacationRead(BaseModel):
     id:               int
     employee_id:      int
-    employee_name:    str | None = None
+    employee_name:    str | None  = None
+    registration_date: date | None = None
     acquisition_start: date
     acquisition_end:  date
     enjoyment_start:  date | None
     enjoyment_days:   int
     sell_all_days:    bool = False
+    abono_days:       int  = 0
     is_fractioned:    bool
     base_salary:      Decimal | None
     one_third_bonus:  Decimal | None

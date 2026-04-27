@@ -150,25 +150,13 @@ def _auto_generate_items(db: Session, payroll: Payroll, emp: Employee) -> None:
     # Salário efetivo (após férias) — usado para INSS e demais cálculos
     salary_value = (salary_value - vac_deduction).quantize(Decimal("0.01"))
 
-    # ── Hora extra ────────────────────────────────────────────────────────────
-    # Quando pay_overtime=False: registra HE do mês só para exibição (sem pagar).
-    # Quando pay_overtime=True:  paga o saldo TOTAL do banco de horas (HE
-    # acumuladas de meses anteriores + mês atual). O banco é debitado apenas no
-    # momento do FECHAMENTO do holerite, não aqui, para evitar duplo débito em
-    # recálculos.
-    ot_value = Decimal("0")
-    # Cabeçalho sempre mostra o saldo total do banco de horas.
+    # ── Banco de Horas (exibição) ─────────────────────────────────────────────
+    # HE nunca é adicionada automaticamente — o usuário lança manualmente via
+    # "Pagar Banco Positivo" (outros_credito). Aqui apenas lemos o saldo para
+    # exibição no cabeçalho do holerite.
     hour_bank = ts_repo.get_hour_bank(db, emp.id)
     bank_balance = hour_bank.balance_minutes if hour_bank else 0
-    ot_display_min = max(0, bank_balance)
-
-    if payroll.pay_overtime:
-        total_to_pay = ot_display_min
-        if total_to_pay > 0:
-            ot_value = calc_overtime_value(base_salary, total_to_pay)
-            h, m_ = divmod(total_to_pay, 60)
-            _add_auto(db, payroll.id, PayrollItemType.OVERTIME,
-                      f"Horas Extras ({h}h{m_:02d}m)", ot_value, True)
+    ot_display_min = bank_balance  # saldo real (pode ser negativo)
 
     # ── Vale Transporte ───────────────────────────────────────────────────────
     if emp.needs_transport:
@@ -205,17 +193,8 @@ def _auto_generate_items(db: Session, payroll: Payroll, emp: Employee) -> None:
                 _add_auto(db, payroll.id, PayrollItemType.DSR,
                           f"Desconto DSR ({dsr_weeks} semana(s))", dsr_value, False)
 
-    # ── Atrasos ───────────────────────────────────────────────────────────────
-    if total_late_min > 0:
-        late_value = (
-            base_salary / Decimal("220") / Decimal("60") * Decimal(total_late_min)
-        ).quantize(Decimal("0.01"))
-        h_l, m_l = divmod(total_late_min, 60)
-        _add_auto(db, payroll.id, PayrollItemType.ABSENCE,
-                  f"Desconto de Atrasos ({h_l}h{m_l:02d}m)", late_value, False)
-
     # ── INSS ──────────────────────────────────────────────────────────────────
-    gross_for_inss = salary_value + ot_value
+    gross_for_inss = salary_value  # HE é manual (outros_credito), não entra na base INSS auto
     inss_value = calc_inss(gross_for_inss)
     _add_auto(db, payroll.id, PayrollItemType.INSS, "INSS", inss_value, False)
 

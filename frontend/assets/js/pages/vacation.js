@@ -29,46 +29,15 @@ const PageVacation = (() => {
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-        <div class="card">
-          <div class="card-header">13º Salário</div>
-          <div class="card-body">
-            <div class="form-row">
-              <div class="form-group">
-                <label>Funcionário</label>
-                <select class="form-control" id="13-emp">${empOpts}</select>
-              </div>
-              <div class="form-group">
-                <label>Ano</label>
-                <select class="form-control" id="13-year">${yearOptions(currentYear())}</select>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Parcela</label>
-                <select class="form-control" id="13-parcela">
-                  <option value="1">1ª Parcela (adiantamento)</option>
-                  <option value="2" selected>2ª Parcela (saldo)</option>
-                </select>
-              </div>
-              <div class="form-group" style="align-self:flex-end">
-                <button class="btn btn-primary w-full" onclick="PageVacation.calc13()">Calcular</button>
-              </div>
-            </div>
-            <div id="13-result"></div>
+      <div class="card">
+        <div class="card-header">Consultar Férias por Funcionário</div>
+        <div class="card-body">
+          <div class="form-group">
+            <select class="form-control" id="vac-emp-sel" onchange="PageVacation.loadEmployee()">
+              <option value="">Selecione...</option>${empOpts}
+            </select>
           </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">Consultar Férias por Funcionário</div>
-          <div class="card-body">
-            <div class="form-group">
-              <select class="form-control" id="vac-emp-sel" onchange="PageVacation.loadEmployee()">
-                <option value="">Selecione...</option>${empOpts}
-              </select>
-            </div>
-            <div id="vac-emp-list"></div>
-          </div>
+          <div id="vac-emp-list"></div>
         </div>
       </div>`;
 
@@ -157,7 +126,11 @@ const PageVacation = (() => {
         return;
       }
       el.innerHTML = vacs.map(v => {
-        const label = v.sell_all_days ? 'Venda total' : `${v.enjoyment_days} dias`;
+        const abonoDays = v.abono_days || 0;
+        let label;
+        if (v.sell_all_days) label = 'Venda total';
+        else if (abonoDays > 0) label = `${v.enjoyment_days}d gozo + ${abonoDays}d abono`;
+        else label = `${v.enjoyment_days} dias`;
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer"
           onclick="PageVacation.openDetail(${v.id})">
           <div>
@@ -214,12 +187,26 @@ const PageVacation = (() => {
                 onchange="PageVacation._onNewDaysChange()">
             </div>
           </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Abono Pecuniário (dias vendidos)</label>
+              <input class="form-control" type="number" id="nv-abono" value="0" min="0" max="10"
+                onchange="PageVacation._onNewDaysChange()" placeholder="0">
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:4px">
+              <small style="color:var(--text-muted);font-size:11px">
+                Dias convertidos em dinheiro além do gozo.<br>
+                Total pago = Gozo + Abono (máx. 30 dias).
+              </small>
+            </div>
+          </div>
         </div>
 
         <div id="nv-calc" style="display:none;background:var(--bg);border-radius:8px;padding:14px;margin-top:8px">
-          <div style="font-weight:600;margin-bottom:10px;color:var(--text-muted);font-size:12px;text-transform:uppercase;letter-spacing:.5px">
+          <div style="font-weight:600;margin-bottom:6px;color:var(--text-muted);font-size:12px;text-transform:uppercase;letter-spacing:.5px">
             Cálculo (editável)
           </div>
+          <div id="nv-total-paid-info" style="font-size:12px;color:var(--primary);margin-bottom:10px"></div>
           <div class="form-row">
             <div class="form-group">
               <label>Base Férias (R$)</label>
@@ -322,30 +309,37 @@ const PageVacation = (() => {
       : `<span style="color:var(--text-muted)">Período aquisitivo: ${fmt.date(opt.dataset.start)} → ${fmt.date(opt.dataset.end)}</span>`;
 
     const id = parseInt(document.getElementById('nv-emp').value);
-    if (id) await _loadNewPreview(id, 30, document.getElementById('nv-sell-all').checked);
+    const abono = parseInt(document.getElementById('nv-abono')?.value) || 0;
+    if (id) await _loadNewPreview(id, 30, document.getElementById('nv-sell-all').checked, abono);
   }
 
   async function _onSellAllChange() {
     const sellAll = document.getElementById('nv-sell-all').checked;
     document.getElementById('nv-gozo-fields').style.display = sellAll ? 'none' : '';
     const id = parseInt(document.getElementById('nv-emp').value);
-    if (id) await _loadNewPreview(id, 30, sellAll);
+    if (id) await _loadNewPreview(id, 30, sellAll, 0);
   }
 
   async function _onNewDaysChange() {
     const id      = parseInt(document.getElementById('nv-emp').value);
     const days    = parseInt(document.getElementById('nv-days').value) || 30;
+    const abono   = parseInt(document.getElementById('nv-abono')?.value) || 0;
     const sellAll = document.getElementById('nv-sell-all').checked;
-    if (id) await _loadNewPreview(id, days, sellAll);
+    if (id) await _loadNewPreview(id, days, sellAll, abono);
   }
 
-  async function _loadNewPreview(empId, days, sellAll) {
+  async function _loadNewPreview(empId, days, sellAll, abono = 0) {
     try {
-      const p = await Api.previewVacation({ employee_id: empId, enjoyment_days: days, sell_all_days: sellAll });
+      const p = await Api.previewVacation({ employee_id: empId, enjoyment_days: days, sell_all_days: sellAll, abono_days: abono });
       document.getElementById('nv-calc').style.display = '';
       document.getElementById('nv-base').value  = parseFloat(p.base_salary).toFixed(2);
       document.getElementById('nv-third').value = parseFloat(p.one_third_bonus).toFixed(2);
       document.getElementById('nv-inss').value  = parseFloat(p.inss_discount).toFixed(2);
+      const totalEl = document.getElementById('nv-total-paid-info');
+      if (totalEl) {
+        const total = p.total_paid_days || (days + abono);
+        totalEl.textContent = sellAll ? 'Venda total: 30 dias pagos' : `Gozo: ${days} dias + Abono: ${abono} dias = ${total} dias pagos`;
+      }
       _updateNewNet();
     } catch {}
   }
@@ -363,6 +357,7 @@ const PageVacation = (() => {
   async function saveNew() {
     const sellAll = document.getElementById('nv-sell-all').checked;
     const days    = sellAll ? 0 : (parseInt(document.getElementById('nv-days').value) || 30);
+    const abono   = sellAll ? 0 : (parseInt(document.getElementById('nv-abono')?.value) || 0);
 
     const sel = document.getElementById('nv-period');
     const opt = sel ? sel.options[sel.selectedIndex] : null;
@@ -379,6 +374,7 @@ const PageVacation = (() => {
       enjoyment_start:   !sellAll ? (document.getElementById('nv-enjoy-start').value || null) : null,
       enjoyment_days:    days,
       sell_all_days:     sellAll,
+      abono_days:        abono,
       notes:             document.getElementById('nv-notes')?.value || null,
     };
     if (calcVisible) {
@@ -430,7 +426,15 @@ const PageVacation = (() => {
     const extraItems = (v.items || []).reduce((acc, it) =>
       acc + (it.item_type === 'credito' ? parseFloat(it.value) : -parseFloat(it.value)), 0);
     const net  = base + third - inss + extraItems;
-    const gozo = v.sell_all_days ? 'Venda total (sem gozo)' : (v.enjoyment_days + ' dias');
+    const abonoDays = v.abono_days || 0;
+    let gozo;
+    if (v.sell_all_days) {
+      gozo = 'Venda total (sem gozo)';
+    } else if (abonoDays > 0) {
+      gozo = `${v.enjoyment_days} dias gozo + ${abonoDays} dias abono`;
+    } else {
+      gozo = v.enjoyment_days + ' dias';
+    }
 
     openModal(`Férias — ${v.employee_name}`, `
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
@@ -540,6 +544,7 @@ const PageVacation = (() => {
       const v = await Api.updateVacation(vacId, { base_salary: base, one_third_bonus: third, inss_discount: inss });
       toast('Valores salvos!');
       _renderDetail(v);
+      loadEmployee();
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -558,6 +563,7 @@ const PageVacation = (() => {
       const v = await Api.addVacationItem(vacId, { item_type: type, description: desc, value: val });
       toast('Item adicionado.');
       _renderDetail(v);
+      loadEmployee();
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -566,6 +572,7 @@ const PageVacation = (() => {
       const v = await Api.deleteVacationItem(vacId, itemId);
       toast('Item removido.', 'warning');
       _renderDetail(v);
+      loadEmployee();
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -684,6 +691,7 @@ const PageVacation = (() => {
     const net   = base + third - inss + extra;
     const gozo  = v.sell_all_days ? 'Venda total (sem gozo)' : `${v.enjoyment_days} dias de gozo`;
     const fmtR  = n => 'R$ ' + parseFloat(n).toFixed(2).replace('.', ',');
+    const fmtD  = s => s ? s.split('-').reverse().join('/') : '—';
 
     const win = window.open('', '_blank', 'width=680,height=700');
     win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -701,10 +709,11 @@ const PageVacation = (() => {
       <p class="sub">${v.employee_name}</p>
       <table>
         <tr><th colspan="2">Período Aquisitivo</th></tr>
-        <tr><td>De</td><td>${v.acquisition_start}</td></tr>
-        <tr><td>Até</td><td>${v.acquisition_end}</td></tr>
+        <tr><td>De</td><td>${fmtD(v.acquisition_start)}</td></tr>
+        <tr><td>Até</td><td>${fmtD(v.acquisition_end)}</td></tr>
         <tr><td>Modalidade</td><td>${gozo}</td></tr>
-        ${v.enjoyment_start ? `<tr><td>Início do Gozo</td><td>${v.enjoyment_start}</td></tr>` : ''}
+        ${v.enjoyment_start ? `<tr><td>Início do Gozo</td><td>${fmtD(v.enjoyment_start)}</td></tr>` : ''}
+        ${v.registration_date ? `<tr><td>Data de Registro</td><td>${fmtD(v.registration_date)}</td></tr>` : ''}
       </table>
       <table>
         <tr><th>Item</th><th style="text-align:right">Valor</th></tr>
@@ -725,29 +734,6 @@ const PageVacation = (() => {
     win.document.close();
   }
 
-  // ── 13º Salário ───────────────────────────────────────────────────────────
-  async function calc13() {
-    const empId   = parseInt(document.getElementById('13-emp').value);
-    const year    = parseInt(document.getElementById('13-year').value);
-    const parcela = parseInt(document.getElementById('13-parcela').value);
-    const el      = document.getElementById('13-result');
-    if (!empId) { el.innerHTML = '<div class="alert alert-warning">Selecione um funcionário.</div>'; return; }
-    try {
-      const r = await Api.getThirteenth(empId, year, parcela);
-      el.innerHTML = `
-        <div style="background:var(--bg);border-radius:8px;padding:14px;margin-top:12px;font-size:13px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>Meses trabalhados</span><strong>${r.worked_months}</strong></div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>13º Bruto</span><strong>${fmt.brl(r.bruto_13)}</strong></div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>INSS</span><strong style="color:var(--danger)">- ${fmt.brl(r.inss)}</strong></div>
-          ${parcela===2?`<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>1ª Parcela (adiantamento)</span><strong style="color:var(--danger)">- ${fmt.brl(r.primeira_parcela)}</strong></div>`:''}
-          <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;display:flex;justify-content:space-between">
-            <span style="font-weight:600">Líquido ${parcela}ª Parcela</span>
-            <strong style="color:var(--primary);font-size:16px">${fmt.brl(r.liquido)}</strong>
-          </div>
-        </div>`;
-    } catch (e) { el.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
-  }
-
   return {
     render, loadOverview, loadEmployee,
     openNew, _onNewEmpChange, _onPeriodChange, _onSellAllChange, _onNewDaysChange, _onNewCalcChange, saveNew,
@@ -755,6 +741,6 @@ const PageVacation = (() => {
     addItem, removeItem,
     openEdit, _onEditSellAll, saveEdit,
     deleteVac, startVac, completeVac,
-    printVac, calc13,
+    printVac,
   };
 })();

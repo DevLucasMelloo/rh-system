@@ -157,15 +157,20 @@ def get_eligibility(db: Session, employee_id: int, company_id: int) -> dict:
     }
 
 
-def preview_vacation_calc(db: Session, employee_id: int, enjoyment_days: int, sell_all_days: bool, company_id: int) -> dict:
+def preview_vacation_calc(db: Session, employee_id: int, enjoyment_days: int, sell_all_days: bool, company_id: int, abono_days: int = 0) -> dict:
     emp = _get_employee_any_status(db, employee_id, company_id)
     salary = Decimal(str(emp.salary))
-    paid_days = 30 if sell_all_days else (enjoyment_days or 30)
-    pay = calc_vacation_pay(salary, paid_days)
+    if sell_all_days:
+        total_paid_days = 30
+    else:
+        total_paid_days = min(30, (enjoyment_days or 30) + (abono_days or 0))
+    pay = calc_vacation_pay(salary, total_paid_days)
     return {
-        "employee_id":    emp.id,
-        "enjoyment_days": enjoyment_days,
-        "sell_all_days":  sell_all_days,
+        "employee_id":     emp.id,
+        "enjoyment_days":  enjoyment_days,
+        "sell_all_days":   sell_all_days,
+        "abono_days":      abono_days,
+        "total_paid_days": total_paid_days,
         **pay,
     }
 
@@ -200,11 +205,13 @@ def schedule_vacation(
             detail="Já existe um período aquisitivo que se sobrepõe ao informado",
         )
 
-    sell_all = data.sell_all_days
-    enj_days = 0 if sell_all else data.enjoyment_days
+    sell_all  = data.sell_all_days
+    enj_days  = 0 if sell_all else data.enjoyment_days
+    abono_d   = 0 if sell_all else (data.abono_days or 0)
+    total_paid = 30 if sell_all else min(30, enj_days + abono_d)
 
     # Cálculo automático (sobreposto por valores manuais se fornecidos)
-    auto = calc_vacation_pay(Decimal(str(emp.salary)), 30 if sell_all else enj_days)
+    auto = calc_vacation_pay(Decimal(str(emp.salary)), total_paid)
     base      = _q2(data.base_salary)      if data.base_salary      is not None else auto["base_salary"]
     one_third = _q2(data.one_third_bonus)  if data.one_third_bonus  is not None else auto["one_third_bonus"]
     inss      = _q2(data.inss_discount)    if data.inss_discount     is not None else auto["inss_discount"]
@@ -218,6 +225,7 @@ def schedule_vacation(
         "enjoyment_start":   data.enjoyment_start,
         "enjoyment_days":    enj_days,
         "sell_all_days":     sell_all,
+        "abono_days":        abono_d,
         "is_fractioned":     data.is_fractioned,
         "notes":             data.notes,
         "status":            VacationStatus.SCHEDULED,
@@ -260,6 +268,9 @@ def update_vacation_service(
         updates["enjoyment_days"] = 0 if sell_all else data.enjoyment_days
     elif sell_all:
         updates["enjoyment_days"] = 0
+
+    if data.abono_days is not None:
+        updates["abono_days"] = 0 if sell_all else data.abono_days
 
     # Recalculate if any value field changed
     base      = _q2(data.base_salary)      if data.base_salary      is not None else (vac.base_salary      or Decimal("0"))
@@ -521,9 +532,11 @@ def get_thirteenth(
     primeira_parcela = _q2(bruto_13 / Decimal("2"))
 
     if parcela == 1:
-        liquido = primeira_parcela
+        inss_parcela = Decimal("0")
+        liquido      = primeira_parcela
     else:
-        liquido = _q2(bruto_13 - inss_on_bruto - primeira_parcela)
+        inss_parcela = inss_on_bruto
+        liquido      = _q2(bruto_13 - inss_on_bruto - primeira_parcela)
 
     return {
         "employee_id":      emp.id,
@@ -532,7 +545,7 @@ def get_thirteenth(
         "parcela":          parcela,
         "worked_months":    worked_months,
         "bruto_13":         bruto_13,
-        "inss":             inss_on_bruto,
+        "inss":             inss_parcela,
         "primeira_parcela": primeira_parcela,
         "liquido":          liquido,
     }

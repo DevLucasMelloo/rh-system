@@ -183,6 +183,16 @@ const Api = (() => {
   const updateVacationItem     = (id, iid, body)   => patch(`/vacation/${id}/items/${iid}`, body);
   const deleteVacationItem     = (id, iid)         => del(`/vacation/${id}/items/${iid}`);
   const getThirteenth          = (id, year, parcela) => get(`/vacation/thirteenth/${id}`, { year, parcela });
+  const getThirteenthBatch     = (year, parcela)     => get(`/vacation/thirteenth-batch`, { year, parcela });
+
+  // ── 13º Salário (persistido) ──────────────────────────────────────────────
+  const generateThirteenth      = (body)            => post('/thirteenth/generate', body);
+  const generateThirteenthBatch = (body)            => post('/thirteenth/generate-batch', body);
+  const listThirteenth          = (year, parcela)   => get('/thirteenth', { year, parcela });
+  const updateThirteenth        = (id, body)        => patch(`/thirteenth/${id}`, body);
+  const markThirteenthPaid      = (id)              => patch(`/thirteenth/${id}/mark-paid`);
+  const deleteThirteenth        = (id)              => del(`/thirteenth/${id}`);
+  const exportThirteenth        = (year, parcela)   => download('/thirteenth/export', { year, parcela }, '13_salario.xlsx');
 
   // ── Termination ───────────────────────────────────────────────────────────
   const getTerminations   = ()      => get('/vacation/terminations');
@@ -203,6 +213,7 @@ const Api = (() => {
   const saveEmployeeDays      = (empId, m, y, body) => post(`/timesheet/periods/${m}/${y}/employee/${empId}/save`, body);
   const getBankSummary        = (year)              => get('/timesheet/bank-summary', { year });
   const recalculateAllBanks  = ()                  => post('/timesheet/recalculate-all-banks', {});
+  const batchDayLaunch       = (body)               => post('/timesheet/batch-day', body);
 
   // ── Audit ─────────────────────────────────────────────────────────────────
   const getAuditLogs     = (p) => get('/audit/logs',    p);
@@ -233,11 +244,12 @@ const Api = (() => {
     getVacationOverview, getVacations, getEmpVacations, getVacation, getVacationEligibility, previewVacation,
     createVacation, updateVacation, deleteVacation,
     startVacation, completeVacation, cancelVacation,
-    addVacationItem, updateVacationItem, deleteVacationItem, getThirteenth,
+    addVacationItem, updateVacationItem, deleteVacationItem, getThirteenth, getThirteenthBatch,
     getTerminations, createTermination, getTermination,
     getTimesheet, createEntry, updateEntry, getHourBank, recalculateHourBank, recalculateAllBanks,
-    getTimesheetPeriod, openTimesheetPeriod, closeTimesheetPeriod, getEmployeeDays, saveEmployeeDays, getBankSummary,
+    getTimesheetPeriod, openTimesheetPeriod, closeTimesheetPeriod, getEmployeeDays, saveEmployeeDays, getBankSummary, batchDayLaunch,
     getAuditLogs, getAuditStats, getAuditUsers, getAuditActions, dlAuditLogs,
     dlPayroll, dlTimesheet, dlEmployees, dlVacations, dlTerminations, dlHourBank,
+    generateThirteenth, generateThirteenthBatch, listThirteenth, updateThirteenth, markThirteenthPaid, deleteThirteenth, exportThirteenth,
   };
 })();

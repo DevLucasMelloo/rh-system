@@ -121,6 +121,7 @@ const PAGES = {
   vales:        PageVales,
   rescisao:     PageRescisao,
   vacation:     PageVacation,
+  thirteenth:   PageThirteenth,
   timesheet:    PageTimesheet,
   bankhours:    PageBankHours,
   reports:      PageReports,

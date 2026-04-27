@@ -18,11 +18,9 @@ class TimesheetEntryCreate(BaseModel):
         times = [self.entry_time, self.lunch_out_time, self.lunch_in_time, self.exit_time]
         filled = [t for t in times if t is not None]
 
-        # Dia de falta: não precisa de horários
         if self.is_absence or self.is_medical_certificate:
             return self
 
-        # Se algum horário foi preenchido, todos devem ser
         if filled and len(filled) != 4:
             raise ValueError("Preencha todas as 4 batidas ou deixe todas em branco")
 
@@ -83,11 +81,21 @@ class BulkDayEntry(BaseModel):
     is_medical_certificate: bool = False
     certificate_hours: float | None = None
     is_holiday: bool = False
+    is_recess: bool = False
+    is_compensar: bool = False
     justification: str | None = None
 
 
 class BulkSaveRequest(BaseModel):
     entries: list[BulkDayEntry]
+
+
+class BatchDayRequest(BaseModel):
+    type: str              # "feriado" | "recesso" | "compensar"
+    employee_ids: list[int]
+    launch_date: date | None = None  # para feriado e compensar (dia único)
+    start_date: date | None = None   # para recesso (intervalo)
+    end_date: date | None = None     # para recesso (intervalo)
 
 
 class PeriodCreate(BaseModel):
@@ -101,10 +109,10 @@ class PeriodEmployeeInfo(BaseModel):
     admission_date: date | None
     start_date: date
     end_date: date
-    total_days: int       # calendar days in the period for this employee
-    filled_workdays: int  # Mon-Fri with entries
-    total_workdays: int   # Mon-Fri in period
-    balance_minutes: int = 0  # monthly bank delta for this employee
+    total_days: int
+    filled_workdays: int
+    total_workdays: int
+    balance_minutes: int = 0
 
 
 class PeriodRead(BaseModel):
@@ -131,6 +139,9 @@ class DayRead(BaseModel):
     is_medical_certificate: bool
     certificate_hours: float | None
     is_holiday: bool
+    is_recess: bool = False
+    is_compensar: bool = False
+    is_dsr_deducted: bool = False
     justification: str | None
     is_annulled: bool
     is_vacation: bool = False

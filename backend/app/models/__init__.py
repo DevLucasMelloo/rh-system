@@ -7,6 +7,7 @@ from app.models.payroll import Payroll, PayrollItem, Vale
 from app.models.vacation import Vacation, VacationStatus, VacationItem, VacationItemType
 from app.models.termination import Termination, TerminationReason
 from app.models.audit_log import AuditLog
+from app.models.thirteenth import ThirteenthSalary, ThirteenthStatus
 
 __all__ = [
     "Company", "User", "UserRole",
@@ -17,4 +18,5 @@ __all__ = [
     "Vacation", "VacationStatus", "VacationItem", "VacationItemType",
     "Termination", "TerminationReason",
     "AuditLog",
+    "ThirteenthSalary", "ThirteenthStatus",
 ]

@@ -9,6 +9,9 @@ Regras do sistema:
 - Limiar de hora extra: 10 minutos (trabalhar até 10 min a mais não gera hora extra)
 - Atestado médico: dia não conta como falta nem desconta banco de horas
 - Dia anulado: sem cálculo algum
+- Recesso: não trabalhado, não impacta banco de horas (payroll trata o desconto)
+- Compensar: gera horas negativas no banco de horas
+- DSR deducted: sáb/dom/feriado descontado automaticamente, sem impacto no banco
 """
 from datetime import date, time
 
@@ -31,6 +34,19 @@ def expected_minutes(work_date: date, is_intern: bool, weekly_hours: int) -> int
     if is_intern:
         return (weekly_hours * 60) // 5
     return CLT_EXPECTED.get(weekday, 480)
+
+
+def expected_minutes_for_compensar(work_date: date, is_intern: bool, weekly_hours: int) -> int:
+    """
+    Minutos esperados para dias de compensar.
+    Para CLT: Seg-Qui=9h, Sex=8h. Para fins de semana usa média diária.
+    """
+    weekday = work_date.weekday()
+    if is_intern:
+        return (weekly_hours * 60) // 5
+    # Usa a mesma lógica do dia útil mais próximo (semana 44h/5dias)
+    # Para sáb/dom aplica a média (44h / 5 = 8,8h ≈ 528 min), mas na prática compensar ocorre em dia útil
+    return CLT_EXPECTED.get(weekday, 480)  # defaults 8h para outros dias
 
 
 def calc_worked_minutes(
@@ -75,17 +91,26 @@ def calc_bank_delta(
     is_absence: bool,
     is_medical_certificate: bool,
     is_annulled: bool,
+    is_recess: bool = False,
+    is_compensar: bool = False,
+    is_dsr_deducted: bool = False,
 ) -> int:
     """
     Variação do banco de horas para o dia.
     - Atestado médico e dia anulado: sem variação (0)
-    - Falta: desconta o dia completo
+    - Recesso / DSR deducted: sem variação no banco (payroll trata o desconto salarial)
+    - Compensar: desconta o dia completo do banco (horas negativas)
+    - Falta: zero (desconto feito direto na folha de pagamento)
     - Trabalhado: diferença entre trabalhado e esperado
     """
     if is_annulled or is_medical_certificate:
         return 0
+    if is_recess or is_dsr_deducted:
+        return 0  # impacto no banco de horas é zero; payroll conta os dias perdidos
+    if is_compensar:
+        return -expected  # horas negativas vão para o banco
     if is_absence:
-        return -expected
+        return 0  # faltas geram desconto direto na folha, não no banco
     return worked - expected
 
 

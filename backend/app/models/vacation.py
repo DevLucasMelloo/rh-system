@@ -41,6 +41,9 @@ class Vacation(Base):
     # Venda total (funcionário recebe todos os dias em dinheiro, sem gozar)
     sell_all_days = Column(Boolean, default=False, nullable=True)
 
+    # Abono pecuniário: dias convertidos em dinheiro (funcionário goza enjoyment_days e vende abono_days)
+    abono_days = Column(Integer, default=0, nullable=True)
+
     # Fracionamento
     is_fractioned = Column(Boolean, default=False)
     paid_days_in_payroll = Column(Integer, default=0)

@@ -28,6 +28,12 @@ const PageAudit = (() => {
     vacation_completed:        { label: 'Férias Concluídas',  bg: '#ccfbf1', color: '#0d9488' },
     vacation_cancelled:        { label: 'Férias Canceladas',  bg: '#ccfbf1', color: '#0d9488' },
     vacation_deleted:          { label: 'Férias Excluídas',   bg: '#fee2e2', color: '#dc2626' },
+    // 13º Salário
+    thirteenth_generated:      { label: '13º Gerado',         bg: '#fef9c3', color: '#a16207' },
+    thirteenth_updated:        { label: '13º Editado',        bg: '#fef9c3', color: '#a16207' },
+    thirteenth_batch_generated:{ label: '13º Lote Gerado',    bg: '#fef9c3', color: '#a16207' },
+    thirteenth_paid:           { label: '13º Pago',           bg: '#dcfce7', color: '#16a34a' },
+    thirteenth_deleted:        { label: '13º Excluído',       bg: '#fee2e2', color: '#dc2626' },
     // Rescisão
     termination_created:       { label: 'Rescisão',           bg: '#ffedd5', color: '#ea580c' },
     // Costureiras
@@ -56,6 +62,7 @@ const PageAudit = (() => {
     payroll:            'Folha de Pagamento',
     vale:               'Vales',
     vacation:           'Férias',
+    thirteenth_salary:  '13º Salário',
     termination:        'Rescisão',
     seamstress:         'Costureiras',
     seamstress_payment: 'Pgto Costureira',

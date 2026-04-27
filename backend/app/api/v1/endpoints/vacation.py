@@ -46,7 +46,8 @@ def preview_vacation(
     current_user: User = Depends(get_current_user),
 ):
     return vac_service.preview_vacation_calc(
-        db, body.employee_id, body.enjoyment_days, body.sell_all_days, current_user.company_id
+        db, body.employee_id, body.enjoyment_days, body.sell_all_days, current_user.company_id,
+        abono_days=body.abono_days,
     )
 
 
@@ -78,6 +79,29 @@ def get_thirteenth(
     current_user: User = Depends(get_current_user),
 ):
     return vac_service.get_thirteenth(db, employee_id, year, parcela, current_user.company_id)
+
+
+@router.get("/thirteenth-batch", response_model=list[ThirteenthRead])
+def get_thirteenth_batch(
+    year:    int = Query(..., ge=2000),
+    parcela: int = Query(2, ge=1, le=2),
+    db: Session  = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.repositories import employee as emp_repo
+    from app.models.employee import EmployeeStatus
+    employees = emp_repo.list_all(db, current_user.company_id)
+    result = []
+    for emp in employees:
+        if emp.status == EmployeeStatus.INACTIVE:
+            continue
+        if not emp.registration_date:
+            continue
+        try:
+            result.append(vac_service.get_thirteenth(db, emp.id, year, parcela, current_user.company_id))
+        except Exception:
+            pass
+    return result
 
 
 # ── Rescisão (literais antes de /{id}) ───────────────────────────────────────
@@ -228,7 +252,8 @@ def _enrich_vacation(vac: object, db: Session) -> dict:
     from app.repositories import employee as emp_repo
     d = {c.name: getattr(vac, c.name) for c in vac.__table__.columns}
     emp = emp_repo.get_employee(db, vac.employee_id)
-    d["employee_name"] = emp.name if emp else None
+    d["employee_name"]      = emp.name              if emp else None
+    d["registration_date"]  = emp.registration_date if emp else None
     d["items"] = [
         {"id": i.id, "vacation_id": i.vacation_id, "item_type": i.item_type,
          "description": i.description, "value": i.value}

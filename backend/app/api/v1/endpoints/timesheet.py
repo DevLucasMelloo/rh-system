@@ -6,7 +6,7 @@ from app.core.dependencies import get_current_user, require_rh_or_admin
 from app.schemas.timesheet import (
     TimesheetEntryCreate, TimesheetEntryUpdate,
     TimesheetEntryRead, HourBankRead, MonthlyReport,
-    PeriodCreate, PeriodRead, DayRead, BulkSaveRequest,
+    PeriodCreate, PeriodRead, DayRead, BulkSaveRequest, BatchDayRequest,
 )
 from app.services import timesheet as ts_service
 from app.models.user import User
@@ -108,6 +108,15 @@ def bank_summary(
     db: Session = Depends(get_db),
 ):
     return ts_service.get_bank_summary(db, year, current_user.company_id)
+
+
+@router.post("/batch-day", status_code=201)
+def batch_day_launch(
+    data: BatchDayRequest,
+    current_user: User = Depends(require_rh_or_admin),
+    db: Session = Depends(get_db),
+):
+    return ts_service.batch_day_launch(db, data, current_user.company_id, current_user.id)
 
 
 @router.post("/recalculate-all-banks")
