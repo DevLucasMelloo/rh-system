@@ -44,8 +44,8 @@ const PageDashboard = (() => {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
         <div class="card">
           <div class="card-header" style="display:flex;align-items:center;gap:8px">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            Férias Expirando (60 dias)
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Férias — Vencidas e a Vencer
           </div>
           <div id="vacation-list" style="padding:8px 0">
             <div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Carregando...</div>
@@ -53,7 +53,8 @@ const PageDashboard = (() => {
         </div>
         <div class="card">
           <div class="card-header" style="display:flex;align-items:center;gap:8px">
-            🎂 Aniversários (30 dias)
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success,#16a34a)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span id="birthday-header">Aniversariantes</span>
           </div>
           <div id="birthday-list" style="padding:8px 0">
             <div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Carregando...</div>
@@ -257,31 +258,93 @@ const PageDashboard = (() => {
   function renderVacationExpiring(list) {
     const el = document.getElementById('vacation-list');
     if (!list.length) {
-      el.innerHTML = `<div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Nenhuma férias expirando.</div>`;
+      el.innerHTML = `<div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Nenhuma férias vencida ou próxima de vencer.</div>`;
       return;
     }
-    el.innerHTML = `<ul class="items-list" style="padding:0 24px">
-      ${list.map(v => `
-        <li>
-          <span>${v.employee_name}</span>
-          <span class="badge badge-warning">Vence em ${v.days_until_expiry}d</span>
-        </li>`).join('')}
-    </ul>`;
+
+    const fmtDate = d => {
+      const [y, m, day] = d.split('-');
+      return `${day}/${m}/${y}`;
+    };
+
+    el.innerHTML = list.map(v => {
+      const expired = v.is_expired;
+      const days    = Math.abs(v.days_until_expiry);
+
+      const accentColor = expired ? 'var(--danger,#dc2626)' : 'var(--success,#16a34a)';
+      const bgColor     = expired ? 'var(--danger-light,#fee2e2)' : 'var(--success-light,#dcfce7)';
+      const borderColor = expired ? '#fca5a5' : '#86efac';
+
+      const statusLabel = expired
+        ? `<div style="font-size:11px;font-weight:700;color:${accentColor}">
+             Venceu há ${days === 0 ? 'hoje' : days + 'd'}
+           </div>
+           <div style="font-size:10px;color:var(--text-muted)">${fmtDate(v.acquisition_end)}</div>`
+        : days === 0
+          ? `<div style="font-size:11px;font-weight:700;color:${accentColor}">Vence hoje!</div>`
+          : `<div style="font-size:11px;color:var(--text-muted)">vence em <strong style="color:${accentColor}">${days}d</strong></div>
+             <div style="font-size:10px;color:var(--text-muted)">${fmtDate(v.acquisition_end)}</div>`;
+
+      const icon = expired
+        ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${accentColor}" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+        : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${accentColor}" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+
+      return `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-radius:8px;
+                    background:${bgColor};border:1px solid ${borderColor};
+                    margin:4px 16px">
+          <div style="width:36px;height:36px;border-radius:50%;background:#fff;border:2px solid ${borderColor};
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            ${icon}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.employee_name}</div>
+            ${v.role ? `<div style="font-size:11px;color:var(--text-muted);margin-top:1px">${v.role}</div>` : ''}
+          </div>
+          <div style="flex-shrink:0;text-align:right">${statusLabel}</div>
+        </div>`;
+    }).join('');
   }
 
   function renderBirthdays(list) {
-    const el = document.getElementById('birthday-list');
+    const el    = document.getElementById('birthday-list');
+    const hdr   = document.getElementById('birthday-header');
+    const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                       'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const now   = new Date();
+    if (hdr) hdr.textContent = `Aniversariantes — ${MONTHS_PT[now.getMonth()]}`;
+
     if (!list.length) {
-      el.innerHTML = `<div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Nenhum aniversário nos próximos 30 dias.</div>`;
+      el.innerHTML = `<div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Nenhum aniversariante este mês.</div>`;
       return;
     }
-    el.innerHTML = `<ul class="items-list" style="padding:0 24px">
-      ${list.map(b => `
-        <li>
-          <span>${b.name}</span>
-          <span class="badge badge-primary">${b.days_until === 0 ? '🎂 Hoje!' : `em ${b.days_until}d`}</span>
-        </li>`).join('')}
-    </ul>`;
+
+    el.innerHTML = list.map(b => {
+      const isToday = b.days_until === 0;
+      const isPast  = b.days_until < 0;
+      const daysLabel = isToday
+        ? `<span style="font-size:11px;font-weight:700;color:var(--success,#16a34a)">🎂 Hoje!</span>`
+        : isPast
+          ? `<span style="font-size:11px;color:var(--text-muted)">já passou</span>`
+          : `<span style="font-size:11px;color:var(--text-muted)">faltam <strong style="color:var(--primary)">${b.days_until}d</strong></span>`;
+
+      const role = b.role || '';
+      return `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-radius:8px;
+                    background:${isToday ? 'var(--success-light,#dcfce7)' : 'var(--bg-subtle,#f8f9fa)'};
+                    margin:4px 16px;transition:background 0.2s">
+          <div style="width:40px;height:40px;border-radius:50%;background:var(--success-light,#d1fae5);
+                      border:2px solid var(--success,#16a34a);display:flex;align-items:center;
+                      justify-content:center;flex-shrink:0">
+            <span style="font-size:14px;font-weight:700;color:var(--success,#16a34a)">${b.birth_day}</span>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.name}</div>
+            ${role ? `<div style="font-size:11px;color:var(--text-muted);margin-top:1px">${role}</div>` : ''}
+          </div>
+          <div style="flex-shrink:0;text-align:right">${daysLabel}</div>
+        </div>`;
+    }).join('');
   }
 
   return { render };

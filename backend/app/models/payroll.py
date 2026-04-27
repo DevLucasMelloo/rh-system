@@ -36,6 +36,8 @@ class PayrollItemType(str, enum.Enum):
     IR = "imposto_renda"
     OTHER_DISCOUNT = "outros_desconto"
     OTHER_CREDIT = "outros_credito"
+    BANK_DEDUCT = "banco_desconto"   # desconto de horas negativas do banco
+    BANK_PAY = "banco_credito"       # pagamento de horas positivas do banco
 
 
 class Payroll(Base):

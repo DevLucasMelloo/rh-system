@@ -108,6 +108,8 @@ const PageVacation = (() => {
       disponivel:['#d97706', '#fef3c7', 'Disponível'],
       regular:   ['#16a34a', '#dcfce7', 'Regular'],
       inelegivel:['#6b7280', '#f3f4f6', 'Inelegível'],
+      concluida: ['#16a34a', '#dcfce7', 'Concluída'],
+      em_gozo:   ['#0891b2', '#e0f2fe', 'Em Gozo'],
     };
     const [color, bg, label] = map[status] || ['#6b7280', '#f3f4f6', status];
     return `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;color:${color};background:${bg}">${label}</span>`;
@@ -497,8 +499,9 @@ const PageVacation = (() => {
         <button class="btn btn-secondary" onclick="PageVacation.openEdit(${v.id})">Editar Datas</button>
         <button class="btn btn-warning" onclick="PageVacation._saveCalc(${v.id})">Salvar Valores</button>
         <button class="btn btn-danger" onclick="PageVacation.deleteVac(${v.id})">Excluir</button>` : ''}
-      ${isActive ? `<button class="btn btn-success" onclick="PageVacation.completeVac(${v.id})">Concluir</button>` : ''}
-      ${isScheduled ? `<button class="btn btn-primary" onclick="PageVacation.startVac(${v.id})">Iniciar Gozo</button>` : ''}
+      ${isActive ? `<button class="btn btn-success" onclick="PageVacation.completeVac(${v.id})">✓ Dar Baixa</button>` : ''}
+      ${isScheduled && v.sell_all_days ? `<button class="btn btn-success" onclick="PageVacation.completeVac(${v.id})">✓ Dar Baixa</button>` : ''}
+      ${isScheduled && !v.sell_all_days ? `<button class="btn btn-primary" onclick="PageVacation.startVac(${v.id})">Iniciar Gozo</button>` : ''}
       <button class="btn btn-secondary" onclick="PageVacation.printVac(${JSON.stringify(v).replace(/"/g,'&quot;')})">🖨 Imprimir</button>
       <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>`
     );
@@ -657,9 +660,21 @@ const PageVacation = (() => {
   }
 
   // ── Ciclo de vida ─────────────────────────────────────────────────────────
-  async function startVac(id) {
-    const dt = prompt('Data de início do gozo (AAAA-MM-DD):');
-    if (!dt) return;
+  function startVac(id) {
+    const today = new Date().toISOString().split('T')[0];
+    openModal('Iniciar Gozo de Férias',
+      `<div class="form-group">
+        <label>Data de início do gozo</label>
+        <input class="form-control" type="date" id="start-vac-dt" value="${today}">
+      </div>`,
+      `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+       <button class="btn btn-primary" onclick="PageVacation._confirmStart(${id})">Confirmar</button>`
+    );
+  }
+
+  async function _confirmStart(id) {
+    const dt = document.getElementById('start-vac-dt')?.value;
+    if (!dt) { toast('Informe a data de início.', 'error'); return; }
     try {
       await Api.startVacation(id, { enjoyment_start: dt });
       toast('Gozo iniciado!');
@@ -671,7 +686,7 @@ const PageVacation = (() => {
     try {
       await Api.completeVacation(id);
       closeModal();
-      toast('Férias concluídas!');
+      toast('Férias concluídas — baixa dada!');
       loadOverview();
     } catch (e) { toast(e.message, 'error'); }
   }
@@ -740,7 +755,7 @@ const PageVacation = (() => {
     openDetail, _saveCalc, _saveNotes,
     addItem, removeItem,
     openEdit, _onEditSellAll, saveEdit,
-    deleteVac, startVac, completeVac,
+    deleteVac, startVac, _confirmStart, completeVac,
     printVac,
   };
 })();

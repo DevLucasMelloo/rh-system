@@ -74,27 +74,27 @@ const PageBankHours = (() => {
 
     const rows = data.map(emp => {
       const cells = Array.from({ length: 12 }, (_, i) => {
-        const md = emp.months[i + 1] || { balance_minutes: 0, paid_overtime: false, paid_minutes: 0, salary_deducted_minutes: 0 };
+        const md = emp.months[i + 1] || { balance_minutes: 0, paid_minutes: 0, deducted_minutes: 0 };
         const val = md.balance_minutes;
         const text = _fmtMin(val);
         const color = _color(val);
 
         let paidBadge = '';
-        if (md.paid_overtime && md.paid_minutes > 0) {
+        if (md.paid_minutes > 0) {
           const ph = Math.floor(md.paid_minutes / 60);
           const pm = md.paid_minutes % 60;
           const pStr = ph + 'h' + (pm > 0 ? String(pm).padStart(2,'0') : '');
           paidBadge = `<div style="font-size:10px;color:var(--primary);margin-top:2px;white-space:nowrap"
-                            title="Horas Extras pagas neste mês: ${pStr}">✓ pago ${pStr}</div>`;
+                            title="HE pagas neste mês: ${pStr}">✓ pago ${pStr}</div>`;
         }
 
         let deductedBadge = '';
-        if (md.salary_deducted_minutes > 0) {
-          const dh = Math.floor(md.salary_deducted_minutes / 60);
-          const dm = md.salary_deducted_minutes % 60;
+        if (md.deducted_minutes > 0) {
+          const dh = Math.floor(md.deducted_minutes / 60);
+          const dm = md.deducted_minutes % 60;
           const dStr = dh + 'h' + (dm > 0 ? String(dm).padStart(2,'0') : '');
           deductedBadge = `<div style="font-size:10px;color:var(--warning,#d97706);margin-top:2px;white-space:nowrap"
-                                title="Horas descontadas do salário neste mês: ${dStr}">✗ desc. ${dStr}</div>`;
+                                title="Banco negativo descontado neste mês: ${dStr}">✗ desc. ${dStr}</div>`;
         }
 
         return `<td style="text-align:center;vertical-align:middle;padding:6px 4px">

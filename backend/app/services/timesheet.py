@@ -861,32 +861,38 @@ def get_bank_summary(db: Session, year: int, company_id: int) -> list[dict]:
                     continue
                 if getattr(e, "is_recess", False) or getattr(e, "is_dsr_deducted", False):
                     continue
-                exp = expected_minutes(e.work_date, emp.is_intern, emp.weekly_hours)
+                if e.is_absence:
+                    continue  # falta: desconto direto no salário, não entra no banco
                 if getattr(e, "is_compensar", False):
                     exp_c = expected_minutes_for_compensar(e.work_date, emp.is_intern, emp.weekly_hours)
                     monthly_delta -= exp_c
-                elif e.is_absence:
-                    monthly_delta -= exp
                 else:
+                    exp = expected_minutes(e.work_date, emp.is_intern, emp.weekly_hours)
                     monthly_delta += (e.worked_minutes or 0) - exp
 
+            # Operações de banco no holerite fechado deste mês
+            paid_minutes     = 0  # HE paga (banco_credito ou pay_overtime legado)
+            deducted_minutes = 0  # banco negativo descontado (banco_desconto)
             payroll = payroll_repo.get_payroll_by_period(db, emp.id, month, year)
-            paid_overtime = False
-            paid_minutes  = 0
-            salary_deducted_minutes = 0
             if payroll and payroll.status == PayrollStatus.CLOSED:
-                if payroll.pay_overtime and payroll.total_overtime_hours:
-                    paid_overtime = True
-                    paid_minutes  = int(payroll.total_overtime_hours * 60)
-                absence_min = _month_absence_minutes(entries, year, month, emp)
-                if not payroll.use_hour_bank_for_absences:
-                    salary_deducted_minutes = absence_min
+                sal = float(payroll.gross_salary or 0)
+                for item in (payroll.items or []):
+                    if item.item_type == "banco_credito":
+                        rate = (sal / 220 * 1.6) if sal else 0
+                        if rate > 0:
+                            paid_minutes += int(float(item.amount) / rate * 60)
+                    elif item.item_type == "banco_desconto":
+                        rate = sal / 220 if sal else 0
+                        if rate > 0:
+                            deducted_minutes += int(float(item.amount) / rate * 60)
+                # Compatibilidade com holerites antigos que usavam flag pay_overtime
+                if paid_minutes == 0 and payroll.pay_overtime and payroll.total_overtime_hours:
+                    paid_minutes = int(float(payroll.total_overtime_hours) * 60)
 
             months_data[month] = {
-                "balance_minutes":         monthly_delta,
-                "paid_overtime":           paid_overtime,
-                "paid_minutes":            paid_minutes,
-                "salary_deducted_minutes": salary_deducted_minutes,
+                "balance_minutes":   monthly_delta,
+                "paid_minutes":      paid_minutes,
+                "deducted_minutes":  deducted_minutes,
             }
 
         bank = ts_repo.get_hour_bank(db, emp.id)
@@ -938,10 +944,26 @@ def sync_hour_bank(db: Session, employee_id: int) -> int:
     for p in payroll_repo.list_payrolls_by_employee(db, employee_id):
         if p.status != PayrollStatus.CLOSED:
             continue
-        if p.pay_overtime and p.total_overtime_hours:
-            balance -= int(p.total_overtime_hours * 60)
         if p.use_hour_bank_for_absences:
             balance -= _month_absence_minutes(all_entries, p.competence_year, p.competence_month, emp)
+        # Operações manuais de banco (novos tipos banco_desconto / banco_credito)
+        has_banco_item = False
+        for item in (p.items or []):
+            if item.item_type == "banco_desconto":
+                sal = float(p.gross_salary or 0)
+                rate = sal / 220 if sal else 0
+                if rate > 0:
+                    balance += int(float(item.amount) / rate * 60)
+                    has_banco_item = True
+            elif item.item_type == "banco_credito":
+                sal = float(p.gross_salary or 0)
+                rate = (sal / 220 * 1.6) if sal else 0
+                if rate > 0:
+                    balance -= int(float(item.amount) / rate * 60)
+                    has_banco_item = True
+        # Compatibilidade com holerites antigos que usavam flag pay_overtime
+        if not has_banco_item and p.pay_overtime and p.total_overtime_hours:
+            balance -= int(float(p.total_overtime_hours) * 60)
 
     ts_repo.set_hour_bank(db, employee_id, balance)
     return balance

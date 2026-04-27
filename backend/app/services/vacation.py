@@ -53,6 +53,25 @@ def _get_employee_any_status(db: Session, employee_id: int, company_id: int) -> 
     return emp
 
 
+def _auto_advance_status(db: Session, vac: Vacation) -> Vacation:
+    """Avança o status automaticamente com base nas datas."""
+    today = date.today()
+    if vac.status == VacationStatus.SCHEDULED:
+        if vac.sell_all_days:
+            # Venda total: sem gozo, pode concluir direto
+            pass
+        elif vac.enjoyment_start and vac.enjoyment_start <= today:
+            vac = vac_repo.update_vacation(db, vac, {"status": VacationStatus.ACTIVE})
+    if vac.status == VacationStatus.ACTIVE:
+        if vac.sell_all_days:
+            vac = vac_repo.update_vacation(db, vac, {"status": VacationStatus.COMPLETED})
+        elif vac.enjoyment_start and vac.enjoyment_days:
+            end_date = vac.enjoyment_start + timedelta(days=vac.enjoyment_days)
+            if end_date <= today:
+                vac = vac_repo.update_vacation(db, vac, {"status": VacationStatus.COMPLETED})
+    return vac
+
+
 def _get_vacation_or_404(db: Session, vacation_id: int, company_id: int) -> Vacation:
     vac = vac_repo.get_vacation(db, vacation_id)
     if not vac:
@@ -60,7 +79,7 @@ def _get_vacation_or_404(db: Session, vacation_id: int, company_id: int) -> Vaca
     emp = emp_repo.get_employee(db, vac.employee_id)
     if not emp or emp.company_id != company_id:
         raise HTTPException(status_code=404, detail="Férias não encontrada")
-    return vac
+    return _auto_advance_status(db, vac)
 
 
 def _months_registered(reg_date: date) -> int:
@@ -403,7 +422,7 @@ def complete_vacation(
     user_id: int,
 ) -> Vacation:
     vac = _get_vacation_or_404(db, vacation_id, company_id)
-    if vac.status != VacationStatus.ACTIVE:
+    if vac.status not in (VacationStatus.ACTIVE, VacationStatus.SCHEDULED):
         raise HTTPException(status_code=400, detail=f"Férias não podem ser concluídas no status '{vac.status.value}'")
     completed = vac_repo.update_vacation(db, vac, {"status": VacationStatus.COMPLETED})
     audit_repo.create_log(
@@ -432,11 +451,13 @@ def get_vacation(db: Session, vacation_id: int, company_id: int) -> Vacation:
 
 def list_by_employee(db: Session, employee_id: int, company_id: int) -> list[Vacation]:
     emp = _get_employee_any_status(db, employee_id, company_id)
-    return vac_repo.list_by_employee(db, emp.id)
+    vacs = vac_repo.list_by_employee(db, emp.id)
+    return [_auto_advance_status(db, v) for v in vacs]
 
 
 def list_active(db: Session, company_id: int) -> list[Vacation]:
-    return vac_repo.list_active_by_company(db, company_id)
+    vacs = vac_repo.list_active_by_company(db, company_id)
+    return [_auto_advance_status(db, v) for v in vacs]
 
 
 def get_company_overview(db: Session, company_id: int) -> list[dict]:
@@ -459,7 +480,7 @@ def get_company_overview(db: Session, company_id: int) -> list[dict]:
         unclaimed = max(0, periods_with_acq_ended - vacation_count)
         overdue   = max(0, periods_with_conc_ended - vacation_count)
 
-        all_vacs      = vac_repo.list_by_employee(db, emp.id)
+        all_vacs      = [_auto_advance_status(db, v) for v in vac_repo.list_by_employee(db, emp.id)]
         scheduled_vac = next(
             (v for v in all_vacs
              if v.status in (VacationStatus.SCHEDULED, VacationStatus.ACTIVE)),

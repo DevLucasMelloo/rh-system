@@ -10,13 +10,17 @@ class BirthdayRead(BaseModel):
     name: str
     date_of_birth: date
     days_until: int     # dias até o aniversário (0 = hoje)
+    birth_day: int      # dia do mês de aniversário
+    role: str | None = None
 
 
 class VacationExpiringRead(BaseModel):
     employee_id: int
     employee_name: str
+    role: str | None = None
     acquisition_end: date
-    days_until_expiry: int
+    days_until_expiry: int   # negativo = já venceu
+    is_expired: bool
     status: str
 
 

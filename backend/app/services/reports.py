@@ -71,36 +71,33 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
     vacs_expiring   = [
         v for v in vacs
         if v.status in (VacationStatus.SCHEDULED, VacationStatus.ACTIVE)
-        and v.acquisition_end <= cutoff_60d
+        and v.acquisition_end <= cutoff_60d          # vence nos próximos 60 dias OU já venceu
     ]
 
-    # ── Aniversários nos próximos 30 dias ─────────────────────────────────────
+    # ── Aniversários do mês atual ─────────────────────────────────────────────
     birthdays: list[BirthdayRead] = []
     for emp in active:
         if not emp.date_of_birth:
             continue
         dob = emp.date_of_birth
+        if dob.month != today.month:
+            continue
         try:
-            next_bday = date(today.year, dob.month, dob.day)
+            bday_this_year = date(today.year, dob.month, dob.day)
         except ValueError:
-            # 29-fev em ano não bissexto
-            next_bday = date(today.year, 3, 1)
-        if next_bday < today:
-            try:
-                next_bday = date(today.year + 1, dob.month, dob.day)
-            except ValueError:
-                next_bday = date(today.year + 1, 3, 1)
-        days_until = (next_bday - today).days
-        if days_until <= 30:
-            birthdays.append(BirthdayRead(
-                employee_id=emp.id,
-                name=emp.name,
-                date_of_birth=dob,
-                days_until=days_until,
-            ))
-    birthdays.sort(key=lambda b: b.days_until)
+            bday_this_year = date(today.year, 3, 1)
+        days_until = (bday_this_year - today).days
+        birthdays.append(BirthdayRead(
+            employee_id=emp.id,
+            name=emp.name,
+            date_of_birth=dob,
+            days_until=days_until,
+            birth_day=dob.day,
+            role=getattr(emp, "role", None),
+        ))
+    birthdays.sort(key=lambda b: b.birth_day)
 
-    # ── Férias expirando (detalhado) ──────────────────────────────────────────
+    # ── Férias expirando/vencidas (detalhado) ────────────────────────────────
     expiring: list[VacationExpiringRead] = []
     for v in vacs_expiring:
         emp = db.get(Employee, v.employee_id)
@@ -108,10 +105,13 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         expiring.append(VacationExpiringRead(
             employee_id=v.employee_id,
             employee_name=emp.name if emp else "—",
+            role=getattr(emp, "role", None) if emp else None,
             acquisition_end=v.acquisition_end,
             days_until_expiry=days_left,
+            is_expired=days_left < 0,
             status=v.status.value,
         ))
+    # Vencidas primeiro (mais urgentes), depois por proximidade
     expiring.sort(key=lambda x: x.days_until_expiry)
 
     # ── Costureiras ───────────────────────────────────────────────────────────

@@ -628,7 +628,7 @@ const PagePayroll = (() => {
     const notes = document.getElementById('bank-deduct-notes')?.value || `Desconto banco de horas — ${hStr}`;
     try {
       await Api.addPayrollItem(payrollId, {
-        item_type:      'outros_desconto',
+        item_type:      'banco_desconto',
         description:    `Desconto Banco de Horas (${hStr})`,
         amount:         amount,
         is_credit:      false,
@@ -680,7 +680,7 @@ const PagePayroll = (() => {
     const notes = document.getElementById('bank-pay-notes')?.value || `Pagamento banco de horas — ${hStr}`;
     try {
       await Api.addPayrollItem(payrollId, {
-        item_type:      'outros_credito',
+        item_type:      'banco_credito',
         description:    `Horas Extras (${hStr})`,
         amount:         amount,
         is_credit:      true,
