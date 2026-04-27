@@ -113,7 +113,7 @@ const PageRescisao = (() => {
             <div id="res-aviso-section" style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px">
               <div style="font-weight:600;font-size:13px;margin-bottom:10px">Aviso Prévio</div>
               <div id="res-aviso-info" style="font-size:12px;color:var(--text-muted);margin-bottom:10px"></div>
-              <div class="form-row" style="margin-bottom:0">
+              <div class="form-row" style="margin-bottom:8px">
                 <div class="form-group" style="margin-bottom:0">
                   <label style="font-size:12px">Tipo de aviso</label>
                   <select class="form-control" id="res-notice-type" onchange="PageRescisao.onNoticeTypeChange()" style="font-size:13px">
@@ -128,6 +128,26 @@ const PageRescisao = (() => {
                          onchange="PageRescisao.onNoticeStartChange()" style="font-size:13px">
                 </div>
               </div>
+
+              <!-- Opção de redução — só para sem justa causa + trabalhado (CLT art. 488) -->
+              <div id="res-reduction-group" style="display:none;margin-top:6px">
+                <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:6px">
+                  Opção do funcionário (CLT art. 488)
+                </label>
+                <div style="display:flex;gap:16px;font-size:13px">
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                    <input type="radio" name="res-reduction" value="2h_dia" id="res-red-2h" checked
+                           onchange="PageRescisao.onNoticeStartChange()">
+                    Redução de 2h/dia (trabalha ${30} dias)
+                  </label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                    <input type="radio" name="res-reduction" value="7_dias" id="res-red-7d"
+                           onchange="PageRescisao.onNoticeStartChange()">
+                    Redução de 7 dias (trabalha ${30}-7 dias)
+                  </label>
+                </div>
+              </div>
+
               <div id="res-notice-end-info" style="font-size:12px;color:var(--primary);margin-top:8px;display:none"></div>
             </div>
 
@@ -233,31 +253,49 @@ const PageRescisao = (() => {
 
   function onNoticeTypeChange() {
     const noticeType = document.getElementById('res-notice-type')?.value;
+    const reason     = document.getElementById('res-reason')?.value;
     const startGroup = document.getElementById('res-notice-start-group');
+    const redGroup   = document.getElementById('res-reduction-group');
+    const endInfo    = document.getElementById('res-notice-end-info');
+
     if (startGroup) startGroup.style.display = noticeType === 'trabalhado' ? 'block' : 'none';
-    const endInfo = document.getElementById('res-notice-end-info');
+    if (redGroup)   redGroup.style.display =
+      (noticeType === 'trabalhado' && reason === 'sem_justa_causa') ? 'block' : 'none';
     if (endInfo && noticeType !== 'trabalhado') endInfo.style.display = 'none';
     onNoticeStartChange();
   }
 
   function onNoticeStartChange() {
-    const noticeType = document.getElementById('res-notice-type')?.value;
-    const startVal   = document.getElementById('res-notice-start')?.value;
-    const endInfo    = document.getElementById('res-notice-end-info');
-    const reason     = document.getElementById('res-reason')?.value;
-    const admission  = document.getElementById('res-emp')?.dataset?.admission;
-    const termDate   = document.getElementById('res-date')?.value;
+    const noticeType  = document.getElementById('res-notice-type')?.value;
+    const startVal    = document.getElementById('res-notice-start')?.value;
+    const endInfo     = document.getElementById('res-notice-end-info');
+    const reason      = document.getElementById('res-reason')?.value;
+    const admission   = document.getElementById('res-emp')?.dataset?.admission;
+    const termDate    = document.getElementById('res-date')?.value;
+    const reduction   = document.querySelector('input[name="res-reduction"]:checked')?.value;
 
     if (noticeType !== 'trabalhado' || !startVal) {
       if (endInfo) endInfo.style.display = 'none';
       return;
     }
-    const noticeDays = calcNoticeDays(reason, admission, termDate || startVal);
-    const endDate    = addDays(startVal, noticeDays);
+    const noticeDays    = calcNoticeDays(reason, admission, termDate || startVal);
+    const effectiveDays = noticeDays - (reduction === '7_dias' ? 7 : 0);
+    const endDate       = addDays(startVal, Math.max(1, effectiveDays));
+
+    // Update the radio label with actual days
+    const label7d = document.getElementById('res-red-7d')?.parentElement;
+    if (label7d) label7d.childNodes[1].textContent = ` Redução de 7 dias (trabalha ${noticeDays - 7} dias)`;
+    const label2h = document.getElementById('res-red-2h')?.parentElement;
+    if (label2h) label2h.childNodes[1].textContent = ` Redução de 2h/dia (trabalha ${noticeDays} dias)`;
+
     if (endInfo && endDate) {
       endInfo.style.display = 'block';
-      endInfo.innerHTML = `Término do aviso: <strong>${fmt.date(endDate)}</strong>
-        · O saldo de salário após o último holerite entra na rescisão.`;
+      const reductionDesc = reason === 'sem_justa_causa'
+        ? (reduction === '7_dias'
+            ? ` · Redução de 7 dias aplicada (trabalha ${noticeDays - 7} dias)`
+            : ` · Redução de 2h/dia (${noticeDays} dias normais)`)
+        : '';
+      endInfo.innerHTML = `Término do aviso: <strong>${fmt.date(endDate)}</strong>${reductionDesc}`;
       const termEl = document.getElementById('res-date');
       if (termEl && !termEl.dataset.manual) termEl.value = endDate;
     }
@@ -271,6 +309,7 @@ const PageRescisao = (() => {
     const termDate    = document.getElementById('res-date').value;
     const noticeType  = document.getElementById('res-notice-type')?.value;
     const noticeStart = document.getElementById('res-notice-start')?.value;
+    const reduction   = document.querySelector('input[name="res-reduction"]:checked')?.value;
     const notes       = document.getElementById('res-notes')?.value || '';
     const errEl       = document.getElementById('res-error');
     errEl.innerHTML   = '';
@@ -285,6 +324,7 @@ const PageRescisao = (() => {
       reason,
       notice_worked:     noticeWorked,
       notice_start_date: noticeWorked && noticeStart ? noticeStart : null,
+      notice_reduction:  (noticeWorked && reason === 'sem_justa_causa') ? (reduction || '2h_dia') : null,
       notes:             notes || null,
     };
 
@@ -354,13 +394,18 @@ const PageRescisao = (() => {
     const saldoRef  = `${t.saldo_dias || t.termination_date?.split('-')[2] || '?'} dias`;
     const dec13Ref  = `${t.decimo_meses||0} mês(es) trabalhados${t.decimo_ja_pago > 0 ? ` · 1ª parcela já paga: ${fmt.brl(t.decimo_ja_pago)} descontado` : ''}`;
 
+    const reductionLabel = t.notice_reduction === '7_dias'
+      ? ' · Redução de 7 dias (CLT art. 488)'
+      : t.notice_reduction === '2h_dia'
+        ? ' · Redução de 2h/dia (CLT art. 488)'
+        : '';
     const noticePeriodHtml = t.notice_start_date
       ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;background:var(--bg);border-radius:6px;padding:8px">
            Aviso: ${fmt.date(t.notice_start_date)} → ${fmt.date(t.notice_end_date || t.termination_date)}
-           · ${t.notice_days} dias · ${t.notice_worked ? 'Trabalhado' : 'Indenizado'}
+           · ${t.notice_days} dias · ${t.notice_worked ? 'Trabalhado' : 'Indenizado'}${reductionLabel}
          </div>`
       : `<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">
-           Aviso: ${t.notice_days} dias · ${t.notice_worked ? 'Trabalhado' : 'Indenizado'}
+           Aviso: ${t.notice_days} dias · ${t.notice_worked ? 'Trabalhado' : 'Indenizado'}${reductionLabel}
          </div>`;
 
     resultEl.innerHTML = `
@@ -476,7 +521,7 @@ const PageRescisao = (() => {
         <div class="info-grid">
           <div class="info-item"><label>Funcionário</label><span>${t.employee_name || '—'}</span></div>
           <div class="info-item"><label>Data da Rescisão</label><span>${fmt.date(t.termination_date)}</span></div>
-          <div class="info-item"><label>Aviso Prévio</label><span>${t.notice_days} dias · ${t.notice_worked ? 'Trabalhado' : 'Indenizado'}</span></div>
+          <div class="info-item"><label>Aviso Prévio</label><span>${t.notice_days} dias · ${t.notice_worked ? 'Trabalhado' : 'Indenizado'}${t.notice_reduction === '7_dias' ? ' · Redução de 7 dias' : t.notice_reduction === '2h_dia' ? ' · Redução de 2h/dia' : ''}</span></div>
           ${t.notice_start_date ? `<div class="info-item"><label>Período do Aviso</label><span>${fmt.date(t.notice_start_date)} → ${fmt.date(t.notice_end_date||t.termination_date)}</span></div>` : ''}
           ${t.decimo_ja_pago > 0 ? `<div class="info-item"><label>13º já pago (1ª parcela)</label><span>- ${fmt.brl(t.decimo_ja_pago)}</span></div>` : ''}
         </div>
@@ -624,9 +669,11 @@ const PageRescisao = (() => {
           ${inputHtml}
         </div>`;
 
+      const redLabel = t.notice_reduction === '7_dias' ? ' · Redução 7 dias'
+                     : t.notice_reduction === '2h_dia' ? ' · Redução 2h/dia' : '';
       const noticePeriodHtml = t.notice_start_date
-        ? `Aviso: ${fmt.date(t.notice_start_date)} → ${fmt.date(t.notice_end_date||t.termination_date)} · ${t.notice_days} dias`
-        : `Aviso: ${t.notice_days} dias`;
+        ? `Aviso: ${fmt.date(t.notice_start_date)} → ${fmt.date(t.notice_end_date||t.termination_date)} · ${t.notice_days} dias${redLabel}`
+        : `Aviso: ${t.notice_days} dias${redLabel}`;
 
       document.getElementById('modal-body').innerHTML = `
         <div class="detail-grid" style="margin-bottom:12px">

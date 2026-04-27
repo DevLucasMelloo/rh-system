@@ -25,6 +25,7 @@ def _run_migrations():
         "ALTER TABLE terminations ADD COLUMN ferias_meses_venc INTEGER DEFAULT 0",
         "ALTER TABLE terminations ADD COLUMN decimo_meses INTEGER DEFAULT 0",
         "ALTER TABLE terminations ADD COLUMN decimo_ja_pago NUMERIC(10,2) DEFAULT 0",
+        "ALTER TABLE terminations ADD COLUMN notice_reduction VARCHAR(20)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

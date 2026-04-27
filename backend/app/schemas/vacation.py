@@ -170,6 +170,7 @@ class TerminationCreate(BaseModel):
     reason:            TerminationReason
     notice_worked:     bool       = False
     notice_start_date: date | None = None   # início do aviso prévio (se trabalhado)
+    notice_reduction:  str | None = None    # "2h_dia" | "7_dias" (sem justa causa trabalhado)
     notes:             str | None = None
 
 
@@ -199,6 +200,7 @@ class TerminationRead(BaseModel):
     notice_worked:          bool
     notice_start_date:      date | None = None
     notice_end_date:        date | None = None   # computed: notice_start_date + notice_days
+    notice_reduction:       str  | None = None   # "2h_dia" | "7_dias"
     saldo_salario:          Decimal
     ferias_proporcionais:   Decimal
     um_terco_ferias_prop:   Decimal

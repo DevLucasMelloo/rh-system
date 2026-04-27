@@ -299,7 +299,9 @@ def _enrich_termination(term: object, db: Session) -> dict:
     emp = emp_repo.get_employee(db, term.employee_id)
     d["employee_name"] = emp.name if emp else None
     if term.notice_start_date and term.notice_days:
-        d["notice_end_date"] = term.notice_start_date + timedelta(days=term.notice_days - 1)
+        # Redução de 7 dias: funcionário trabalha notice_days - 7 dias
+        effective_days = term.notice_days - (7 if term.notice_reduction == "7_dias" else 0)
+        d["notice_end_date"] = term.notice_start_date + timedelta(days=max(1, effective_days) - 1)
     else:
         d["notice_end_date"] = None
     return d

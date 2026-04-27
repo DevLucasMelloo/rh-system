@@ -692,6 +692,7 @@ def create_termination(
         "notice_days":             notice_days,
         "notice_worked":           data.notice_worked,
         "notice_start_date":       data.notice_start_date,
+        "notice_reduction":        data.notice_reduction if data.notice_worked and data.reason == TerminationReason.SEM_JUSTA_CAUSA else None,
         "status":                  "pendente",
         "saldo_salario":           saldo_salario,
         "ferias_proporcionais":    ferias_prop,
