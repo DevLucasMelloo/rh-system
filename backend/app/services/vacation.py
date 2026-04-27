@@ -650,18 +650,23 @@ def create_termination(
     worked_months_13     = count_worked_months_for_thirteenth(registration_date, term_date)
     decimo_terceiro_prop = _q2(salary * Decimal(worked_months_13) / Decimal("12"))
 
-    months_total = (
-        (term_date.year - admission_date.year) * 12
-        + term_date.month - admission_date.month + 1
-    )
-    fgts_balance = _q2(salary * Decimal("0.08") * Decimal(months_total))
-
-    if data.reason == TerminationReason.SEM_JUSTA_CAUSA:
-        multa_fgts = _q2(fgts_balance * Decimal("0.40"))
-    elif data.reason == TerminationReason.ACORDO:
-        multa_fgts = _q2(fgts_balance * Decimal("0.20"))
+    # Verifica 13º já pago para evitar pagamento duplo
+    from app.repositories import thirteenth as t13_repo
+    from app.models.thirteenth import ThirteenthStatus
+    decimo_ja_pago = Decimal("0")
+    p2 = t13_repo.get_by_employee_year_parcela(db, emp.id, term_date.year, 2)
+    if p2 and p2.status == ThirteenthStatus.PAGO:
+        # Ambas as parcelas pagas — 13º já quitado
+        decimo_ja_pago       = decimo_terceiro_prop
+        decimo_terceiro_prop = Decimal("0")
     else:
-        multa_fgts = Decimal("0")
+        p1 = t13_repo.get_by_employee_year_parcela(db, emp.id, term_date.year, 1)
+        if p1 and p1.status == ThirteenthStatus.PAGO:
+            # Só a 1ª parcela (50% adiantamento) foi paga
+            decimo_ja_pago       = _q2(Decimal(str(p1.primeira_parcela)))
+            decimo_terceiro_prop = _q2(max(Decimal("0"), decimo_terceiro_prop - decimo_ja_pago))
+
+    multa_fgts = Decimal("0")  # tratado externamente pela empresa
 
     inss_base = (
         saldo_salario + aviso_previo_indenizado + decimo_terceiro_prop
@@ -674,7 +679,7 @@ def create_termination(
         saldo_salario + aviso_previo_indenizado
         + ferias_prop + um_terco_ferias_prop
         + ferias_vencidas + um_terco_ferias_venc
-        + decimo_terceiro_prop + multa_fgts
+        + decimo_terceiro_prop
     )
     total_descontos = inss_rescisao + aviso_previo_desconto
     liquido         = _q2(total_creditos - total_descontos)
@@ -702,6 +707,12 @@ def create_termination(
         "total_descontos":         total_descontos,
         "liquido":                 liquido,
         "notes":                   data.notes,
+        # metadados de referência
+        "saldo_dias":              term_date.day,
+        "ferias_meses_prop":       vac_months,
+        "ferias_meses_venc":       unpaid_periods,
+        "decimo_meses":            worked_months_13,
+        "decimo_ja_pago":          decimo_ja_pago,
     })
 
     audit_repo.create_log(

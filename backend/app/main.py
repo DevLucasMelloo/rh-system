@@ -20,6 +20,11 @@ def _run_migrations():
         "ALTER TABLE timesheet_entries ADD COLUMN is_dsr_deducted BOOLEAN DEFAULT 0",
         "ALTER TABLE terminations ADD COLUMN notice_start_date DATE",
         "ALTER TABLE terminations ADD COLUMN status VARCHAR(20) DEFAULT 'pendente'",
+        "ALTER TABLE terminations ADD COLUMN saldo_dias INTEGER DEFAULT 0",
+        "ALTER TABLE terminations ADD COLUMN ferias_meses_prop INTEGER DEFAULT 0",
+        "ALTER TABLE terminations ADD COLUMN ferias_meses_venc INTEGER DEFAULT 0",
+        "ALTER TABLE terminations ADD COLUMN decimo_meses INTEGER DEFAULT 0",
+        "ALTER TABLE terminations ADD COLUMN decimo_ja_pago NUMERIC(10,2) DEFAULT 0",
     ]
     with engine.connect() as conn:
         for sql in migrations:

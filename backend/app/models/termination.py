@@ -52,6 +52,13 @@ class Termination(Base):
     total_descontos = Column(Numeric(10, 2), default=0)
     liquido         = Column(Numeric(10, 2), default=0)
 
+    # ── Metadados de referência ───────────────────────────────────────────────
+    saldo_dias        = Column(Integer,      default=0)
+    ferias_meses_prop = Column(Integer,      default=0)  # meses proporcionais
+    ferias_meses_venc = Column(Integer,      default=0)  # períodos vencidos não gozados
+    decimo_meses      = Column(Integer,      default=0)  # meses trabalhados para 13º
+    decimo_ja_pago    = Column(Numeric(10,2), default=0) # 13º já pago no ano
+
     status   = Column(String(20),  default="pendente")  # pendente | concluida
     notes    = Column(Text,        nullable=True)
     pdf_path = Column(String(500), nullable=True)

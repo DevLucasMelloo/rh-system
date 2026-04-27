@@ -214,5 +214,10 @@ class TerminationRead(BaseModel):
     liquido:                Decimal
     status:                 str
     notes:                  str | None
+    saldo_dias:             int     = 0
+    ferias_meses_prop:      int     = 0
+    ferias_meses_venc:      int     = 0
+    decimo_meses:           int     = 0
+    decimo_ja_pago:         Decimal = Decimal("0")
 
     model_config = {"from_attributes": True}

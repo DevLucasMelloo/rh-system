@@ -42,20 +42,18 @@ const PageRescisao = (() => {
     return 'Aviso Prévio Indenizado';
   }
 
-  // Recalcula totais do lado do cliente a partir dos inputs do formulário de edição
+  // Recalcula totais a partir dos inputs de edição (férias unificada)
   function recalcFromInputs(prefix) {
     const v = (id) => parseFloat(document.getElementById(`${prefix}-${id}`)?.value || '0') || 0;
-    const credits = v('saldo') + v('fer-prop') + v('terc-prop') + v('fer-venc') +
-                    v('terc-venc') + v('dec13') + v('aviso-ind') + v('multa');
+    const credits = v('saldo') + v('ferias') + v('terc-ferias') + v('dec13') + v('aviso-ind');
     const deducts = v('inss') + v('aviso-desc');
-    const net     = credits - deducts;
     const set = (id, val) => {
       const el = document.getElementById(`${prefix}-${id}`);
       if (el) el.textContent = fmt.brl(val);
     };
     set('tot-cred', credits);
     set('tot-desc', deducts);
-    set('liquido',  net);
+    set('liquido',  credits - deducts);
   }
 
   // ── Render principal ─────────────────────────────────────────────────────────
@@ -114,9 +112,7 @@ const PageRescisao = (() => {
             <!-- Aviso Prévio -->
             <div id="res-aviso-section" style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px">
               <div style="font-weight:600;font-size:13px;margin-bottom:10px">Aviso Prévio</div>
-
               <div id="res-aviso-info" style="font-size:12px;color:var(--text-muted);margin-bottom:10px"></div>
-
               <div class="form-row" style="margin-bottom:0">
                 <div class="form-group" style="margin-bottom:0">
                   <label style="font-size:12px">Tipo de aviso</label>
@@ -132,7 +128,6 @@ const PageRescisao = (() => {
                          onchange="PageRescisao.onNoticeStartChange()" style="font-size:13px">
                 </div>
               </div>
-
               <div id="res-notice-end-info" style="font-size:12px;color:var(--primary);margin-top:8px;display:none"></div>
             </div>
 
@@ -146,11 +141,11 @@ const PageRescisao = (() => {
           </div>
         </div>
 
-        <!-- Verbas calculadas (editáveis) -->
+        <!-- Verbas calculadas -->
         <div class="card">
           <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
             <span>Verbas Rescisórias</span>
-            <div id="res-edit-actions" style="display:none;gap:8px;display:none">
+            <div id="res-edit-actions" style="display:none;gap:8px">
               <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px"
                       onclick="PageRescisao.recalcResult()">↺ Recalcular</button>
               <button class="btn btn-primary" style="font-size:12px;padding:4px 12px"
@@ -202,19 +197,17 @@ const PageRescisao = (() => {
       document.getElementById('res-admission').textContent = fmt.date(emp.admission_date);
       document.getElementById('res-role').textContent      = emp.role || '—';
       info.style.display = 'block';
-      // Store admission date for notice calc
       document.getElementById('res-emp').dataset.admission = emp.admission_date;
     } catch { info.style.display = 'none'; }
     onReasonChange();
   }
 
   function onReasonChange() {
-    const reason   = document.getElementById('res-reason')?.value;
-    const termDate = document.getElementById('res-date')?.value;
+    const reason    = document.getElementById('res-reason')?.value;
+    const termDate  = document.getElementById('res-date')?.value;
     const admission = document.getElementById('res-emp')?.dataset?.admission;
-    const section  = document.getElementById('res-aviso-section');
-    const infoEl   = document.getElementById('res-aviso-info');
-    const noticeType = document.getElementById('res-notice-type')?.value;
+    const section   = document.getElementById('res-aviso-section');
+    const infoEl    = document.getElementById('res-aviso-info');
 
     if (['com_justa_causa', 'aposentadoria'].includes(reason)) {
       if (section) section.style.display = 'none';
@@ -234,15 +227,6 @@ const PageRescisao = (() => {
         (30 base + ${extra} adicionais — Lei 12.506/2011)
         ${reason === 'acordo' ? '· <em>50% por acordo mútuo</em>' : ''}`;
     }
-
-    // Ajusta tipo default por motivo
-    const typeEl = document.getElementById('res-notice-type');
-    if (typeEl && reason === 'pedido_demissao') {
-      if (typeEl.querySelector('option[value="nao_cumprido"]')) {
-        // already there
-      }
-    }
-
     onNoticeTypeChange();
     onNoticeStartChange();
   }
@@ -250,23 +234,19 @@ const PageRescisao = (() => {
   function onNoticeTypeChange() {
     const noticeType = document.getElementById('res-notice-type')?.value;
     const startGroup = document.getElementById('res-notice-start-group');
-    if (startGroup) {
-      startGroup.style.display = noticeType === 'trabalhado' ? 'block' : 'none';
-    }
+    if (startGroup) startGroup.style.display = noticeType === 'trabalhado' ? 'block' : 'none';
     const endInfo = document.getElementById('res-notice-end-info');
-    if (endInfo && noticeType !== 'trabalhado') {
-      endInfo.style.display = 'none';
-    }
+    if (endInfo && noticeType !== 'trabalhado') endInfo.style.display = 'none';
     onNoticeStartChange();
   }
 
   function onNoticeStartChange() {
-    const noticeType  = document.getElementById('res-notice-type')?.value;
-    const startVal    = document.getElementById('res-notice-start')?.value;
-    const endInfo     = document.getElementById('res-notice-end-info');
-    const reason      = document.getElementById('res-reason')?.value;
-    const admission   = document.getElementById('res-emp')?.dataset?.admission;
-    const termDate    = document.getElementById('res-date')?.value;
+    const noticeType = document.getElementById('res-notice-type')?.value;
+    const startVal   = document.getElementById('res-notice-start')?.value;
+    const endInfo    = document.getElementById('res-notice-end-info');
+    const reason     = document.getElementById('res-reason')?.value;
+    const admission  = document.getElementById('res-emp')?.dataset?.admission;
+    const termDate   = document.getElementById('res-date')?.value;
 
     if (noticeType !== 'trabalhado' || !startVal) {
       if (endInfo) endInfo.style.display = 'none';
@@ -277,9 +257,7 @@ const PageRescisao = (() => {
     if (endInfo && endDate) {
       endInfo.style.display = 'block';
       endInfo.innerHTML = `Término do aviso: <strong>${fmt.date(endDate)}</strong>
-        · O funcionário trabalha normalmente até essa data.
-        O saldo de salário após o último holerite entra na rescisão.`;
-      // Auto-fill termination date
+        · O saldo de salário após o último holerite entra na rescisão.`;
       const termEl = document.getElementById('res-date');
       if (termEl && !termEl.dataset.manual) termEl.value = endDate;
     }
@@ -288,14 +266,14 @@ const PageRescisao = (() => {
   // ── Registrar rescisão ───────────────────────────────────────────────────────
 
   async function calcular() {
-    const empId      = parseInt(document.getElementById('res-emp').value) || 0;
-    const reason     = document.getElementById('res-reason').value;
-    const termDate   = document.getElementById('res-date').value;
-    const noticeType = document.getElementById('res-notice-type')?.value;
+    const empId       = parseInt(document.getElementById('res-emp').value) || 0;
+    const reason      = document.getElementById('res-reason').value;
+    const termDate    = document.getElementById('res-date').value;
+    const noticeType  = document.getElementById('res-notice-type')?.value;
     const noticeStart = document.getElementById('res-notice-start')?.value;
-    const notes      = document.getElementById('res-notes')?.value || '';
-    const errEl      = document.getElementById('res-error');
-    errEl.innerHTML  = '';
+    const notes       = document.getElementById('res-notes')?.value || '';
+    const errEl       = document.getElementById('res-error');
+    errEl.innerHTML   = '';
 
     if (!empId)    { errEl.innerHTML = '<div class="alert alert-error">Selecione um funcionário.</div>'; return; }
     if (!termDate) { errEl.innerHTML = '<div class="alert alert-error">Informe a data da rescisão.</div>'; return; }
@@ -310,9 +288,6 @@ const PageRescisao = (() => {
       notes:             notes || null,
     };
 
-    // Para pedido de demissão sem cumprir: também marca notice_worked=false
-    // A dedução é automática no backend
-
     const resultEl = document.getElementById('res-result');
     resultEl.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner spinner-dark"></div></div>';
 
@@ -320,85 +295,103 @@ const PageRescisao = (() => {
       const t = await Api.createTermination(payload);
       renderResult(t);
       loadHistory();
-      document.getElementById('res-emp').value          = '';
+      document.getElementById('res-emp').value = '';
       document.getElementById('res-emp-info').style.display = 'none';
-      document.getElementById('res-notes').value        = '';
-      const futura = t.termination_date > new Date().toISOString().split('T')[0];
-      toast(futura
-        ? `Rescisão registrada! Funcionário será inativado em ${fmt.date(t.termination_date)}.`
-        : 'Rescisão registrada! Funcionário inativado.', 'success');
+      document.getElementById('res-notes').value = '';
+      toast('Rescisão registrada! Confirme quando concluir o processo.', 'success');
     } catch (e) {
       errEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
       resultEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Erro ao registrar.</div>';
     }
   }
 
-  // ── Renderizar verbas (editáveis) ────────────────────────────────────────────
+  // ── Renderizar verbas (editáveis, férias unificada) ──────────────────────────
 
   let _currentTermId = null;
 
+  function _verbRow(label, ref, inputHtml, colorLabel = '') {
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;color:${colorLabel || 'var(--text-muted)'};">${label}</div>
+          ${ref ? `<div style="font-size:11px;color:var(--text-muted);margin-top:1px">${ref}</div>` : ''}
+        </div>
+        ${inputHtml}
+      </div>`;
+  }
+
+  function _inp(id, val) {
+    return `<input id="${id}" type="number" step="0.01" min="0"
+      style="width:110px;text-align:right;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:13px;font-weight:600"
+      value="${parseFloat(val||0).toFixed(2)}"
+      oninput="PageRescisao.recalcResult()">`;
+  }
+
   function renderResult(t) {
-    _currentTermId = t.id;
+    _currentTermId  = t.id;
     const resultEl  = document.getElementById('res-result');
     const actionsEl = document.getElementById('res-edit-actions');
     if (actionsEl) actionsEl.style.display = 'flex';
 
     const reason     = t.reason;
-    const notWorked  = !t.notice_worked;
     const avisoLabel = noticeLabelFor(reason, t.notice_worked);
     const isPedido   = reason === 'pedido_demissao';
 
-    const inp = (id, val) =>
-      `<input id="res-v-${id}" type="number" step="0.01" min="0"
-              style="width:110px;text-align:right;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:13px;font-weight:600"
-              value="${parseFloat(val||0).toFixed(2)}"
-              oninput="PageRescisao.recalcResult()">`;
+    // Totais unificados de férias
+    const ferTotal  = (parseFloat(t.ferias_proporcionais)||0) + (parseFloat(t.ferias_vencidas)||0);
+    const tercTotal = (parseFloat(t.um_terco_ferias_prop)||0) + (parseFloat(t.um_terco_ferias_venc)||0);
 
-    const row = (label, inputHtml, color = '') =>
-      `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
-        <span style="color:${color || 'var(--text-muted)'};font-size:13px">${label}</span>
-        ${inputHtml}
-      </div>`;
+    // Referências
+    const ferMeses   = (t.ferias_meses_prop||0) + (t.ferias_meses_venc||0);
+    let   ferRef     = ferMeses + ' mês(es)';
+    if (t.ferias_meses_prop > 0 && t.ferias_meses_venc > 0)
+      ferRef = `${ferMeses} meses (${t.ferias_meses_prop} prop. + ${t.ferias_meses_venc} vencido(s))`;
+    else if (t.ferias_meses_venc > 0)
+      ferRef = `${t.ferias_meses_venc} período(s) vencido(s)`;
+    else
+      ferRef = `${t.ferias_meses_prop} mês(es) proporcional`;
+
+    const saldoRef  = `${t.saldo_dias || t.termination_date?.split('-')[2] || '?'} dias`;
+    const dec13Ref  = `${t.decimo_meses||0} mês(es) trabalhados${t.decimo_ja_pago > 0 ? ` · 1ª parcela já paga: ${fmt.brl(t.decimo_ja_pago)} descontado` : ''}`;
 
     const noticePeriodHtml = t.notice_start_date
-      ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;background:var(--bg);border-radius:6px;padding:8px">
+      ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;background:var(--bg);border-radius:6px;padding:8px">
            Aviso: ${fmt.date(t.notice_start_date)} → ${fmt.date(t.notice_end_date || t.termination_date)}
            · ${t.notice_days} dias · ${t.notice_worked ? 'Trabalhado' : 'Indenizado'}
          </div>`
-      : `<div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">
+      : `<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">
            Aviso: ${t.notice_days} dias · ${t.notice_worked ? 'Trabalhado' : 'Indenizado'}
          </div>`;
 
     resultEl.innerHTML = `
       <div style="font-size:13px">
         ${noticePeriodHtml}
-
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-style:italic">
-          Os valores abaixo podem ser editados manualmente. Clique em ↺ para recalcular totais.
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;font-style:italic">
+          Valores editáveis. Clique em ↺ para recalcular totais.
         </div>
 
-        ${row('Saldo de Salário',        inp('saldo',    t.saldo_salario))}
-        ${row('Férias Proporcionais',    inp('fer-prop', t.ferias_proporcionais))}
-        ${row('1/3 Férias Proporcionais',inp('terc-prop',t.um_terco_ferias_prop))}
-        ${t.ferias_vencidas > 0 || true ? row('Férias Vencidas', inp('fer-venc', t.ferias_vencidas)) : ''}
-        ${t.um_terco_ferias_venc > 0 || true ? row('1/3 Férias Vencidas', inp('terc-venc', t.um_terco_ferias_venc)) : ''}
-        ${row('13º Proporcional',        inp('dec13',    t.decimo_terceiro_prop))}
-        ${row(avisoLabel,                inp('aviso-ind',t.aviso_previo_indenizado))}
-        ${row('Multa FGTS',              inp('multa',    t.multa_fgts))}
+        ${_verbRow('Saldo de Salário', saldoRef, _inp('res-v-saldo', t.saldo_salario))}
+        ${_verbRow('Férias', ferRef, _inp('res-v-ferias', ferTotal))}
+        ${_verbRow('1/3 Férias', `sobre ${ferMeses} mês(es)`, _inp('res-v-terc-ferias', tercTotal))}
+        ${_verbRow('13º Proporcional', dec13Ref, _inp('res-v-dec13', t.decimo_terceiro_prop))}
+        ${parseFloat(t.aviso_previo_indenizado) > 0 || !isPedido
+          ? _verbRow(avisoLabel, `${t.notice_days} dias`, _inp('res-v-aviso-ind', t.aviso_previo_indenizado))
+          : `<input type="hidden" id="res-v-aviso-ind" value="0">`}
 
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
-          <span style="color:var(--success);font-weight:600;font-size:13px">Total Créditos</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+          <strong style="color:var(--success);font-size:13px">Total Créditos</strong>
           <strong style="color:var(--success)" id="res-v-tot-cred">${fmt.brl(t.total_creditos)}</strong>
         </div>
 
-        <div style="height:8px"></div>
+        <div style="height:6px"></div>
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">DESCONTOS</div>
-        ${row('INSS Rescisão',           inp('inss',     t.inss_rescisao), 'var(--danger)')}
-        ${isPedido ? row('Desc. Aviso Prévio ' + (notWorked ? '(não cumprido)' : ''), inp('aviso-desc', t.aviso_previo_desconto), 'var(--danger)') : ''}
-        ${!isPedido ? `<input type="hidden" id="res-v-aviso-desc" value="0">` : ''}
+        ${_verbRow('INSS Rescisão', '', _inp('res-v-inss', t.inss_rescisao), 'var(--danger)')}
+        ${isPedido
+          ? _verbRow('Desc. Aviso Prévio (não cumprido)', `${t.notice_days} dias`, _inp('res-v-aviso-desc', t.aviso_previo_desconto), 'var(--danger)')
+          : `<input type="hidden" id="res-v-aviso-desc" value="0">`}
 
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:2px solid var(--border)">
-          <span style="color:var(--danger);font-weight:600;font-size:13px">Total Descontos</span>
+          <strong style="color:var(--danger);font-size:13px">Total Descontos</strong>
           <strong style="color:var(--danger)" id="res-v-tot-desc">- ${fmt.brl(t.total_descontos)}</strong>
         </div>
 
@@ -406,32 +399,120 @@ const PageRescisao = (() => {
           <span style="font-size:15px;font-weight:700">LÍQUIDO A RECEBER</span>
           <span style="font-size:18px;font-weight:700;color:var(--primary)" id="res-v-liquido">${fmt.brl(t.liquido)}</span>
         </div>
+
+        <button class="btn btn-secondary w-full" style="margin-top:12px;font-size:12px"
+                onclick="PageRescisao.printReceipt(${t.id})">🖨 Imprimir Recibo</button>
       </div>`;
   }
 
-  function recalcResult() {
-    recalcFromInputs('res-v');
-  }
+  function recalcResult() { recalcFromInputs('res-v'); }
 
   async function salvarEdicao() {
     if (!_currentTermId) return;
     const v = (id) => parseFloat(document.getElementById(`res-v-${id}`)?.value || '0') || 0;
+    // Férias unificada → vai toda para ferias_proporcionais, zera ferias_vencidas
     try {
       const t = await Api.updateTermination(_currentTermId, {
         saldo_salario:           v('saldo'),
-        ferias_proporcionais:    v('fer-prop'),
-        um_terco_ferias_prop:    v('terc-prop'),
-        ferias_vencidas:         v('fer-venc'),
-        um_terco_ferias_venc:    v('terc-venc'),
+        ferias_proporcionais:    v('ferias'),
+        um_terco_ferias_prop:    v('terc-ferias'),
+        ferias_vencidas:         0,
+        um_terco_ferias_venc:    0,
         decimo_terceiro_prop:    v('dec13'),
         aviso_previo_indenizado: v('aviso-ind'),
-        multa_fgts:              v('multa'),
+        multa_fgts:              0,
         inss_rescisao:           v('inss'),
         aviso_previo_desconto:   v('aviso-desc'),
       });
       renderResult(t);
       loadHistory();
       toast('Rescisão atualizada!', 'success');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ── Recibo de impressão ───────────────────────────────────────────────────────
+
+  async function printReceipt(id) {
+    try {
+      const t = await Api.getTermination(id);
+      const ferTotal  = (parseFloat(t.ferias_proporcionais)||0) + (parseFloat(t.ferias_vencidas)||0);
+      const tercTotal = (parseFloat(t.um_terco_ferias_prop)||0) + (parseFloat(t.um_terco_ferias_venc)||0);
+      const ferMeses  = (t.ferias_meses_prop||0) + (t.ferias_meses_venc||0);
+      let ferRef = `${ferMeses} mês(es)`;
+      if (t.ferias_meses_prop > 0 && t.ferias_meses_venc > 0)
+        ferRef = `${ferMeses} meses (${t.ferias_meses_prop} prop. + ${t.ferias_meses_venc} venc.)`;
+      const saldoDias = t.saldo_dias || t.termination_date?.split('-')[2] || '?';
+      const avisoLabel = noticeLabelFor(t.reason, t.notice_worked);
+      const isPedido   = t.reason === 'pedido_demissao';
+
+      const row = (label, ref, val, neg = false) => val == 0 ? '' : `
+        <tr>
+          <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">${label}${ref ? `<br><small style="color:#6b7280">${ref}</small>` : ''}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;color:${neg?'#dc2626':'#111'}">${neg?'- ':''}${fmt.brl(val)}</td>
+        </tr>`;
+
+      const html = `<!DOCTYPE html><html lang="pt-BR"><head>
+        <meta charset="UTF-8">
+        <title>Recibo de Rescisão — ${t.employee_name}</title>
+        <style>
+          body{font-family:Arial,sans-serif;font-size:13px;color:#111;margin:0;padding:24px}
+          h1{font-size:18px;margin:0 0 4px}
+          h2{font-size:14px;font-weight:normal;color:#6b7280;margin:0 0 20px}
+          table{width:100%;border-collapse:collapse}
+          .section-title{font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.05em;text-transform:uppercase;padding:10px 8px 4px;background:#f9fafb}
+          .total-row td{font-weight:700;padding:8px;border-top:2px solid #111}
+          .net-row td{font-size:16px;font-weight:700;padding:10px 8px;background:#f0fdf4;color:#15803d}
+          .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin-bottom:20px;background:#f9fafb;padding:12px;border-radius:6px}
+          .info-item label{font-size:11px;color:#6b7280;display:block}
+          .info-item span{font-weight:600}
+          .signatures{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:60px}
+          .sig{border-top:1px solid #111;padding-top:8px;font-size:12px;color:#6b7280}
+          @media print{body{padding:12px}button{display:none}}
+        </style>
+      </head><body>
+        <h1>Recibo de Rescisão Contratual</h1>
+        <h2>${fmtReason(t.reason)}</h2>
+
+        <div class="info-grid">
+          <div class="info-item"><label>Funcionário</label><span>${t.employee_name || '—'}</span></div>
+          <div class="info-item"><label>Data da Rescisão</label><span>${fmt.date(t.termination_date)}</span></div>
+          <div class="info-item"><label>Aviso Prévio</label><span>${t.notice_days} dias · ${t.notice_worked ? 'Trabalhado' : 'Indenizado'}</span></div>
+          ${t.notice_start_date ? `<div class="info-item"><label>Período do Aviso</label><span>${fmt.date(t.notice_start_date)} → ${fmt.date(t.notice_end_date||t.termination_date)}</span></div>` : ''}
+          ${t.decimo_ja_pago > 0 ? `<div class="info-item"><label>13º já pago (1ª parcela)</label><span>- ${fmt.brl(t.decimo_ja_pago)}</span></div>` : ''}
+        </div>
+
+        <table>
+          <tr><td class="section-title" colspan="2">CRÉDITOS</td></tr>
+          ${row('Saldo de Salário', `${saldoDias} dias`, t.saldo_salario)}
+          ${row('Férias', ferRef, ferTotal)}
+          ${row('1/3 Férias', `sobre ${ferMeses} mês(es)`, tercTotal)}
+          ${row('13º Proporcional', `${t.decimo_meses||0} mês(es) trabalhados`, t.decimo_terceiro_prop)}
+          ${parseFloat(t.aviso_previo_indenizado) > 0 ? row(avisoLabel, `${t.notice_days} dias`, t.aviso_previo_indenizado) : ''}
+          <tr class="total-row"><td>Total Créditos</td><td style="text-align:right;color:#16a34a">${fmt.brl(t.total_creditos)}</td></tr>
+
+          <tr><td class="section-title" colspan="2">DESCONTOS</td></tr>
+          ${row('INSS Rescisão', '', t.inss_rescisao, true)}
+          ${isPedido && parseFloat(t.aviso_previo_desconto) > 0 ? row('Desc. Aviso Prévio (não cumprido)', `${t.notice_days} dias`, t.aviso_previo_desconto, true) : ''}
+          <tr class="total-row"><td>Total Descontos</td><td style="text-align:right;color:#dc2626">- ${fmt.brl(t.total_descontos)}</td></tr>
+
+          <tr class="net-row"><td>LÍQUIDO A RECEBER</td><td style="text-align:right">${fmt.brl(t.liquido)}</td></tr>
+        </table>
+
+        <div class="signatures">
+          <div class="sig">Assinatura do Funcionário<br>${t.employee_name || ''}</div>
+          <div class="sig">Assinatura do Responsável RH<br>&nbsp;</div>
+        </div>
+
+        <div style="margin-top:40px;font-size:11px;color:#9ca3af;text-align:center">
+          Documento gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR','HH:mm')}
+        </div>
+
+        <script>window.onload = () => window.print();<\/script>
+      </body></html>`;
+
+      const w = window.open('', '_blank', 'width=800,height=700');
+      w.document.write(html);
+      w.document.close();
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -458,6 +539,9 @@ const PageRescisao = (() => {
           </button>` : `
           <button class="btn-icon" onclick="PageRescisao.openDetail(${t.id})" title="Ver detalhes">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </button>
+          <button class="btn-icon" onclick="PageRescisao.printReceipt(${t.id})" title="Imprimir recibo" style="color:var(--text-muted)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
           </button>`;
         return `
           <tr>
@@ -490,7 +574,6 @@ const PageRescisao = (() => {
       await Api.deleteTermination(id);
       toast('Rescisão excluída.', 'success');
       loadHistory();
-      // Limpa painel de resultado se era essa rescisão
       if (_currentTermId === id) {
         _currentTermId = null;
         document.getElementById('res-result').innerHTML =
@@ -508,26 +591,41 @@ const PageRescisao = (() => {
       '<div style="padding:20px;text-align:center"><div class="spinner spinner-dark"></div></div>',
       '', true);
     try {
-      const t    = await Api.getTermination(id);
-      const pId  = `md-${id}`;
+      const t      = await Api.getTermination(id);
+      const pId    = `md-${id}`;
       const reason = t.reason;
-      const isPedido = reason === 'pedido_demissao';
+      const isPendente = t.status === 'pendente';
+      const isPedido   = reason === 'pedido_demissao';
       const avisoLabel = noticeLabelFor(reason, t.notice_worked);
+
+      const ferTotal  = (parseFloat(t.ferias_proporcionais)||0) + (parseFloat(t.ferias_vencidas)||0);
+      const tercTotal = (parseFloat(t.um_terco_ferias_prop)||0) + (parseFloat(t.um_terco_ferias_venc)||0);
+      const ferMeses  = (t.ferias_meses_prop||0) + (t.ferias_meses_venc||0);
+      const saldoDias = t.saldo_dias || t.termination_date?.split('-')[2] || '?';
+
+      let ferRef = `${ferMeses} mês(es)`;
+      if (t.ferias_meses_prop > 0 && t.ferias_meses_venc > 0)
+        ferRef = `${ferMeses} meses (${t.ferias_meses_prop} prop. + ${t.ferias_meses_venc} venc.)`;
+
+      const dec13Ref = `${t.decimo_meses||0} mês(es)${t.decimo_ja_pago > 0 ? ` · 1ª parcela paga: ${fmt.brl(t.decimo_ja_pago)} descontado` : ''}`;
 
       const inp = (fId, val) =>
         `<input id="${pId}-${fId}" type="number" step="0.01" min="0"
-                style="width:110px;text-align:right;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:13px;font-weight:600"
-                value="${parseFloat(val||0).toFixed(2)}"
-                oninput="PageRescisao._recalcModal('${pId}')">`;
+          style="width:110px;text-align:right;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:13px;font-weight:600"
+          value="${parseFloat(val||0).toFixed(2)}"
+          oninput="PageRescisao._recalcModal('${pId}')">`;
 
-      const row = (label, inputHtml, color = '') =>
-        `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
-          <span style="color:${color || 'var(--text-muted)'};font-size:13px">${label}</span>
+      const row = (label, ref, inputHtml, colorLabel = '') => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-size:13px;color:${colorLabel||'var(--text-muted)'};">${label}</div>
+            ${ref ? `<div style="font-size:11px;color:var(--text-muted)">${ref}</div>` : ''}
+          </div>
           ${inputHtml}
         </div>`;
 
       const noticePeriodHtml = t.notice_start_date
-        ? `Aviso: ${fmt.date(t.notice_start_date)} → ${fmt.date(t.notice_end_date || t.termination_date)} · ${t.notice_days} dias`
+        ? `Aviso: ${fmt.date(t.notice_start_date)} → ${fmt.date(t.notice_end_date||t.termination_date)} · ${t.notice_days} dias`
         : `Aviso: ${t.notice_days} dias`;
 
       document.getElementById('modal-body').innerHTML = `
@@ -537,27 +635,27 @@ const PageRescisao = (() => {
           <div class="detail-item"><label>Data Rescisão</label><span>${fmt.date(t.termination_date)}</span></div>
           <div class="detail-item"><label>Aviso Prévio</label><span>${noticePeriodHtml} · ${t.notice_worked ? 'Trabalhado' : 'Indenizado'}</span></div>
         </div>
+        ${t.decimo_ja_pago > 0 ? `
+          <div style="background:#fef3c7;border-radius:6px;padding:8px 12px;font-size:12px;margin-bottom:10px;color:#92400e">
+            ⚠ 1ª parcela do 13º já paga: ${fmt.brl(t.decimo_ja_pago)} foi descontada do 13º proporcional.
+          </div>` : ''}
+        ${!isPendente ? `<div class="alert" style="background:#dcfce7;color:#15803d;border:none;margin-bottom:12px;font-size:13px">✓ Rescisão concluída — não é possível editar.</div>` : ''}
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;font-style:italic">
-          Edite os valores e clique em Salvar para atualizar a rescisão.
+          ${isPendente ? 'Edite os valores e clique em Salvar.' : ''}
         </div>
-        ${row('Saldo de Salário',          inp('saldo',    t.saldo_salario))}
-        ${row('Férias Proporcionais',      inp('fer-prop', t.ferias_proporcionais))}
-        ${row('1/3 Férias Proporcionais',  inp('terc-prop',t.um_terco_ferias_prop))}
-        ${row('Férias Vencidas',           inp('fer-venc', t.ferias_vencidas))}
-        ${row('1/3 Férias Vencidas',       inp('terc-venc',t.um_terco_ferias_venc))}
-        ${row('13º Proporcional',          inp('dec13',    t.decimo_terceiro_prop))}
-        ${row(avisoLabel,                  inp('aviso-ind',t.aviso_previo_indenizado))}
-        ${row('Multa FGTS',                inp('multa',    t.multa_fgts))}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+        ${row('Saldo de Salário', `${saldoDias} dias`, inp('saldo', t.saldo_salario))}
+        ${row('Férias', ferRef, inp('ferias', ferTotal))}
+        ${row('1/3 Férias', `sobre ${ferMeses} mês(es)`, inp('terc-ferias', tercTotal))}
+        ${row('13º Proporcional', dec13Ref, inp('dec13', t.decimo_terceiro_prop))}
+        ${parseFloat(t.aviso_previo_indenizado) >= 0 ? row(avisoLabel, `${t.notice_days} dias`, inp('aviso-ind', t.aviso_previo_indenizado)) : ''}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
           <strong style="color:var(--success);font-size:13px">Total Créditos</strong>
           <strong style="color:var(--success)" id="${pId}-tot-cred">${fmt.brl(t.total_creditos)}</strong>
         </div>
-        <div style="height:6px"></div>
-        ${row('INSS Rescisão', inp('inss', t.inss_rescisao), 'var(--danger)')}
-        ${isPedido
-          ? row('Desc. Aviso Prévio', inp('aviso-desc', t.aviso_previo_desconto), 'var(--danger)')
-          : `<input type="hidden" id="${pId}-aviso-desc" value="0">`}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:2px solid var(--border)">
+        <div style="height:4px"></div>
+        ${row('INSS Rescisão', '', inp('inss', t.inss_rescisao), 'var(--danger)')}
+        ${isPedido ? row('Desc. Aviso Prévio', `${t.notice_days} dias`, inp('aviso-desc', t.aviso_previo_desconto), 'var(--danger)') : `<input type="hidden" id="${pId}-aviso-desc" value="0">`}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:2px solid var(--border)">
           <strong style="color:var(--danger);font-size:13px">Total Descontos</strong>
           <strong style="color:var(--danger)" id="${pId}-tot-desc">- ${fmt.brl(t.total_descontos)}</strong>
         </div>
@@ -566,28 +664,24 @@ const PageRescisao = (() => {
           <strong style="font-size:18px;color:var(--primary)" id="${pId}-liquido">${fmt.brl(t.liquido)}</strong>
         </div>`;
 
-      const isPendente = t.status === 'pendente';
       if (!isPendente) {
-        // Bloqueia inputs se concluída
         document.getElementById('modal-body').querySelectorAll('input[type=number]').forEach(el => {
           el.disabled = true;
           el.style.background = 'var(--bg)';
           el.style.color = 'var(--text-muted)';
         });
-        document.getElementById('modal-body').insertAdjacentHTML('afterbegin',
-          `<div class="alert" style="background:#dcfce7;color:#15803d;border:none;margin-bottom:12px;font-size:13px">
-            ✓ Rescisão concluída — não é possível editar.
-           </div>`);
       }
 
       document.getElementById('modal-footer').innerHTML = isPendente ? `
         <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
         <button class="btn btn-secondary" onclick="PageRescisao._recalcModal('${pId}')">↺ Recalcular</button>
+        <button class="btn btn-secondary" onclick="PageRescisao.printReceipt(${id})">🖨 Imprimir</button>
         <button class="btn btn-danger" onclick="PageRescisao.confirmDelete(${id},'${t.employee_name||''}');closeModal()">🗑 Excluir</button>
         <button class="btn btn-primary" onclick="PageRescisao._saveModal(${id},'${pId}')">💾 Salvar</button>
-        <button class="btn btn-success" onclick="PageRescisao.confirmClose(${id},'${t.employee_name||''}');closeModal()">✓ Concluir Rescisão</button>
+        <button class="btn btn-success" onclick="PageRescisao.confirmClose(${id},'${t.employee_name||''}');closeModal()">✓ Concluir</button>
       ` : `
-        <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>`;
+        <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+        <button class="btn btn-secondary" onclick="PageRescisao.printReceipt(${id})">🖨 Imprimir Recibo</button>`;
     } catch (e) {
       document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
@@ -595,8 +689,7 @@ const PageRescisao = (() => {
 
   function _recalcModal(pId) {
     const v = (id) => parseFloat(document.getElementById(`${pId}-${id}`)?.value || '0') || 0;
-    const credits = v('saldo') + v('fer-prop') + v('terc-prop') + v('fer-venc') +
-                    v('terc-venc') + v('dec13') + v('aviso-ind') + v('multa');
+    const credits = v('saldo') + v('ferias') + v('terc-ferias') + v('dec13') + v('aviso-ind');
     const deducts = v('inss') + v('aviso-desc');
     const el = (id) => document.getElementById(`${pId}-${id}`);
     if (el('tot-cred')) el('tot-cred').textContent = fmt.brl(credits);
@@ -609,13 +702,13 @@ const PageRescisao = (() => {
     try {
       await Api.updateTermination(termId, {
         saldo_salario:           v('saldo'),
-        ferias_proporcionais:    v('fer-prop'),
-        um_terco_ferias_prop:    v('terc-prop'),
-        ferias_vencidas:         v('fer-venc'),
-        um_terco_ferias_venc:    v('terc-venc'),
+        ferias_proporcionais:    v('ferias'),
+        um_terco_ferias_prop:    v('terc-ferias'),
+        ferias_vencidas:         0,
+        um_terco_ferias_venc:    0,
         decimo_terceiro_prop:    v('dec13'),
         aviso_previo_indenizado: v('aviso-ind'),
-        multa_fgts:              v('multa'),
+        multa_fgts:              0,
         inss_rescisao:           v('inss'),
         aviso_previo_desconto:   v('aviso-desc'),
       });
@@ -627,7 +720,7 @@ const PageRescisao = (() => {
 
   return {
     render, onEmpChange, onReasonChange, onNoticeTypeChange, onNoticeStartChange,
-    calcular, recalcResult, salvarEdicao,
+    calcular, recalcResult, salvarEdicao, printReceipt,
     openDetail, _recalcModal, _saveModal,
     confirmClose, confirmDelete,
   };
