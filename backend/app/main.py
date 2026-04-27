@@ -18,6 +18,8 @@ def _run_migrations():
         "ALTER TABLE timesheet_entries ADD COLUMN is_recess BOOLEAN DEFAULT 0",
         "ALTER TABLE timesheet_entries ADD COLUMN is_compensar BOOLEAN DEFAULT 0",
         "ALTER TABLE timesheet_entries ADD COLUMN is_dsr_deducted BOOLEAN DEFAULT 0",
+        "ALTER TABLE terminations ADD COLUMN notice_start_date DATE",
+        "ALTER TABLE terminations ADD COLUMN status VARCHAR(20) DEFAULT 'pendente'",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -26,6 +28,16 @@ def _run_migrations():
                 conn.commit()
             except Exception:
                 pass  # coluna já existe
+        # Corrige rescisões com data futura que foram marcadas como concluída indevidamente
+        try:
+            from datetime import date
+            today = date.today().isoformat()
+            conn.execute(text(
+                "UPDATE terminations SET status = 'pendente' WHERE status = 'concluida' AND termination_date > :today"
+            ), {"today": today})
+            conn.commit()
+        except Exception:
+            pass
 
 
 @asynccontextmanager
