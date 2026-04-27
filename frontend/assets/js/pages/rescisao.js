@@ -1,6 +1,12 @@
 const PageRescisao = (() => {
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
+  function statusBadge(status) {
+    if (status === 'concluida')
+      return `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#dcfce7;color:#15803d">✓ Concluída</span>`;
+    return `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e">⏳ Pendente</span>`;
+  }
+
   function fmtReason(reason) {
     const map = {
       sem_justa_causa: 'Sem Justa Causa',
@@ -172,10 +178,10 @@ const PageRescisao = (() => {
             <thead>
               <tr>
                 <th>Funcionário</th><th>Motivo</th><th>Data Rescisão</th>
-                <th>Aviso Prévio</th><th>Líquido</th><th></th>
+                <th>Aviso Prévio</th><th>Status</th><th>Líquido</th><th></th>
               </tr>
             </thead>
-            <tbody id="res-history-tbody">${loadingRow(6)}</tbody>
+            <tbody id="res-history-tbody">${loadingRow(7)}</tbody>
           </table>
         </div>
       </div>`;
@@ -435,35 +441,64 @@ const PageRescisao = (() => {
     try {
       const list = await Api.getTerminations() || [];
       if (!list.length) {
-        document.getElementById('res-history-tbody').innerHTML = emptyRow('Nenhuma rescisão registrada.', 6);
+        document.getElementById('res-history-tbody').innerHTML = emptyRow('Nenhuma rescisão registrada.', 7);
         return;
       }
       document.getElementById('res-history-tbody').innerHTML = list.map(t => {
-        const today  = new Date().toISOString().split('T')[0];
-        const futura = t.termination_date > today;
-        const badge  = futura
-          ? `<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;margin-left:4px">pendente</span>`
-          : '';
+        const isPendente = t.status === 'pendente';
+        const actionBtns = isPendente ? `
+          <button class="btn-icon" onclick="PageRescisao.openDetail(${t.id})" title="Ver / editar" style="color:var(--primary)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn-icon" onclick="PageRescisao.confirmClose(${t.id},'${(t.employee_name||'').replace(/'/g,'')}')" title="Concluir rescisão" style="color:#16a34a">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
+          <button class="btn-icon" onclick="PageRescisao.confirmDelete(${t.id},'${(t.employee_name||'').replace(/'/g,'')}')" title="Excluir" style="color:var(--danger)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>` : `
+          <button class="btn-icon" onclick="PageRescisao.openDetail(${t.id})" title="Ver detalhes">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </button>`;
         return `
           <tr>
             <td><strong>${t.employee_name || '—'}</strong></td>
             <td>${fmtReason(t.reason)}</td>
-            <td>${fmt.date(t.termination_date)}${badge}</td>
+            <td>${fmt.date(t.termination_date)}</td>
             <td>${t.notice_days} dias · ${t.notice_worked ? 'Trabalhado' : 'Indenizado'}</td>
+            <td>${statusBadge(t.status)}</td>
             <td><strong>${fmt.brl(t.liquido)}</strong></td>
-            <td class="td-actions">
-              <button class="btn-icon" onclick="PageRescisao.openDetail(${t.id})" title="Ver / editar">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-              </button>
-            </td>
+            <td class="td-actions">${actionBtns}</td>
           </tr>`;
       }).join('');
     } catch (e) {
-      document.getElementById('res-history-tbody').innerHTML = emptyRow(e.message, 6);
+      document.getElementById('res-history-tbody').innerHTML = emptyRow(e.message, 7);
     }
+  }
+
+  async function confirmClose(id, name) {
+    if (!confirm(`Concluir a rescisão de ${name}?\n\nAo concluir:\n• O funcionário será inativado\n• A rescisão ficará bloqueada para edição\n\nEssa ação não pode ser desfeita.`)) return;
+    try {
+      await Api.closeTermination(id);
+      toast('Rescisão concluída! Funcionário inativado.', 'success');
+      loadHistory();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  async function confirmDelete(id, name) {
+    if (!confirm(`Excluir a rescisão de ${name}?\n\nO funcionário voltará a estar ativo.\nEssa ação não pode ser desfeita.`)) return;
+    try {
+      await Api.deleteTermination(id);
+      toast('Rescisão excluída.', 'success');
+      loadHistory();
+      // Limpa painel de resultado se era essa rescisão
+      if (_currentTermId === id) {
+        _currentTermId = null;
+        document.getElementById('res-result').innerHTML =
+          '<div style="text-align:center;padding:40px;color:var(--text-muted)"><p>Rescisão excluída.</p></div>';
+        const acts = document.getElementById('res-edit-actions');
+        if (acts) acts.style.display = 'none';
+      }
+    } catch (e) { toast(e.message, 'error'); }
   }
 
   // ── Modal de detalhe / edição ─────────────────────────────────────────────────
@@ -531,10 +566,28 @@ const PageRescisao = (() => {
           <strong style="font-size:18px;color:var(--primary)" id="${pId}-liquido">${fmt.brl(t.liquido)}</strong>
         </div>`;
 
-      document.getElementById('modal-footer').innerHTML = `
+      const isPendente = t.status === 'pendente';
+      if (!isPendente) {
+        // Bloqueia inputs se concluída
+        document.getElementById('modal-body').querySelectorAll('input[type=number]').forEach(el => {
+          el.disabled = true;
+          el.style.background = 'var(--bg)';
+          el.style.color = 'var(--text-muted)';
+        });
+        document.getElementById('modal-body').insertAdjacentHTML('afterbegin',
+          `<div class="alert" style="background:#dcfce7;color:#15803d;border:none;margin-bottom:12px;font-size:13px">
+            ✓ Rescisão concluída — não é possível editar.
+           </div>`);
+      }
+
+      document.getElementById('modal-footer').innerHTML = isPendente ? `
         <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
         <button class="btn btn-secondary" onclick="PageRescisao._recalcModal('${pId}')">↺ Recalcular</button>
-        <button class="btn btn-primary" onclick="PageRescisao._saveModal(${id},'${pId}')">💾 Salvar</button>`;
+        <button class="btn btn-danger" onclick="PageRescisao.confirmDelete(${id},'${t.employee_name||''}');closeModal()">🗑 Excluir</button>
+        <button class="btn btn-primary" onclick="PageRescisao._saveModal(${id},'${pId}')">💾 Salvar</button>
+        <button class="btn btn-success" onclick="PageRescisao.confirmClose(${id},'${t.employee_name||''}');closeModal()">✓ Concluir Rescisão</button>
+      ` : `
+        <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>`;
     } catch (e) {
       document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
@@ -576,5 +629,6 @@ const PageRescisao = (() => {
     render, onEmpChange, onReasonChange, onNoticeTypeChange, onNoticeStartChange,
     calcular, recalcResult, salvarEdicao,
     openDetail, _recalcModal, _saveModal,
+    confirmClose, confirmDelete,
   };
 })();

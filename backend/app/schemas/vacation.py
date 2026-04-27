@@ -212,6 +212,7 @@ class TerminationRead(BaseModel):
     total_creditos:         Decimal
     total_descontos:        Decimal
     liquido:                Decimal
+    status:                 str
     notes:                  str | None
 
     model_config = {"from_attributes": True}

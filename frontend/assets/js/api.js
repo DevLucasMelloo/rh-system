@@ -199,6 +199,8 @@ const Api = (() => {
   const createTermination  = (body)     => post('/vacation/termination', body);
   const getTermination     = (id)       => get(`/vacation/termination/${id}`);
   const updateTermination  = (id, body) => put(`/vacation/termination/${id}`, body);
+  const closeTermination   = (id)       => post(`/vacation/termination/${id}/close`, {});
+  const deleteTermination  = (id)       => del(`/vacation/termination/${id}`);
 
   // ── Timesheet ─────────────────────────────────────────────────────────────
   const getTimesheet  = (empId, month, year) => get(`/timesheet/${empId}/report`, { month, year });
@@ -246,7 +248,7 @@ const Api = (() => {
     createVacation, updateVacation, deleteVacation,
     startVacation, completeVacation, cancelVacation,
     addVacationItem, updateVacationItem, deleteVacationItem, getThirteenth, getThirteenthBatch,
-    getTerminations, createTermination, getTermination, updateTermination,
+    getTerminations, createTermination, getTermination, updateTermination, closeTermination, deleteTermination,
     getTimesheet, createEntry, updateEntry, getHourBank, recalculateHourBank, recalculateAllBanks,
     getTimesheetPeriod, openTimesheetPeriod, closeTimesheetPeriod, getEmployeeDays, saveEmployeeDays, getBankSummary, batchDayLaunch,
     getAuditLogs, getAuditStats, getAuditUsers, getAuditActions, dlAuditLogs,

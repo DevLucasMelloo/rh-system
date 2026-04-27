@@ -52,6 +52,7 @@ class Termination(Base):
     total_descontos = Column(Numeric(10, 2), default=0)
     liquido         = Column(Numeric(10, 2), default=0)
 
+    status   = Column(String(20),  default="pendente")  # pendente | concluida
     notes    = Column(Text,        nullable=True)
     pdf_path = Column(String(500), nullable=True)
 

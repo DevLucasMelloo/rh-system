@@ -687,6 +687,7 @@ def create_termination(
         "notice_days":             notice_days,
         "notice_worked":           data.notice_worked,
         "notice_start_date":       data.notice_start_date,
+        "status":                  "pendente",
         "saldo_salario":           saldo_salario,
         "ferias_proporcionais":    ferias_prop,
         "um_terco_ferias_prop":    um_terco_ferias_prop,
@@ -703,35 +704,12 @@ def create_termination(
         "notes":                   data.notes,
     })
 
-    # Inativa o funcionário somente se a data de rescisão já chegou
-    from app.repositories import employee as emp_repo_mod
-    if term_date <= date.today():
-        emp_repo_mod.update_employee(db, emp, {
-            "status":              EmployeeStatus.INACTIVE,
-            "inactivation_date":   term_date,
-            "inactivation_reason": data.reason.value,
-        })
-
     audit_repo.create_log(
         db, action="termination_created", user_id=user_id,
         entity="termination", entity_id=term.id,
-        description=f"Rescisão de {emp.name} em {term_date} ({data.reason.value}) — líquido R$ {liquido}",
+        description=f"Rescisão de {emp.name} em {term_date} ({data.reason.value}) registrada — líquido R$ {liquido}",
     )
     return term
-
-
-def _check_auto_inactivate(db: Session, term: Termination) -> None:
-    """Inativa o funcionário automaticamente quando a data de rescisão chega."""
-    from app.repositories import employee as emp_repo_mod
-    if term.termination_date > date.today():
-        return
-    emp = emp_repo.get_employee(db, term.employee_id)
-    if emp and emp.status == EmployeeStatus.ACTIVE:
-        emp_repo_mod.update_employee(db, emp, {
-            "status":              EmployeeStatus.INACTIVE,
-            "inactivation_date":   term.termination_date,
-            "inactivation_reason": term.reason.value,
-        })
 
 
 def get_termination(db: Session, termination_id: int, company_id: int) -> Termination:
@@ -741,15 +719,60 @@ def get_termination(db: Session, termination_id: int, company_id: int) -> Termin
     emp = emp_repo.get_employee(db, term.employee_id)
     if not emp or emp.company_id != company_id:
         raise HTTPException(status_code=404, detail="Rescisão não encontrada")
-    _check_auto_inactivate(db, term)
     return term
 
 
 def list_terminations(db: Session, company_id: int) -> list[Termination]:
-    terms = vac_repo.list_terminations(db, company_id)
-    for t in terms:
-        _check_auto_inactivate(db, t)
-    return terms
+    return vac_repo.list_terminations(db, company_id)
+
+
+def close_termination(
+    db: Session,
+    termination_id: int,
+    company_id: int,
+    user_id: int,
+) -> Termination:
+    term = get_termination(db, termination_id, company_id)
+    if term.status == "concluida":
+        raise HTTPException(status_code=400, detail="Rescisão já está concluída")
+
+    vac_repo.update_termination(db, term, {"status": "concluida"})
+
+    # Inativa o funcionário ao concluir a rescisão
+    from app.repositories import employee as emp_repo_mod
+    emp = emp_repo.get_employee(db, term.employee_id)
+    if emp and emp.status == EmployeeStatus.ACTIVE:
+        emp_repo_mod.update_employee(db, emp, {
+            "status":              EmployeeStatus.INACTIVE,
+            "inactivation_date":   term.termination_date,
+            "inactivation_reason": term.reason.value,
+        })
+
+    audit_repo.create_log(
+        db, action="termination_closed", user_id=user_id,
+        entity="termination", entity_id=term.id,
+        description=f"Rescisão de {emp.name if emp else term.employee_id} concluída em {term.termination_date}",
+    )
+    return term
+
+
+def delete_termination(
+    db: Session,
+    termination_id: int,
+    company_id: int,
+    user_id: int,
+) -> None:
+    term = get_termination(db, termination_id, company_id)
+    if term.status == "concluida":
+        raise HTTPException(status_code=400, detail="Rescisão concluída não pode ser excluída")
+
+    emp = emp_repo.get_employee(db, term.employee_id)
+    audit_repo.create_log(
+        db, action="termination_deleted", user_id=user_id,
+        entity="termination", entity_id=term.id,
+        description=f"Rescisão de {emp.name if emp else term.employee_id} excluída",
+    )
+    vac_repo.delete_termination(db, term)
 
 
 def update_termination(
@@ -759,24 +782,26 @@ def update_termination(
     company_id: int,
 ) -> Termination:
     term = get_termination(db, termination_id, company_id)
+    if term.status == "concluida":
+        raise HTTPException(status_code=400, detail="Rescisão concluída não pode ser alterada")
+
     updates = data.model_dump(exclude_unset=True)
     if not updates:
         return term
 
-    # Merge atualização com valores atuais e recalcula totais
     def _cur(field):
         return Decimal(str(getattr(term, field) or 0))
 
-    saldo          = Decimal(str(updates.get("saldo_salario",          _cur("saldo_salario"))))
-    fer_prop       = Decimal(str(updates.get("ferias_proporcionais",   _cur("ferias_proporcionais"))))
-    terc_prop      = Decimal(str(updates.get("um_terco_ferias_prop",   _cur("um_terco_ferias_prop"))))
-    fer_venc       = Decimal(str(updates.get("ferias_vencidas",        _cur("ferias_vencidas"))))
-    terc_venc      = Decimal(str(updates.get("um_terco_ferias_venc",   _cur("um_terco_ferias_venc"))))
-    dec_prop       = Decimal(str(updates.get("decimo_terceiro_prop",   _cur("decimo_terceiro_prop"))))
-    aviso_ind      = Decimal(str(updates.get("aviso_previo_indenizado",_cur("aviso_previo_indenizado"))))
-    multa          = Decimal(str(updates.get("multa_fgts",             _cur("multa_fgts"))))
-    inss           = Decimal(str(updates.get("inss_rescisao",          _cur("inss_rescisao"))))
-    aviso_desc     = Decimal(str(updates.get("aviso_previo_desconto",  _cur("aviso_previo_desconto"))))
+    saldo      = Decimal(str(updates.get("saldo_salario",          _cur("saldo_salario"))))
+    fer_prop   = Decimal(str(updates.get("ferias_proporcionais",   _cur("ferias_proporcionais"))))
+    terc_prop  = Decimal(str(updates.get("um_terco_ferias_prop",   _cur("um_terco_ferias_prop"))))
+    fer_venc   = Decimal(str(updates.get("ferias_vencidas",        _cur("ferias_vencidas"))))
+    terc_venc  = Decimal(str(updates.get("um_terco_ferias_venc",   _cur("um_terco_ferias_venc"))))
+    dec_prop   = Decimal(str(updates.get("decimo_terceiro_prop",   _cur("decimo_terceiro_prop"))))
+    aviso_ind  = Decimal(str(updates.get("aviso_previo_indenizado",_cur("aviso_previo_indenizado"))))
+    multa      = Decimal(str(updates.get("multa_fgts",             _cur("multa_fgts"))))
+    inss       = Decimal(str(updates.get("inss_rescisao",          _cur("inss_rescisao"))))
+    aviso_desc = Decimal(str(updates.get("aviso_previo_desconto",  _cur("aviso_previo_desconto"))))
 
     total_cred = _q2(saldo + fer_prop + terc_prop + fer_venc + terc_venc + dec_prop + aviso_ind + multa)
     total_desc = _q2(inss + aviso_desc)

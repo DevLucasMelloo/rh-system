@@ -168,3 +168,8 @@ def update_termination(db: Session, term: Termination, data: dict) -> Terminatio
     db.commit()
     db.refresh(term)
     return term
+
+
+def delete_termination(db: Session, term: Termination) -> None:
+    db.delete(term)
+    db.commit()

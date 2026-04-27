@@ -146,6 +146,25 @@ def update_termination(
     return _enrich_termination(term, db)
 
 
+@router.post("/termination/{termination_id}/close", response_model=TerminationRead)
+def close_termination(
+    termination_id: int = Path(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_rh_or_admin),
+):
+    term = vac_service.close_termination(db, termination_id, current_user.company_id, current_user.id)
+    return _enrich_termination(term, db)
+
+
+@router.delete("/termination/{termination_id}", status_code=204)
+def delete_termination(
+    termination_id: int = Path(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_rh_or_admin),
+):
+    vac_service.delete_termination(db, termination_id, current_user.company_id, current_user.id)
+
+
 # ── CRUD Férias ───────────────────────────────────────────────────────────────
 
 @router.post("", response_model=VacationRead, status_code=201)
