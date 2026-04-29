@@ -35,7 +35,10 @@ const PageAudit = (() => {
     thirteenth_paid:           { label: '13º Pago',           bg: '#dcfce7', color: '#16a34a' },
     thirteenth_deleted:        { label: '13º Excluído',       bg: '#fee2e2', color: '#dc2626' },
     // Rescisão
-    termination_created:       { label: 'Rescisão',           bg: '#ffedd5', color: '#ea580c' },
+    termination_created:       { label: 'Rescisão Criada',    bg: '#ffedd5', color: '#ea580c' },
+    termination_closed:        { label: 'Rescisão Concluída', bg: '#dcfce7', color: '#16a34a' },
+    termination_deleted:       { label: 'Rescisão Excluída',  bg: '#fee2e2', color: '#dc2626' },
+    termination_updated:       { label: 'Rescisão Editada',   bg: '#ffedd5', color: '#ea580c' },
     // Costureiras
     seamstress_created:        { label: 'Costureira Cadastro',bg: '#fce7f3', color: '#db2777' },
     seamstress_updated:        { label: 'Costureira Edição',  bg: '#fce7f3', color: '#db2777' },

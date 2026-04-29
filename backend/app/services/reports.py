@@ -15,8 +15,9 @@ from app.models.employee import Employee, EmployeeStatus
 from app.models.payroll import Payroll, PayrollStatus
 from app.models.timesheet import TimesheetEntry
 from app.models.vacation import Vacation, VacationStatus
+from app.services.vacation import _auto_advance_status
 from app.models.termination import Termination
-from app.schemas.reports import DashboardRead, BirthdayRead, VacationExpiringRead, AnnualPayrollRead, AnnualEmployeeRow, AnnualEmployeeMonth
+from app.schemas.reports import DashboardRead, BirthdayRead, VacationExpiringRead, ScheduledVacationRead, ActiveVacationRead, MonthlyTotalRead, AnnualPayrollRead, AnnualEmployeeRow, AnnualEmployeeMonth
 from app.repositories import seamstress as seamstress_repo
 
 
@@ -65,6 +66,7 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         .filter(Employee.company_id == company_id)
         .all()
     )
+    vacs = [_auto_advance_status(db, v) for v in vacs]
     vacs_active     = sum(1 for v in vacs if v.status == VacationStatus.ACTIVE)
     vacs_scheduled  = sum(1 for v in vacs if v.status == VacationStatus.SCHEDULED)
     cutoff_60d      = today + timedelta(days=60)
@@ -114,6 +116,69 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
     # Vencidas primeiro (mais urgentes), depois por proximidade
     expiring.sort(key=lambda x: x.days_until_expiry)
 
+    # ── Férias Agendadas ─────────────────────────────────────────────────────
+    scheduled_vacations: list[ScheduledVacationRead] = []
+    for v in vacs:
+        if not v.enjoyment_start or v.enjoyment_start <= today:
+            continue
+        if v.status not in (VacationStatus.SCHEDULED, VacationStatus.ACTIVE):
+            continue
+        emp = db.get(Employee, v.employee_id)
+        scheduled_vacations.append(ScheduledVacationRead(
+            employee_id=v.employee_id,
+            employee_name=emp.name if emp else "—",
+            enjoyment_start=v.enjoyment_start,
+            enjoyment_days=v.enjoyment_days,
+        ))
+    scheduled_vacations.sort(key=lambda x: x.enjoyment_start)
+
+    # ── Em Férias ────────────────────────────────────────────────────────────
+    active_vacations: list[ActiveVacationRead] = []
+    for v in vacs:
+        if not v.enjoyment_start or v.enjoyment_start > today:
+            continue
+        if v.status not in (VacationStatus.SCHEDULED, VacationStatus.ACTIVE):
+            continue
+        enjoyment_end = v.enjoyment_start + timedelta(days=v.enjoyment_days - 1)
+        if enjoyment_end < today:
+            continue  # já terminou, não mostrar
+        emp = db.get(Employee, v.employee_id)
+        active_vacations.append(ActiveVacationRead(
+            employee_id=v.employee_id,
+            employee_name=emp.name if emp else "—",
+            enjoyment_start=v.enjoyment_start,
+            enjoyment_end=enjoyment_end,
+        ))
+    active_vacations.sort(key=lambda x: x.enjoyment_start)
+
+    # ── Evolução mensal — últimos 6 meses ────────────────────────────────────
+    monthly_totals: list[MonthlyTotalRead] = []
+    for i in range(5, -1, -1):
+        total_months = year * 12 + month - 1 - i
+        m_year  = total_months // 12
+        m_month = total_months % 12 + 1
+        m_payrolls = (
+            db.query(Payroll)
+            .join(Employee)
+            .filter(
+                Employee.company_id == company_id,
+                Payroll.competence_month == m_month,
+                Payroll.competence_year  == m_year,
+                Payroll.status == PayrollStatus.CLOSED,
+            )
+            .all()
+        )
+        m_payroll_total = sum(Decimal(str(p.net_salary)) for p in m_payrolls)
+        _, m_seam_paid, m_seam_entrega = seamstress_repo.month_totals(db, company_id, m_month, m_year)
+        m_seam_total = Decimal(str(m_seam_paid or 0)) + Decimal(str(m_seam_entrega or 0))
+        monthly_totals.append(MonthlyTotalRead(
+            year=m_year,
+            month=m_month,
+            payroll=m_payroll_total,
+            seamstress=m_seam_total,
+            total=m_payroll_total + m_seam_total,
+        ))
+
     # ── Costureiras ───────────────────────────────────────────────────────────
     seamstress_pending, seamstress_paid, seamstress_entrega = seamstress_repo.month_totals(
         db, company_id, month, year
@@ -137,8 +202,11 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         vacations_active=vacs_active,
         vacations_scheduled=vacs_scheduled,
         vacations_expiring_60d=len(vacs_expiring),
+        monthly_totals=monthly_totals,
         birthdays_next_30_days=birthdays,
         expiring_vacations=expiring,
+        scheduled_vacations=scheduled_vacations,
+        active_vacations=active_vacations,
         seamstress_pending_month=Decimal(str(seamstress_pending)) if seamstress_pending else Decimal(0),
         seamstress_paid_month=Decimal(str(seamstress_paid)) if seamstress_paid else Decimal(0),
         seamstress_entrega_month=Decimal(str(seamstress_entrega)) if seamstress_entrega else Decimal(0),

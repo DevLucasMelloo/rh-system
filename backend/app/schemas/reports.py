@@ -24,6 +24,28 @@ class VacationExpiringRead(BaseModel):
     status: str
 
 
+class ScheduledVacationRead(BaseModel):
+    employee_id: int
+    employee_name: str
+    enjoyment_start: date
+    enjoyment_days: int
+
+
+class ActiveVacationRead(BaseModel):
+    employee_id: int
+    employee_name: str
+    enjoyment_start: date
+    enjoyment_end: date
+
+
+class MonthlyTotalRead(BaseModel):
+    year:        int
+    month:       int
+    payroll:     Decimal
+    seamstress:  Decimal
+    total:       Decimal
+
+
 class DashboardRead(BaseModel):
     # Funcionários
     total_employees:    int
@@ -52,9 +74,14 @@ class DashboardRead(BaseModel):
     # Custo total do mês (folha + costureiras)
     custo_total_month: Decimal
 
+    # Evolução mensal (6 meses)
+    monthly_totals: list[MonthlyTotalRead]
+
     # Listas detalhadas
     birthdays_next_30_days:  list[BirthdayRead]
     expiring_vacations:      list[VacationExpiringRead]
+    scheduled_vacations:     list[ScheduledVacationRead]
+    active_vacations:        list[ActiveVacationRead]
 
 
 # ── Folha Anual por Funcionário ───────────────────────────────────────────────

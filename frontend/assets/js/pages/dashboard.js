@@ -16,7 +16,7 @@ const PageDashboard = (() => {
       </div>
 
       <div class="chart-container">
-        <div class="chart-title">Evolução da Folha (6 meses)</div>
+        <div class="chart-title">Evolução do Custo Total (6 meses)</div>
         <canvas id="payroll-chart" height="90"></canvas>
       </div>
 
@@ -40,7 +40,29 @@ const PageDashboard = (() => {
         </div>
       </div>
 
-      <!-- Bottom row -->
+      <!-- Bottom row 1: férias -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+        <div class="card">
+          <div class="card-header" style="display:flex;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Férias Agendadas
+          </div>
+          <div id="scheduled-vacation-list" style="padding:8px 0">
+            <div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Carregando...</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header" style="display:flex;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Em Férias
+          </div>
+          <div id="active-vacation-list" style="padding:8px 0">
+            <div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Carregando...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom row 2: vencidas + aniversariantes -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
         <div class="card">
           <div class="card-header" style="display:flex;align-items:center;gap:8px">
@@ -79,6 +101,8 @@ const PageDashboard = (() => {
       renderStats(d);
       renderChart(d);
       renderAnnualTable(annual);
+      renderScheduledVacations(d.scheduled_vacations || []);
+      renderActiveVacations(d.active_vacations || []);
       renderVacationExpiring(d.expiring_vacations || []);
       renderBirthdays(d.birthdays_next_30_days || []);
     } catch (e) {
@@ -141,47 +165,112 @@ const PageDashboard = (() => {
       </div>`;
   }
 
-  async function renderChart(d) {
-    const labels = [];
-    const values = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      labels.push(MONTHS_SHORT[dt.getMonth()] + '/' + String(dt.getFullYear()).slice(2));
-      values.push(0);
-    }
-    values[5] = Number(d.total_net_salary || 0);
-
+  function renderChart(d) {
     const ctx = document.getElementById('payroll-chart')?.getContext('2d');
     if (!ctx) return;
     if (chart) chart.destroy();
+
+    const totals   = d.monthly_totals || [];
+    const labels   = totals.map(t => MONTHS_SHORT[t.month - 1] + '/' + String(t.year).slice(2));
+    const payroll  = totals.map(t => Number(t.payroll));
+    const seam     = totals.map(t => Number(t.seamstress));
+    const total    = totals.map(t => Number(t.total));
+
+    const gradTotal = ctx.createLinearGradient(0, 0, 0, 280);
+    gradTotal.addColorStop(0,   'rgba(37,99,235,0.25)');
+    gradTotal.addColorStop(1,   'rgba(37,99,235,0.02)');
+
+    const gradPayroll = ctx.createLinearGradient(0, 0, 0, 280);
+    gradPayroll.addColorStop(0, 'rgba(16,185,129,0.20)');
+    gradPayroll.addColorStop(1, 'rgba(16,185,129,0.02)');
+
     chart = new Chart(ctx, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels,
-        datasets: [{
-          label: 'Folha Líquida (R$)',
-          data: values,
-          backgroundColor: 'rgba(37,99,235,.15)',
-          borderColor: '#2563eb',
-          borderWidth: 2,
-          borderRadius: 6,
-        }]
+        datasets: [
+          {
+            label: 'Custo Total',
+            data: total,
+            borderColor: '#2563eb',
+            backgroundColor: gradTotal,
+            borderWidth: 2.5,
+            pointBackgroundColor: '#2563eb',
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.4,
+            fill: true,
+            order: 1,
+          },
+          {
+            label: 'Folha Líquida',
+            data: payroll,
+            borderColor: '#10b981',
+            backgroundColor: gradPayroll,
+            borderWidth: 2,
+            pointBackgroundColor: '#10b981',
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            tension: 0.4,
+            fill: true,
+            order: 2,
+            borderDash: [5, 3],
+          },
+          {
+            label: 'Costureiras',
+            data: seam,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245,158,11,0.08)',
+            borderWidth: 2,
+            pointBackgroundColor: '#f59e0b',
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            tension: 0.4,
+            fill: false,
+            order: 3,
+            borderDash: [3, 3],
+          },
+        ],
       },
       options: {
         responsive: true,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: ctx => fmt.brl(ctx.raw) } }
+          legend: {
+            display: true,
+            position: 'top',
+            align: 'end',
+            labels: { boxWidth: 12, boxHeight: 2, useBorderRadius: true, borderRadius: 2, font: { size: 12 }, color: '#64748b' },
+          },
+          tooltip: {
+            backgroundColor: '#1e293b',
+            titleColor: '#f1f5f9',
+            bodyColor: '#cbd5e1',
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${fmt.brl(ctx.raw)}`,
+            },
+          },
         },
         scales: {
           y: {
-            ticks: { callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR') },
-            grid: { color: '#f1f5f9' }
+            beginAtZero: true,
+            ticks: {
+              callback: v => v === 0 ? 'R$ 0' : 'R$ ' + (v >= 1000 ? (v/1000).toLocaleString('pt-BR', {maximumFractionDigits:1}) + 'k' : Number(v).toLocaleString('pt-BR')),
+              color: '#94a3b8',
+              font: { size: 11 },
+            },
+            grid: { color: '#f1f5f9' },
+            border: { display: false },
           },
-          x: { grid: { display: false } }
-        }
-      }
+          x: {
+            grid: { display: false },
+            ticks: { color: '#94a3b8', font: { size: 12 } },
+            border: { display: false },
+          },
+        },
+      },
     });
   }
 
@@ -253,6 +342,56 @@ const PageDashboard = (() => {
           ${rows}
         </tbody>
       </table>`;
+  }
+
+  function renderScheduledVacations(list) {
+    const el = document.getElementById('scheduled-vacation-list');
+    if (!list.length) {
+      el.innerHTML = `<div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Nenhuma férias agendada.</div>`;
+      return;
+    }
+    const fmtDate = d => { const [y, m, day] = d.split('-'); return `${day}/${m}/${y}`; };
+    el.innerHTML = list.map(v => `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-radius:8px;
+                  background:#eff6ff;border:1px solid #bfdbfe;margin:4px 16px">
+        <div style="width:36px;height:36px;border-radius:50%;background:#fff;border:2px solid #bfdbfe;
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+                    font-size:13px;font-weight:700;color:#2563eb">${v.enjoyment_days}d</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.employee_name}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:1px">Início: ${fmtDate(v.enjoyment_start)}</div>
+        </div>
+        <div style="flex-shrink:0;text-align:right">
+          <div style="font-size:11px;color:#2563eb;font-weight:600">${fmtDate(v.enjoyment_start)}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${v.enjoyment_days} dias</div>
+        </div>
+      </div>`).join('');
+  }
+
+  function renderActiveVacations(list) {
+    const el = document.getElementById('active-vacation-list');
+    if (!list.length) {
+      el.innerHTML = `<div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Nenhum funcionário em férias no momento.</div>`;
+      return;
+    }
+    const fmtDate = d => { const [y, m, day] = d.split('-'); return `${day}/${m}/${y}`; };
+    el.innerHTML = list.map(v => `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-radius:8px;
+                  background:#eff6ff;border:1px solid #bfdbfe;margin:4px 16px">
+        <div style="width:36px;height:36px;border-radius:50%;background:#fff;border:2px solid #bfdbfe;
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5">
+            <path d="M3 17l4-8 4 4 4-6 4 10"/>
+          </svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.employee_name}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:1px">Em férias</div>
+        </div>
+        <div style="flex-shrink:0;text-align:right">
+          <div style="font-size:11px;color:#2563eb;font-weight:600">${fmtDate(v.enjoyment_start)} → ${fmtDate(v.enjoyment_end)}</div>
+        </div>
+      </div>`).join('');
   }
 
   function renderVacationExpiring(list) {
