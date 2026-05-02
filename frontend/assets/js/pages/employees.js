@@ -239,10 +239,75 @@ const PageEmployees = (() => {
       registration_date: document.getElementById('f-registration').value,
     };
     try {
-      await Api.createEmployee(data);
+      const emp = await Api.createEmployee(data);
       closeModal();
       toast('Funcionário cadastrado com sucesso!');
       await loadData();
+      // Verificar férias vencidas retroativas
+      if (emp && emp.id) _checkOverdueVacations(emp.id, emp.name || data.name);
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  async function _checkOverdueVacations(empId, empName) {
+    try {
+      const elig = await Api.getVacationEligibility(empId);
+      const overdue = (elig.available_periods || []).filter(p => p.is_overdue);
+      if (!overdue.length) return;
+      _showWaiveModal(empId, empName, overdue);
+    } catch (_) { /* silencioso */ }
+  }
+
+  function _showWaiveModal(empId, empName, periods) {
+    const fmtDate = d => { const [y, m, day] = d.split('-'); return `${day}/${m}/${y}`; };
+    const rows = periods.map((p, i) => `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;
+                    background:#fef2f2;border:1px solid #fca5a5;cursor:pointer;margin-bottom:6px">
+        <input type="checkbox" id="waive-p-${i}" checked style="width:16px;height:16px;accent-color:#dc2626">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#dc2626">Período ${p.period_number} — vencido</div>
+          <div style="font-size:12px;color:#64748b">
+            Aquisitivo: ${fmtDate(p.acq_start)} → ${fmtDate(p.acq_end)}
+          </div>
+        </div>
+      </label>`).join('');
+
+    openModal(
+      'Férias Vencidas Detectadas',
+      `<div style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:8px;padding:12px;border-radius:8px;background:#fef2f2;border:1px solid #fca5a5;margin-bottom:16px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#dc2626">
+              ${empName} possui ${periods.length} período(s) de férias vencido(s)
+            </div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">
+              Selecione os períodos que deseja anular para que não apareçam como pendentes.
+            </div>
+          </div>
+        </div>
+        <div id="waive-periods-list">${rows}</div>
+      </div>`,
+      `<button class="btn btn-secondary" onclick="closeModal()">Deixar por enquanto</button>
+       <button class="btn btn-danger" onclick="PageEmployees._doWaive(${empId}, ${JSON.stringify(periods)})">Anular Selecionados</button>`,
+      false
+    );
+  }
+
+  async function _doWaive(empId, periods) {
+    const selected = periods.filter((_, i) => {
+      const el = document.getElementById(`waive-p-${i}`);
+      return el && el.checked;
+    });
+    if (!selected.length) { closeModal(); return; }
+    try {
+      await Api.waiveVacationPeriods({
+        employee_id: empId,
+        periods: selected.map(p => ({ acq_start: p.acq_start, acq_end: p.acq_end })),
+      });
+      closeModal();
+      toast(`${selected.length} período(s) anulado(s) com sucesso.`);
     } catch (e) {
       toast(e.message, 'error');
     }
@@ -527,5 +592,5 @@ const PageEmployees = (() => {
     }
   }
 
-  return { render, setTab, onSearch, openNew, saveNew, openView, openEdit, saveEdit, confirmInactivate, doInactivate, reactivate, openHistory, openRaise, _onRaiseEmpChange, _onRaiseTypeChange, saveRaise };
+  return { render, setTab, onSearch, openNew, saveNew, openView, openEdit, saveEdit, confirmInactivate, doInactivate, reactivate, openHistory, openRaise, _onRaiseEmpChange, _onRaiseTypeChange, saveRaise, _doWaive };
 })();

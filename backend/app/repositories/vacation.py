@@ -53,6 +53,7 @@ def count_completed_by_employee(db: Session, employee_id: int) -> int:
 
 
 def count_non_cancelled_by_employee(db: Session, employee_id: int) -> int:
+    """Conta períodos que consomem uma cota: tudo exceto CANCELLED (WAIVED conta como consumido)."""
     return (
         db.query(Vacation)
         .filter(
@@ -72,7 +73,7 @@ def has_overlapping_acquisition(
 ) -> bool:
     q = db.query(Vacation).filter(
         Vacation.employee_id == employee_id,
-        Vacation.status != VacationStatus.CANCELLED,
+        Vacation.status.not_in([VacationStatus.CANCELLED, VacationStatus.WAIVED]),
         Vacation.acquisition_start <= acquisition_end,
         Vacation.acquisition_end >= acquisition_start,
     )

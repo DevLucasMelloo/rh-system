@@ -82,6 +82,17 @@ def _get_vacation_or_404(db: Session, vacation_id: int, company_id: int) -> Vaca
     return _auto_advance_status(db, vac)
 
 
+def _has_closed_payroll_in_month(db: Session, employee_id: int, month: int, year: int) -> bool:
+    """Verifica se o funcionário tem holerite fechado no mês/ano informado."""
+    from app.models.payroll import Payroll, PayrollStatus
+    return db.query(Payroll).filter(
+        Payroll.employee_id == employee_id,
+        Payroll.competence_month == month,
+        Payroll.competence_year  == year,
+        Payroll.status == PayrollStatus.CLOSED,
+    ).first() is not None
+
+
 def _months_registered(reg_date: date) -> int:
     today = date.today()
     return (today.year - reg_date.year) * 12 + (today.month - reg_date.month)
@@ -215,6 +226,14 @@ def schedule_vacation(
                 detail=f"Funcionário tem apenas {months} mês(es) de registro. São necessários 12 meses.",
             )
         raise HTTPException(status_code=400, detail="Funcionário não possui períodos de férias disponíveis para agendamento.")
+
+    if data.enjoyment_start and _has_closed_payroll_in_month(
+        db, data.employee_id, data.enjoyment_start.month, data.enjoyment_start.year
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Não é possível agendar férias para {data.enjoyment_start.strftime('%m/%Y')}: já existe holerite fechado nesse mês.",
+        )
 
     if vac_repo.has_overlapping_acquisition(
         db, data.employee_id, data.acquisition_start, data.acquisition_end
@@ -620,6 +639,12 @@ def create_termination(
     if vac_repo.get_termination_by_employee(db, emp.id):
         raise HTTPException(status_code=409, detail="Já existe rescisão registrada para este funcionário")
 
+    if _has_closed_payroll_in_month(db, emp.id, data.termination_date.month, data.termination_date.year):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Não é possível registrar rescisão em {data.termination_date.strftime('%m/%Y')}: já existe holerite fechado nesse mês.",
+        )
+
     salary            = Decimal(str(emp.salary))
     admission_date    = emp.admission_date
     registration_date = emp.registration_date
@@ -722,6 +747,44 @@ def create_termination(
         description=f"Rescisão de {emp.name} em {term_date} ({data.reason.value}) registrada — líquido R$ {liquido}",
     )
     return term
+
+
+def waive_vacation_periods(
+    db: Session,
+    employee_id: int,
+    periods: list[dict],   # list of {acq_start, acq_end}
+    company_id: int,
+    user_id: int,
+) -> int:
+    """Anula períodos aquisitivos retroativos para não aparecerem como vencidos."""
+    emp = _get_employee_any_status(db, employee_id, company_id)
+    waived = 0
+    for p in periods:
+        acq_start = p["acq_start"]
+        acq_end   = p["acq_end"]
+        if vac_repo.has_overlapping_acquisition(db, emp.id, acq_start, acq_end):
+            continue  # já tem férias nesse período, pula
+        vac_repo.create_vacation(db, {
+            "employee_id":       emp.id,
+            "created_by_id":     user_id,
+            "acquisition_start": acq_start,
+            "acquisition_end":   acq_end,
+            "enjoyment_start":   None,
+            "enjoyment_days":    0,
+            "sell_all_days":     False,
+            "abono_days":        0,
+            "is_fractioned":     False,
+            "status":            VacationStatus.WAIVED,
+            "notes":             "Período anulado retroativamente no cadastro",
+        })
+        waived += 1
+    if waived:
+        audit_repo.create_log(
+            db, action="vacation_waived", user_id=user_id,
+            entity="vacation", entity_id=emp.id,
+            description=f"{waived} período(s) aquisitivo(s) anulado(s) para {emp.name}",
+        )
+    return waived
 
 
 def get_termination(db: Session, termination_id: int, company_id: int) -> Termination:

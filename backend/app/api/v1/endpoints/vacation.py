@@ -12,6 +12,7 @@ from app.schemas.vacation import (
     VacationPreviewRequest, VacationPreviewRead, VacationEligibilityRead,
     VacationItemCreate, VacationItemUpdate,
     VacationOverviewEmployee,
+    VacationWaiveRequest,
     ThirteenthRead,
     TerminationCreate, TerminationUpdate, TerminationRead,
 )
@@ -37,6 +38,19 @@ def list_active(
 ):
     vacs = vac_service.list_active(db, current_user.company_id)
     return [_enrich_vacation(v, db) for v in vacs]
+
+
+@router.post("/waive-periods", status_code=200)
+def waive_vacation_periods(
+    body: VacationWaiveRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_rh_or_admin),
+):
+    periods = [{"acq_start": p.acq_start, "acq_end": p.acq_end} for p in body.periods]
+    count = vac_service.waive_vacation_periods(
+        db, body.employee_id, periods, current_user.company_id, current_user.id
+    )
+    return {"waived": count}
 
 
 @router.post("/preview", response_model=VacationPreviewRead)

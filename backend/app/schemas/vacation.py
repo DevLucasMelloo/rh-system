@@ -162,6 +162,18 @@ class ThirteenthRead(BaseModel):
     liquido:          Decimal
 
 
+# ── Anulação de período aquisitivo ───────────────────────────────────────────
+
+class VacationWaivePeriod(BaseModel):
+    acq_start: date
+    acq_end:   date
+
+
+class VacationWaiveRequest(BaseModel):
+    employee_id: int
+    periods:     list[VacationWaivePeriod]
+
+
 # ── Rescisão ──────────────────────────────────────────────────────────────────
 
 class TerminationCreate(BaseModel):

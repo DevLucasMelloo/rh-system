@@ -28,6 +28,7 @@ const PageAudit = (() => {
     vacation_completed:        { label: 'Férias Concluídas',  bg: '#ccfbf1', color: '#0d9488' },
     vacation_cancelled:        { label: 'Férias Canceladas',  bg: '#ccfbf1', color: '#0d9488' },
     vacation_deleted:          { label: 'Férias Excluídas',   bg: '#fee2e2', color: '#dc2626' },
+    vacation_waived:           { label: 'Período Anulado',    bg: '#f3f4f6', color: '#6b7280' },
     // 13º Salário
     thirteenth_generated:      { label: '13º Gerado',         bg: '#fef9c3', color: '#a16207' },
     thirteenth_updated:        { label: '13º Editado',        bg: '#fef9c3', color: '#a16207' },

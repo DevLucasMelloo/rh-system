@@ -182,6 +182,7 @@ const Api = (() => {
   const addVacationItem        = (id, body)        => post(`/vacation/${id}/items`, body);
   const updateVacationItem     = (id, iid, body)   => patch(`/vacation/${id}/items/${iid}`, body);
   const deleteVacationItem     = (id, iid)         => del(`/vacation/${id}/items/${iid}`);
+  const waiveVacationPeriods   = (body)              => post('/vacation/waive-periods', body);
   const getThirteenth          = (id, year, parcela) => get(`/vacation/thirteenth/${id}`, { year, parcela });
   const getThirteenthBatch     = (year, parcela)     => get(`/vacation/thirteenth-batch`, { year, parcela });
 
@@ -245,7 +246,7 @@ const Api = (() => {
     updatePayrollFlags, addPayrollItem, updatePayrollItem, deletePayrollItem, getPayrollPdf,
     getAllVales, getVales, createVale, getVale, updateVale, deleteVale,
     getVacationOverview, getVacations, getEmpVacations, getVacation, getVacationEligibility, previewVacation,
-    createVacation, updateVacation, deleteVacation,
+    createVacation, updateVacation, deleteVacation, waiveVacationPeriods,
     startVacation, completeVacation, cancelVacation,
     addVacationItem, updateVacationItem, deleteVacationItem, getThirteenth, getThirteenthBatch,
     getTerminations, createTermination, getTermination, updateTermination, closeTermination, deleteTermination,

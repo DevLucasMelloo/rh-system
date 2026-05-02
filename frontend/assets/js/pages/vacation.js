@@ -110,6 +110,7 @@ const PageVacation = (() => {
       inelegivel:['#6b7280', '#f3f4f6', 'Inelegível'],
       concluida: ['#16a34a', '#dcfce7', 'Concluída'],
       em_gozo:   ['#0891b2', '#e0f2fe', 'Em Gozo'],
+      anulada:   ['#6b7280', '#f3f4f6', 'Anulada'],
     };
     const [color, bg, label] = map[status] || ['#6b7280', '#f3f4f6', status];
     return `<span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;color:${color};background:${bg}">${label}</span>`;
@@ -181,7 +182,7 @@ const PageVacation = (() => {
           <div class="form-row">
             <div class="form-group">
               <label>Início do Gozo</label>
-              <input class="form-control" type="date" id="nv-enjoy-start">
+              <input class="form-control" type="date" id="nv-enjoy-start" min="${new Date().toISOString().split('T')[0]}">
             </div>
             <div class="form-group">
               <label>Dias de Gozo</label>
@@ -605,7 +606,7 @@ const PageVacation = (() => {
         <div class="form-row">
           <div class="form-group">
             <label>Início Gozo</label>
-            <input class="form-control" type="date" id="ed-enjoy-start" value="${v.enjoyment_start||''}">
+            <input class="form-control" type="date" id="ed-enjoy-start" value="${v.enjoyment_start||''}" min="${new Date().toISOString().split('T')[0]}">
           </div>
           <div class="form-group">
             <label>Dias de Gozo</label>
@@ -665,7 +666,7 @@ const PageVacation = (() => {
     openModal('Iniciar Gozo de Férias',
       `<div class="form-group">
         <label>Data de início do gozo</label>
-        <input class="form-control" type="date" id="start-vac-dt" value="${today}">
+        <input class="form-control" type="date" id="start-vac-dt" value="${today}" min="${today}">
       </div>`,
       `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
        <button class="btn btn-primary" onclick="PageVacation._confirmStart(${id})">Confirmar</button>`

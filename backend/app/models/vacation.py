@@ -15,6 +15,7 @@ class VacationStatus(str, enum.Enum):
     ACTIVE = "em_gozo"
     COMPLETED = "concluida"
     CANCELLED = "cancelada"
+    WAIVED = "anulada"
 
 
 class VacationItemType(str, enum.Enum):
