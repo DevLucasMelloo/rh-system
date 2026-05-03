@@ -11,8 +11,16 @@ class UserCreate(BaseModel):
     @field_validator("password")
     @classmethod
     def password_strength(cls, v: str) -> str:
-        if len(v) < 4:
-            raise ValueError("Senha deve ter pelo menos 4 caracteres")
+        if len(v) < 9:
+            raise ValueError("Senha deve ter pelo menos 9 caracteres")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Senha deve conter pelo menos 1 letra maiúscula")
+        if not any(c.islower() for c in v):
+            raise ValueError("Senha deve conter pelo menos 1 letra minúscula")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Senha deve conter pelo menos 1 número")
+        if not any(c in "!@#$%^&*()_+-=[]{}|;':\",./<>?" for c in v):
+            raise ValueError("Senha deve conter pelo menos 1 caractere especial (!@#$%...)")
         return v
 
     @field_validator("name")

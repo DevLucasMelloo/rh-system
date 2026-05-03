@@ -1,4 +1,8 @@
 from fastapi import APIRouter, Depends, Request, HTTPException, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -81,6 +85,7 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("5/minute")
 def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     ip = request.client.host if request.client else None
     return auth_service.login(db, data, ip)
@@ -100,11 +105,13 @@ def logout(
 
 
 @router.post("/forgot-password", status_code=202)
-def forgot_password(data: PasswordResetRequest, db: Session = Depends(get_db)):
+@limiter.limit("3/minute")
+def forgot_password(request: Request, data: PasswordResetRequest, db: Session = Depends(get_db)):
     auth_service.request_password_reset(db, data.username)
     return {"message": "Se o email existir, você receberá um link de redefinição"}
 
 
 @router.post("/reset-password", status_code=204)
-def reset_password(data: PasswordResetConfirm, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def reset_password(request: Request, data: PasswordResetConfirm, db: Session = Depends(get_db)):
     auth_service.confirm_password_reset(db, data)

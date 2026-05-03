@@ -7,9 +7,12 @@ sqlalchemy==2.0.49
 alembic==1.14.0
 
 # Authentication
-python-jose[cryptography]
+PyJWT==2.10.1
 bcrypt
 python-multipart
+
+# Rate limiting
+slowapi==0.1.9
 
 # Encryption at rest (CPF, RG, conta bancária)
 cryptography==44.0.0

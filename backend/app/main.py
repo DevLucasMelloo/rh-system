@@ -1,12 +1,19 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from loguru import logger
 
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.db.database import Base, engine
 import app.models  # noqa: F401 — garante que todos os modelos sejam registrados
+
+# ── Rate limiter global ────────────────────────────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 
 
 def _run_migrations():
@@ -58,25 +65,42 @@ app = FastAPI(
     title="Sistema de RH",
     version=settings.APP_VERSION,
     lifespan=lifespan,
-    # Em produção, desabilitar docs públicos
     docs_url="/docs" if settings.is_development else None,
     redoc_url="/redoc" if settings.is_development else None,
+    openapi_url="/openapi.json" if settings.is_development else None,
 )
 
+# ── Rate limiter ───────────────────────────────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── CORS — usa lista do .env em vez de wildcard ────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Headers de segurança HTTP ──────────────────────────────────────────────────
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if not settings.is_development:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 app.include_router(api_router)
 
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "version": settings.APP_VERSION}
+    return {"status": "ok"}
 
 
 @app.get("/versao")

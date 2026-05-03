@@ -9,8 +9,8 @@ from typing import Optional
 import secrets
 
 import bcrypt
+import jwt as pyjwt
 from cryptography.fernet import Fernet, InvalidToken
-from jose import JWTError, jwt
 
 from app.core.config import settings
 
@@ -67,7 +67,7 @@ def _create_token(
         "type": token_type,
         "jti": secrets.token_hex(16),  # ID único por token — garante unicidade mesmo no mesmo segundo
     })
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return pyjwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def create_access_token(user_id: int, role: str) -> str:
@@ -103,7 +103,7 @@ def decode_token(token: str, expected_type: str) -> Optional[dict]:
     Retorna o payload ou None se inválido/expirado/tipo errado.
     """
     try:
-        payload = jwt.decode(
+        payload = pyjwt.decode(
             token,
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
@@ -111,5 +111,5 @@ def decode_token(token: str, expected_type: str) -> Optional[dict]:
         if payload.get("type") != expected_type:
             return None
         return payload
-    except JWTError:
+    except pyjwt.PyJWTError:
         return None
