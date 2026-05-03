@@ -63,14 +63,14 @@ Sistema de RH web (FastAPI + SQLite → PostgreSQL + JavaScript Vanilla) desenvo
 
 > Migrar de SQLite para PostgreSQL antes do deploy.
 
-- [ ] Criar projeto no **Supabase** e obter connection string PostgreSQL
-- [ ] Atualizar `DATABASE_URL` no `.env` para apontar para o Supabase
-- [ ] Ajustar tipos incompatíveis entre SQLite e PostgreSQL (Boolean, JSON, etc.)
+- [x] Criar projeto no **Supabase** e obter connection string PostgreSQL
+- [x] Atualizar `DATABASE_URL` no `.env` para apontar para o Supabase
+- [x] Ajustar tipos incompatíveis entre SQLite e PostgreSQL — corrigido `user_id=0` no audit_log (ForeignKeyViolation), migrations SQLite isoladas
 - [ ] Substituir os `ALTER TABLE` manuais em `_run_migrations()` por **Alembic** (migrations versionadas)
 - [ ] Testar todos os endpoints após a migração (folha, férias, rescisão, costureiras, ponto)
-- [ ] Verificar que `Base.metadata.create_all()` cria as tabelas corretamente no PostgreSQL
+- [x] Verificar que `Base.metadata.create_all()` cria as tabelas corretamente no PostgreSQL — 18 tabelas criadas
 - [ ] Configurar **backup automático diário** no Supabase (já disponível no painel)
-- [ ] Garantir que `DATABASE_URL` nunca está hardcoded — sempre via variável de ambiente
+- [x] Garantir que `DATABASE_URL` nunca está hardcoded — sempre via variável de ambiente
 
 ---
 

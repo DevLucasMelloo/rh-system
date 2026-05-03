@@ -16,8 +16,8 @@ import app.models  # noqa: F401 — garante que todos os modelos sejam registrad
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 
 
-def _run_migrations():
-    """Aplica colunas novas em tabelas existentes (SQLite não tem ADD COLUMN IF NOT EXISTS)."""
+def _run_sqlite_migrations():
+    """Aplica colunas novas em tabelas existentes — apenas para SQLite (sem ADD COLUMN IF NOT EXISTS)."""
     from sqlalchemy import text
     migrations = [
         "ALTER TABLE vacations ADD COLUMN sell_all_days BOOLEAN DEFAULT 0",
@@ -56,7 +56,8 @@ def _run_migrations():
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     Base.metadata.create_all(bind=engine)
-    _run_migrations()
+    if settings.DATABASE_URL.startswith("sqlite"):
+        _run_sqlite_migrations()
     logger.info(f"Sistema de RH iniciado — ambiente: {settings.ENVIRONMENT}")
     yield
 

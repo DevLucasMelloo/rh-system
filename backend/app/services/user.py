@@ -26,7 +26,7 @@ def create_user(db: Session, data: UserCreate, company_id: int, created_by_id: i
         hashed_password=hash_password(data.password),
     )
     audit_repo.create_log(
-        db, action="user_created", user_id=created_by_id,
+        db, action="user_created", user_id=created_by_id or None,
         entity="user", entity_id=user.id,
         description=f"Usuário '{user.name}' ({user.role.value}) criado",
     )
