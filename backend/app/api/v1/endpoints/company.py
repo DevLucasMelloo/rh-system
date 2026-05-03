@@ -11,8 +11,12 @@ router = APIRouter(prefix="/company", tags=["Empresa"])
 
 
 @router.post("", response_model=CompanyRead, status_code=201)
-def register_company(data: CompanyCreate, db: Session = Depends(get_db)):
-    """Registra a empresa. Executado uma única vez na configuração inicial."""
+def register_company(
+    data: CompanyCreate,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Registra a empresa. Requer autenticação de admin."""
     return company_service.register_company(db, data)
 
 
