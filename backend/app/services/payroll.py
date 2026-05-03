@@ -469,10 +469,10 @@ def close_payroll(
     _require_draft(payroll)
 
     period = ts_repo.get_period(db, company_id, payroll.competence_month, payroll.competence_year)
-    if period and period.status != "closed":
+    if not period or period.status != "closed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"O ponto de {payroll.competence_month:02d}/{payroll.competence_year} ainda está aberto.",
+            detail=f"O ponto de {payroll.competence_month:02d}/{payroll.competence_year} precisa estar fechado antes de fechar a folha.",
         )
 
     installments = payroll_repo.list_pending_installments(
@@ -507,10 +507,10 @@ def close_all_payrolls(
 ) -> list[Payroll]:
     """Fecha todos os holerites em rascunho para o período."""
     period = ts_repo.get_period(db, company_id, month, year)
-    if period and period.status != "closed":
+    if not period or period.status != "closed":
         raise HTTPException(
             status_code=400,
-            detail=f"O ponto de {month:02d}/{year} ainda está aberto.",
+            detail=f"O ponto de {month:02d}/{year} precisa estar fechado antes de fechar a folha.",
         )
 
     payrolls = payroll_repo.list_payrolls_by_period(db, company_id, month, year)
