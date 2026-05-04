@@ -9,7 +9,9 @@ const PageSettings = (() => {
     { key: 'vales',        label: 'Vales' },
     { key: 'rescisao',     label: 'Rescisão' },
     { key: 'vacation',     label: 'Férias' },
+    { key: 'thirteenth',   label: '13º Salário' },
     { key: 'timesheet',    label: 'Ponto' },
+    { key: 'bankhours',    label: 'Banco de Horas' },
     { key: 'reports',      label: 'Relatórios' },
     { key: 'audit',        label: 'Auditoria' },
   ];

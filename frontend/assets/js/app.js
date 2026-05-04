@@ -116,8 +116,17 @@ function showApp() {
   document.getElementById('login-page').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   applySidebarAccess();
-  navigate('dashboard');
+  navigate(_firstAllowedPage());
   checkLicenseBanner();
+}
+
+function _firstAllowedPage() {
+  const user = Api.getUser();
+  if (!user || user.role === 'admin' || !user.allowed_modules) return 'dashboard';
+  let allowed;
+  try { allowed = JSON.parse(user.allowed_modules); } catch { return 'dashboard'; }
+  if (!allowed || !allowed.length) return 'dashboard';
+  return allowed[0];
 }
 
 function applySidebarAccess() {
