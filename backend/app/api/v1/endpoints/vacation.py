@@ -18,7 +18,7 @@ from app.schemas.vacation import (
 )
 from app.services import vacation as vac_service
 
-router = APIRouter(prefix="/vacation", tags=["Férias / 13º / Rescisão"])
+router = APIRouter(prefix="/vacation", tags=["Férias"])
 
 
 # ── Literais primeiro (evitar conflito com /{vacation_id}) ───────────────────
