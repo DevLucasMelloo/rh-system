@@ -3,7 +3,9 @@
  * Centraliza todas as chamadas ao backend FastAPI.
  */
 
-const API_BASE = 'http://localhost:8080/api/v1';
+const API_BASE = window.location.port === '3000'
+  ? 'http://localhost:8080/api/v1'
+  : `${window.location.origin}/api/v1`;
 
 function _showLicenseBlock(validUntil, isActive) {
   const dataVenc = validUntil

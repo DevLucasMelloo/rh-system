@@ -1,12 +1,14 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from loguru import logger
 from datetime import date, timedelta
+import os
 
 from app.core.config import settings
 from app.api.v1.router import api_router
@@ -161,3 +163,15 @@ def versao():
         "version": settings.APP_VERSION,
         "download_url": None,
     }
+
+
+# ── Frontend estático (produção: servido pelo FastAPI) ────────────────────────
+_FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "frontend")
+_FRONTEND_DIR = os.path.abspath(_FRONTEND_DIR)
+
+if os.path.isdir(_FRONTEND_DIR):
+    app.mount("/assets", StaticFiles(directory=os.path.join(_FRONTEND_DIR, "assets")), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        return FileResponse(os.path.join(_FRONTEND_DIR, "index.html"))

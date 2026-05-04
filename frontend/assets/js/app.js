@@ -194,7 +194,8 @@ function navigate(page) {
 (async function init() {
   // Verifica se precisa de setup inicial
   try {
-    const res = await fetch('http://localhost:8080/api/v1/auth/setup-status');
+    const base = window.location.port === '3000' ? 'http://localhost:8080/api/v1' : `${window.location.origin}/api/v1`;
+    const res = await fetch(`${base}/auth/setup-status`);
     const { needs_setup } = await res.json();
     if (!needs_setup) {
       const tabReg = document.getElementById('tab-register');
