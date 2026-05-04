@@ -5,6 +5,37 @@
 
 const API_BASE = 'http://localhost:8080/api/v1';
 
+function _showLicenseBlock(validUntil) {
+  document.body.innerHTML = `
+    <div style="
+      min-height:100vh; display:flex; align-items:center; justify-content:center;
+      background:#f8fafc; font-family:sans-serif;
+    ">
+      <div style="
+        background:#fff; border-radius:16px; padding:48px 40px; max-width:420px;
+        width:100%; text-align:center; box-shadow:0 4px 24px rgba(0,0,0,0.10);
+        border-top:4px solid #ef4444;
+      ">
+        <div style="font-size:48px; margin-bottom:16px;">⚠️</div>
+        <h2 style="color:#1e293b; margin:0 0 8px;">Acesso Suspenso</h2>
+        <p style="color:#64748b; margin:0 0 24px; line-height:1.6;">
+          Sua licença venceu em
+          <strong>${validUntil ? new Date(validUntil + 'T00:00:00').toLocaleDateString('pt-BR') : 'data não disponível'}</strong>.<br>
+          Entre em contato para renovar o acesso.
+        </p>
+        <div style="background:#f1f5f9; border-radius:10px; padding:16px; text-align:left;">
+          <p style="margin:0 0 8px; color:#334155;">
+            📱 <a href="tel:+5500000000000" style="color:#3b82f6; text-decoration:none;">(xx) xxxxx-xxxx</a>
+          </p>
+          <p style="margin:0; color:#334155;">
+            📧 <a href="mailto:lucassmello29@gmail.com" style="color:#3b82f6; text-decoration:none;">lucassmello29@gmail.com</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 const Api = (() => {
   // ── Token management ──────────────────────────────────────────────────────
   function getToken()         { return localStorage.getItem('rh_token'); }
@@ -36,6 +67,12 @@ const Api = (() => {
       removeToken();
       window.location.reload();
       return;
+    }
+
+    if (res.status === 402) {
+      const data = await res.json().catch(() => ({}));
+      _showLicenseBlock(data.valid_until);
+      throw new Error('licenca_vencida');
     }
 
     if (res.status === 204) return null;

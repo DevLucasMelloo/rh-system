@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, company, users, employees, seamstresses, timesheet, payroll, vacation, reports, audit, thirteenth
+from app.api.v1.endpoints import auth, company, users, employees, seamstresses, timesheet, payroll, vacation, reports, audit, thirteenth, license
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -14,3 +14,4 @@ api_router.include_router(vacation.router)
 api_router.include_router(reports.router)
 api_router.include_router(audit.router)
 api_router.include_router(thirteenth.router)
+api_router.include_router(license.router)

@@ -6,6 +6,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from loguru import logger
+from datetime import date, timedelta
 
 from app.core.config import settings
 from app.api.v1.router import api_router
@@ -97,6 +98,50 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 app.include_router(api_router)
+
+
+# ── Middleware de licença ──────────────────────────────────────────────────────
+LICENSE_EXEMPT = {"/health", "/versao", "/api/v1/auth/login", "/api/v1/auth/setup",
+                  "/api/v1/auth/setup-status", "/api/v1/auth/refresh",
+                  "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password",
+                  "/api/v1/license/renew", "/api/v1/license/deactivate"}
+
+GRACE_DAYS = 3
+
+@app.middleware("http")
+async def check_license(request: Request, call_next):
+    if request.method == "OPTIONS" or request.url.path in LICENSE_EXEMPT:
+        return await call_next(request)
+    if request.url.path.startswith("/api/"):
+        token = request.headers.get("Authorization", "")
+        if token.startswith("Bearer "):
+            from app.core.security import decode_token
+            from app.models.license import License
+            from app.db.database import SessionLocal
+            payload = decode_token(token[7:], expected_type="access")
+            if payload:
+                db = SessionLocal()
+                try:
+                    from sqlalchemy import text
+                    user_id = int(payload.get("sub", 0))
+                    from app.models.user import User
+                    user = db.query(User).filter(User.id == user_id).first()
+                    if user:
+                        lic = db.query(License).filter(License.company_id == user.company_id).first()
+                        if lic:
+                            expired = date.today() > lic.valid_until + timedelta(days=GRACE_DAYS)
+                            if expired or not lic.is_active:
+                                return JSONResponse(
+                                    status_code=402,
+                                    content={
+                                        "detail": "Licença vencida",
+                                        "valid_until": lic.valid_until.isoformat(),
+                                        "is_active": lic.is_active,
+                                    }
+                                )
+                finally:
+                    db.close()
+    return await call_next(request)
 
 
 @app.get("/health")

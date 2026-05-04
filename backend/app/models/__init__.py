@@ -8,6 +8,7 @@ from app.models.vacation import Vacation, VacationStatus, VacationItem, Vacation
 from app.models.termination import Termination, TerminationReason
 from app.models.audit_log import AuditLog
 from app.models.thirteenth import ThirteenthSalary, ThirteenthStatus
+from app.models.license import License
 
 __all__ = [
     "Company", "User", "UserRole",
@@ -19,4 +20,5 @@ __all__ = [
     "Termination", "TerminationReason",
     "AuditLog",
     "ThirteenthSalary", "ThirteenthStatus",
+    "License",
 ]

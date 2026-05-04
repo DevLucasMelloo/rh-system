@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # Versão
     APP_VERSION: str = "1.0.0"
 
+    # Licença — senha master para renovação manual
+    MASTER_PASSWORD: str = ""
+
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost,http://127.0.0.1,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5500,http://127.0.0.1:5500"
 
