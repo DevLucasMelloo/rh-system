@@ -138,32 +138,24 @@ Entre em contato para renovar o acesso.
 
 ### 4.1 Docker
 
-- [ ] Criar `Dockerfile` na raiz do projeto
-  - Imagem Python para o backend FastAPI
-  - Servir frontend estático pelo próprio FastAPI ou Nginx
-- [ ] Testar build local: `docker build` e `docker run`
-- [ ] Criar `.dockerignore` para excluir arquivos desnecessários
-
-**Estrutura sugerida do Dockerfile:**
-
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY backend/requirements.txt .
-RUN pip install -r requirements.txt
-COPY backend/ ./backend/
-COPY frontend/ ./frontend/
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+- [X] Criar `Dockerfile` na raiz do projeto
+  - Imagem Python 3.11-slim com psycopg2-binary pré-instalado
+  - Frontend servido pelo próprio FastAPI via StaticFiles + SPA catch-all
+  - Porta `${PORT:-8080}` — compatível com Railway (injeta $PORT automaticamente)
+- [ ] Testar build local: `docker build` e `docker run` (Docker Desktop não instalado na máquina de dev)
+- [X] Criar `.dockerignore` para excluir arquivos desnecessários (venv, .env, __pycache__, .git, etc.)
 
 ### 4.2 Variáveis de Ambiente
 
-- [ ] Criar arquivo `.env.example` com todas as variáveis necessárias (sem valores reais)
-- [ ] Confirmar que `.env` está no `.gitignore`
+- [X] Criar arquivo `.env.example` com todas as variáveis necessárias (sem valores reais)
+- [X] Confirmar que `.env` está no `.gitignore`
 - [ ] Configurar variáveis no painel da Railway:
   - `DATABASE_URL`
   - `SECRET_KEY`
+  - `FERNET_KEY`
+  - `MASTER_PASSWORD`
   - `ENVIRONMENT=production`
+  - `ALLOWED_ORIGINS`
   - `APP_VERSION`
 
 ### 4.3 Railway
