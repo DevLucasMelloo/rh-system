@@ -5,31 +5,59 @@
 
 const API_BASE = 'http://localhost:8080/api/v1';
 
-function _showLicenseBlock(validUntil) {
+function _showLicenseBlock(validUntil, isActive) {
+  const dataVenc = validUntil
+    ? new Date(validUntil + 'T00:00:00').toLocaleDateString('pt-BR')
+    : 'data não disponível';
+  const mensagem = isActive === false
+    ? 'O acesso ao sistema foi suspenso pelo administrador.<br>Entre em contato para reativar.'
+    : `Sua licença venceu em <strong>${dataVenc}</strong>.<br>Entre em contato para renovar o acesso ao sistema.`;
+
   document.body.innerHTML = `
     <div style="
       min-height:100vh; display:flex; align-items:center; justify-content:center;
-      background:#f8fafc; font-family:sans-serif;
+      background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%); font-family:'Segoe UI',sans-serif;
     ">
       <div style="
-        background:#fff; border-radius:16px; padding:48px 40px; max-width:420px;
-        width:100%; text-align:center; box-shadow:0 4px 24px rgba(0,0,0,0.10);
-        border-top:4px solid #ef4444;
+        background:#fff; border-radius:20px; padding:56px 48px; max-width:440px;
+        width:100%; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.12);
+        border-top:5px solid #ef4444;
       ">
-        <div style="font-size:48px; margin-bottom:16px;">⚠️</div>
-        <h2 style="color:#1e293b; margin:0 0 8px;">Acesso Suspenso</h2>
-        <p style="color:#64748b; margin:0 0 24px; line-height:1.6;">
-          Sua licença venceu em
-          <strong>${validUntil ? new Date(validUntil + 'T00:00:00').toLocaleDateString('pt-BR') : 'data não disponível'}</strong>.<br>
-          Entre em contato para renovar o acesso.
+        <div style="
+          width:72px; height:72px; background:#fef2f2; border-radius:50%;
+          display:flex; align-items:center; justify-content:center;
+          margin:0 auto 20px; font-size:36px;
+        ">⚠️</div>
+
+        <h2 style="color:#1e293b; margin:0 0 6px; font-size:24px; font-weight:700;">
+          Acesso Suspenso
+        </h2>
+        <p style="color:#94a3b8; margin:0 0 24px; font-size:13px; font-weight:500; letter-spacing:0.5px; text-transform:uppercase;">
+          Licença vencida
         </p>
-        <div style="background:#f1f5f9; border-radius:10px; padding:16px; text-align:left;">
-          <p style="margin:0 0 8px; color:#334155;">
-            📱 <a href="tel:+5500000000000" style="color:#3b82f6; text-decoration:none;">(xx) xxxxx-xxxx</a>
+
+        <div style="background:#fef2f2; border-radius:10px; padding:14px 20px; margin-bottom:28px;">
+          <p style="margin:0; color:#b91c1c; font-size:14px; line-height:1.6;">
+            ${mensagem}
           </p>
-          <p style="margin:0; color:#334155;">
-            📧 <a href="mailto:lucassmello29@gmail.com" style="color:#3b82f6; text-decoration:none;">lucassmello29@gmail.com</a>
+        </div>
+
+        <div style="background:#f8fafc; border-radius:12px; padding:20px; text-align:left; border:1px solid #e2e8f0;">
+          <p style="margin:0 0 4px; color:#64748b; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+            Contato para renovação
           </p>
+          <a href="tel:+5511937209330" style="
+            display:flex; align-items:center; gap:10px; margin-top:12px;
+            color:#1e293b; text-decoration:none; font-size:15px; font-weight:500;
+          ">
+            <span style="font-size:20px;">📱</span> (11) 93720-9330
+          </a>
+          <a href="mailto:lucassmello29@gmail.com" style="
+            display:flex; align-items:center; gap:10px; margin-top:10px;
+            color:#1e293b; text-decoration:none; font-size:15px; font-weight:500;
+          ">
+            <span style="font-size:20px;">📧</span> lucassmello29@gmail.com
+          </a>
         </div>
       </div>
     </div>
@@ -71,7 +99,7 @@ const Api = (() => {
 
     if (res.status === 402) {
       const data = await res.json().catch(() => ({}));
-      _showLicenseBlock(data.valid_until);
+      _showLicenseBlock(data.valid_until, data.is_active);
       throw new Error('licenca_vencida');
     }
 
@@ -271,6 +299,9 @@ const Api = (() => {
   const dlTerminations = ()    => download('/reports/terminations',  null, 'rescisoes.xlsx');
   const dlHourBank     = ()    => download('/reports/hour-bank',     null, 'banco_horas.xlsx');
 
+  // ── Licença ────────────────────────────────────────────────────────────────
+  const getLicense = () => request('GET', '/license');
+
   return {
     getToken, setToken, removeToken, getUser, setUser,
     login, setupAdmin, me,
@@ -292,5 +323,6 @@ const Api = (() => {
     getAuditLogs, getAuditStats, getAuditUsers, getAuditActions, dlAuditLogs,
     dlPayroll, dlTimesheet, dlEmployees, dlVacations, dlTerminations, dlHourBank,
     generateThirteenth, generateThirteenthBatch, listThirteenth, updateThirteenth, markThirteenthPaid, deleteThirteenth, exportThirteenth,
+    getLicense,
   };
 })();

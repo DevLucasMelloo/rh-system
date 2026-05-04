@@ -81,11 +81,43 @@ function doLogout() {
   btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Entrar';
 }
 
+async function checkLicenseBanner() {
+  try {
+    const lic = await Api.getLicense();
+    const banner = document.getElementById('license-banner');
+    if (!banner) return;
+    if (lic.days_remaining <= 10 && !lic.expired) {
+      const cor = lic.days_remaining <= 3 ? '#dc2626' : '#d97706';
+      const bg  = lic.days_remaining <= 3 ? '#fef2f2' : '#fffbeb';
+      const borda = lic.days_remaining <= 3 ? '#fca5a5' : '#fcd34d';
+      const dataVenc = new Date(lic.valid_until + 'T00:00:00').toLocaleDateString('pt-BR');
+      banner.style.display = 'block';
+      banner.innerHTML = `
+        <div style="
+          background:${bg}; border:1px solid ${borda}; border-left:4px solid ${cor};
+          border-radius:8px; padding:12px 20px; margin:16px 24px 0;
+          display:flex; align-items:center; gap:12px; font-size:14px; color:${cor};
+        ">
+          <span style="font-size:20px;">${lic.days_remaining <= 3 ? '🚨' : '⚠️'}</span>
+          <span>
+            <strong>Atenção:</strong> sua licença vence em
+            <strong>${dataVenc}</strong>
+            (${lic.days_remaining === 0 ? 'hoje' : `${lic.days_remaining} dia${lic.days_remaining > 1 ? 's' : ''}`}).
+            Entre em contato para renovar.
+          </span>
+        </div>`;
+    } else {
+      banner.style.display = 'none';
+    }
+  } catch { /* silencioso — não bloqueia o app */ }
+}
+
 function showApp() {
   document.getElementById('login-page').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   applySidebarAccess();
   navigate('dashboard');
+  checkLicenseBanner();
 }
 
 function applySidebarAccess() {

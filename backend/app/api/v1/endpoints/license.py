@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -11,12 +12,16 @@ from app.models.license import License
 
 router = APIRouter(prefix="/license", tags=["Licença"])
 
-GRACE_DAYS = 3  # dias de carência após vencimento
+GRACE_DAYS = 3
 
 
 class RenewRequest(BaseModel):
     master_password: str
-    months: int = 1
+    valid_until: date  # data exata até quando a licença vale
+
+
+class DeactivateRequest(BaseModel):
+    master_password: str
 
 
 class LicenseRead(BaseModel):
@@ -42,15 +47,6 @@ def get_or_create_license(db: Session, company_id: int) -> License:
     return license
 
 
-def check_license_active(db: Session, company_id: int) -> bool:
-    license = db.query(License).filter(License.company_id == company_id).first()
-    if not license:
-        return True  # sem licença cadastrada = período de graça inicial
-    if not license.is_active:
-        return False
-    return date.today() <= license.valid_until + timedelta(days=GRACE_DAYS)
-
-
 @router.get("", response_model=LicenseRead)
 def get_license(
     current_user: User = Depends(get_current_user),
@@ -73,27 +69,26 @@ def renew_license(
 ):
     if data.master_password != settings.MASTER_PASSWORD:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Senha master incorreta")
-    if data.months < 1 or data.months > 12:
-        raise HTTPException(status_code=400, detail="Meses deve ser entre 1 e 12")
+    if data.valid_until < date.today():
+        raise HTTPException(status_code=400, detail="A data de validade não pode ser no passado")
 
     license = db.query(License).first()
     if not license:
         raise HTTPException(status_code=404, detail="Nenhuma empresa cadastrada")
 
-    base = max(license.valid_until, date.today())
-    license.valid_until = base + timedelta(days=30 * data.months)
+    license.valid_until = data.valid_until
     license.is_active = True
     db.commit()
 
     return {
-        "message": f"Licença renovada por {data.months} mês(es)",
+        "message": f"Licença renovada até {data.valid_until.strftime('%d/%m/%Y')}",
         "valid_until": license.valid_until.isoformat(),
     }
 
 
 @router.post("/deactivate", status_code=200)
 def deactivate_license(
-    data: RenewRequest,
+    data: DeactivateRequest,
     db: Session = Depends(get_db),
 ):
     if data.master_password != settings.MASTER_PASSWORD:

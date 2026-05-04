@@ -131,12 +131,17 @@ async def check_license(request: Request, call_next):
                         if lic:
                             expired = date.today() > lic.valid_until + timedelta(days=GRACE_DAYS)
                             if expired or not lic.is_active:
+                                origin = request.headers.get("origin", "*")
                                 return JSONResponse(
                                     status_code=402,
                                     content={
                                         "detail": "Licença vencida",
                                         "valid_until": lic.valid_until.isoformat(),
                                         "is_active": lic.is_active,
+                                    },
+                                    headers={
+                                        "Access-Control-Allow-Origin": origin,
+                                        "Access-Control-Allow-Credentials": "false",
                                     }
                                 )
                 finally:
