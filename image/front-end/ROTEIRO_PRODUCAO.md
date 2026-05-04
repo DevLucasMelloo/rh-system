@@ -31,31 +31,31 @@ Sistema de RH web (FastAPI + SQLite → PostgreSQL + JavaScript Vanilla) desenvo
 
 ### 1.1 Auditoria de Vulnerabilidades
 
-- [x] **SQL Injection** — confirmado: todas as queries usam SQLAlchemy ORM, sem raw SQL inseguro
-- [x] **Autenticação JWT** — migrado de python-jose (CVEs) para PyJWT 2.10.1; HS256, 30min access / 7 dias refresh, `jti` único por token
-- [x] **CORS aberto** — corrigido: agora usa `settings.allowed_origins_list` do `.env` em vez de `["*"]`
-- [x] **Rate limiting** — implementado com slowapi: 5/min no login, 3/min no forgot-password, 5/min no reset-password
-- [x] **Variáveis sensíveis** — confirmado: `SECRET_KEY` e `FERNET_KEY` são obrigatórios via `.env`, validados na inicialização, nunca hardcoded
-- [x] **Endpoints sem autenticação** — corrigido: auditoria completa de 117 rotas; `POST /api/v1/company` sem auth corrigido com `require_admin`
-- [x] **Isolamento por empresa** — confirmado: `company_id` validado nos serviços críticos (payroll, vacation, termination, employee)
+- [X] **SQL Injection** — confirmado: todas as queries usam SQLAlchemy ORM, sem raw SQL inseguro
+- [X] **Autenticação JWT** — migrado de python-jose (CVEs) para PyJWT 2.10.1; HS256, 30min access / 7 dias refresh, `jti` único por token
+- [X] **CORS aberto** — corrigido: agora usa `settings.allowed_origins_list` do `.env` em vez de `["*"]`
+- [X] **Rate limiting** — implementado com slowapi: 5/min no login, 3/min no forgot-password, 5/min no reset-password
+- [X] **Variáveis sensíveis** — confirmado: `SECRET_KEY` e `FERNET_KEY` são obrigatórios via `.env`, validados na inicialização, nunca hardcoded
+- [X] **Endpoints sem autenticação** — corrigido: auditoria completa de 117 rotas; `POST /api/v1/company` sem auth corrigido com `require_admin`
+- [X] **Isolamento por empresa** — confirmado: `company_id` validado nos serviços críticos (payroll, vacation, termination, employee)
 - [ ] **HTTPS obrigatório** — pendente: HSTS header adicionado, mas redirect HTTP→HTTPS depende do deploy (Railway)
-- [x] **Logs de erro** — confirmado: FastAPI não expõe stack trace por padrão; `/health` simplificado (versão removida); `/openapi.json` desabilitado em produção
+- [X] **Logs de erro** — confirmado: FastAPI não expõe stack trace por padrão; `/health` simplificado (versão removida); `/openapi.json` desabilitado em produção
 - [ ] **Dependências desatualizadas** — pendente: pip-audit não instalado no ambiente, rodar após setup de produção
-- [x] **Criptografia de CPF** — confirmado: Fernet aplicado em CPF, RG e conta bancária em todos os fluxos de criação e leitura
-- [x] **Exposição de docs** — confirmado e reforçado: `/docs`, `/redoc` e `/openapi.json` desabilitados quando `ENVIRONMENT != development`
+- [X] **Criptografia de CPF** — confirmado: Fernet aplicado em CPF, RG e conta bancária em todos os fluxos de criação e leitura
+- [X] **Exposição de docs** — confirmado e reforçado: `/docs`, `/redoc` e `/openapi.json` desabilitados quando `ENVIRONMENT != development`
 
 ### 1.2 Correções Prioritárias Identificadas
 
-| Item                      | Risco    | Status | Ação                               |
-| ------------------------- | -------- | ------ | ------------------------------------ |
-| `allow_origins=["*"]`   | Alto     | ✅ Feito | Usando `settings.allowed_origins_list` |
-| Sem rate limit no login   | Alto     | ✅ Feito | slowapi 5/min implementado          |
-| SECRET_KEY no código     | Crítico  | ✅ Feito | Confirmado via `.env` obrigatório   |
-| Stack trace em produção  | Médio   | ✅ Feito | FastAPI padrão + `/health` limpo    |
-| Docs públicos            | Baixo    | ✅ Feito | `/docs`, `/redoc` e `/openapi.json` desabilitados |
-| Senha fraca (4 chars)    | Alto     | ✅ Feito | Mínimo 9 chars + maiúscula + minúscula + número + especial |
-| Headers de segurança ausentes | Médio | ✅ Feito | X-Frame-Options, X-XSS-Protection, HSTS, Referrer-Policy |
-| python-jose com CVEs     | Médio    | ✅ Feito | Migrado para PyJWT 2.10.1 |
+| Item                           | Risco    | Status   | Ação                                                         |
+| ------------------------------ | -------- | -------- | -------------------------------------------------------------- |
+| `allow_origins=["*"]`        | Alto     | ✅ Feito | Usando `settings.allowed_origins_list`                       |
+| Sem rate limit no login        | Alto     | ✅ Feito | slowapi 5/min implementado                                     |
+| SECRET_KEY no código          | Crítico | ✅ Feito | Confirmado via `.env` obrigatório                           |
+| Stack trace em produção      | Médio   | ✅ Feito | FastAPI padrão +`/health` limpo                             |
+| Docs públicos                 | Baixo    | ✅ Feito | `/docs`, `/redoc` e `/openapi.json` desabilitados        |
+| Senha fraca (4 chars)          | Alto     | ✅ Feito | Mínimo 9 chars + maiúscula + minúscula + número + especial |
+| Headers de segurança ausentes | Médio   | ✅ Feito | X-Frame-Options, X-XSS-Protection, HSTS, Referrer-Policy       |
+| python-jose com CVEs           | Médio   | ✅ Feito | Migrado para PyJWT 2.10.1                                      |
 
 ---
 
@@ -63,14 +63,14 @@ Sistema de RH web (FastAPI + SQLite → PostgreSQL + JavaScript Vanilla) desenvo
 
 > Migrar de SQLite para PostgreSQL antes do deploy.
 
-- [x] Criar projeto no **Supabase** e obter connection string PostgreSQL
-- [x] Atualizar `DATABASE_URL` no `.env` para apontar para o Supabase
-- [x] Ajustar tipos incompatíveis entre SQLite e PostgreSQL — corrigido `user_id=0` no audit_log (ForeignKeyViolation), migrations SQLite isoladas
+- [X] Criar projeto no **Supabase** e obter connection string PostgreSQL
+- [X] Atualizar `DATABASE_URL` no `.env` para apontar para o Supabase
+- [X] Ajustar tipos incompatíveis entre SQLite e PostgreSQL — corrigido `user_id=0` no audit_log (ForeignKeyViolation), migrations SQLite isoladas
 - [ ] Substituir os `ALTER TABLE` manuais em `_run_migrations()` por **Alembic** (migrations versionadas)
-- [ ] Testar todos os endpoints após a migração (folha, férias, rescisão, costureiras, ponto)
-- [x] Verificar que `Base.metadata.create_all()` cria as tabelas corretamente no PostgreSQL — 18 tabelas criadas
+- [X] Testar todos os endpoints após a migração (folha, férias, rescisão, costureiras, ponto)
+- [X] Verificar que `Base.metadata.create_all()` cria as tabelas corretamente no PostgreSQL — 18 tabelas criadas
 - [ ] Configurar **backup automático diário** no Supabase (já disponível no painel)
-- [x] Garantir que `DATABASE_URL` nunca está hardcoded — sempre via variável de ambiente
+- [X] Garantir que `DATABASE_URL` nunca está hardcoded — sempre via variável de ambiente
 
 ---
 
@@ -113,12 +113,12 @@ POST /admin/license/renew
 { "company_id": 1, "months": 1 }
 ```
 
-- [ ] Criar tabela `licenses` no banco
-- [ ] Implementar middleware de verificação de licença
-- [ ] Criar endpoint de renovação protegido
-- [ ] Implementar tela de bloqueio no frontend com dados de contato
-- [ ] Configurar carência (ex: 3 dias após vencimento antes de bloquear)
-- [ ] Testar fluxo completo: vencimento → bloqueio → renovação → desbloqueio
+- [x] Criar tabela `licenses` no banco
+- [x] Implementar middleware de verificação de licença
+- [x] Criar endpoint de renovação protegido por senha master
+- [x] Implementar tela de bloqueio no frontend com dados de contato
+- [x] Configurar carência (3 dias após vencimento antes de bloquear)
+- [x] Testar fluxo completo: vencimento → bloqueio → renovação → desbloqueio
 
 ### Tela de Bloqueio (exemplo)
 
