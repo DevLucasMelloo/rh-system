@@ -100,7 +100,7 @@ const PageAudit = (() => {
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <div><h1>Logs de Auditoria</h1><p>Histórico de todas as ações realizadas no sistema</p></div>
         </div>
-        <button class="btn btn-secondary" onclick="PageAudit.exportar()">
+        <button class="btn btn-success" onclick="PageAudit.exportar()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Exportar Excel
         </button>

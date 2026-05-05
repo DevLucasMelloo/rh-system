@@ -14,7 +14,7 @@ const PagePayroll = (() => {
       <div class="page-header">
         <div><h1>Folha de Pagamento</h1><p>Holerites por competência</p></div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-secondary" id="btn-close-all" onclick="PagePayroll.openCloseAll()" style="display:none">
+          <button class="btn btn-warning" id="btn-close-all" onclick="PagePayroll.openCloseAll()" style="display:none">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
             Fechar Folha
           </button>

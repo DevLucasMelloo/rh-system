@@ -29,8 +29,8 @@ const PageThirteenth = (() => {
               </select>
             </div>
             <div style="flex:1"></div>
-            <button class="btn btn-secondary" style="margin-bottom:0" onclick="PageThirteenth.imprimirTodos()">🖨 Imprimir Todos</button>
-            <button class="btn btn-secondary" style="margin-bottom:0" onclick="PageThirteenth.exportar()">⬇ Exportar Excel</button>
+            <button class="btn" style="background:#7c3aed;color:#fff;margin-bottom:0" onclick="PageThirteenth.imprimirTodos()">🖨 Imprimir Todos</button>
+            <button class="btn btn-success" style="margin-bottom:0" onclick="PageThirteenth.exportar()">⬇ Exportar Excel</button>
           </div>
         </div>
         <div class="table-wrapper" style="margin:0">
