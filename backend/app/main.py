@@ -172,6 +172,10 @@ _FRONTEND_DIR = os.path.abspath(_FRONTEND_DIR)
 if os.path.isdir(_FRONTEND_DIR):
     app.mount("/assets", StaticFiles(directory=os.path.join(_FRONTEND_DIR, "assets")), name="assets")
 
+    @app.get("/license-admin", include_in_schema=False)
+    async def serve_license_admin():
+        return FileResponse(os.path.join(_FRONTEND_DIR, "license-admin.html"))
+
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
         return FileResponse(os.path.join(_FRONTEND_DIR, "index.html"))

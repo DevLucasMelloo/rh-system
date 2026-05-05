@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerenciar Licença — RH System</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f1f5f9;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.10);
+      width: 100%;
+      max-width: 460px;
+      overflow: hidden;
+    }
+    .card-header {
+      background: #0f172a;
+      color: #fff;
+      padding: 24px 28px;
+      text-align: center;
+    }
+    .card-header h1 { font-size: 20px; font-weight: 700; color: #2563eb; margin-bottom: 4px; }
+    .card-header p  { font-size: 13px; color: #94a3b8; }
+    .card-body { padding: 28px; }
+
+    .status-box {
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: none;
+    }
+    .status-box.active   { background: #dcfce7; border: 1px solid #86efac; }
+    .status-box.warning  { background: #fef9c3; border: 1px solid #fde047; }
+    .status-box.danger   { background: #fee2e2; border: 1px solid #fca5a5; }
+    .status-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #64748b; margin-bottom: 8px; }
+    .status-row { display: flex; gap: 24px; flex-wrap: wrap; }
+    .status-item label { display: block; font-size: 11px; color: #64748b; margin-bottom: 2px; }
+    .status-item span  { font-size: 16px; font-weight: 700; }
+
+    .section { margin-bottom: 24px; }
+    .section-title {
+      font-size: 13px; font-weight: 600; color: #1e293b;
+      margin-bottom: 12px; padding-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px; }
+    input {
+      width: 100%; padding: 10px 14px;
+      border: 1px solid #d1d5db; border-radius: 8px;
+      font-size: 14px; color: #1e293b; outline: none;
+      transition: border-color .2s;
+    }
+    input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      width: 100%; padding: 11px 18px;
+      border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+    }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-danger  { background: #fee2e2; color: #dc2626; margin-top: 8px; }
+    .btn-danger:hover { background: #fca5a5; }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 12px; display: none; }
+    .msg.success { background: #dcfce7; color: #16a34a; }
+    .msg.error   { background: #fee2e2; color: #dc2626; }
+    .msg.warning { background: #fef9c3; color: #92400e; }
+
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+
+    .danger-zone { background: #fff5f5; border: 1px solid #fca5a5; border-radius: 10px; padding: 16px; }
+    .danger-zone .section-title { color: #dc2626; border-color: #fca5a5; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-header">
+    <h1>🔐 RH System</h1>
+    <p>Painel de Gerenciamento de Licença</p>
+  </div>
+  <div class="card-body">
+
+    <!-- Status -->
+    <div id="status-box" class="status-box">
+      <div class="status-label">Status atual da licença</div>
+      <div class="status-row">
+        <div class="status-item">
+          <label>Situação</label>
+          <span id="st-status">—</span>
+        </div>
+        <div class="status-item">
+          <label>Válida até</label>
+          <span id="st-date">—</span>
+        </div>
+        <div class="status-item">
+          <label>Dias restantes</label>
+          <span id="st-days">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Renovar -->
+    <div class="section">
+      <div class="section-title">✓ Renovar Licença</div>
+      <div class="form-group">
+        <label>Senha Master</label>
+        <input type="password" id="pwd-renew" placeholder="Senha master">
+      </div>
+      <div class="form-group">
+        <label>Válida até</label>
+        <input type="date" id="valid-until">
+      </div>
+      <button class="btn btn-primary" onclick="renovar()" id="btn-renovar">
+        ✓ Renovar Licença
+      </button>
+      <div class="msg" id="msg-renew"></div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Desativar -->
+    <div class="danger-zone">
+      <div class="section-title">⚠ Zona de Perigo</div>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:12px">
+        Desativar bloqueia o acesso de todos os usuários imediatamente.
+      </p>
+      <div class="form-group">
+        <label>Senha Master</label>
+        <input type="password" id="pwd-deact" placeholder="Senha master">
+      </div>
+      <button class="btn btn-danger" onclick="desativar()" id="btn-deact">
+        ✕ Desativar Licença
+      </button>
+      <div class="msg" id="msg-deact"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const BASE = window.location.port === '3000'
+    ? 'http://localhost:8080/api/v1'
+    : `${window.location.origin}/api/v1`;
+
+  async function request(method, path, body) {
+    const res = await fetch(BASE + path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Erro desconhecido');
+    return data;
+  }
+
+  function showMsg(id, text, type) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = `msg ${type}`;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 6000);
+  }
+
+  async function loadStatus() {
+    try {
+      // Precisa de token — tenta sem token (endpoint público)
+      const res = await fetch(BASE + '/license', { method: 'GET' });
+      if (!res.ok) return; // sem token, ignora
+      const lic = await res.json();
+      const box = document.getElementById('status-box');
+      const dataVenc = new Date(lic.valid_until + 'T00:00:00').toLocaleDateString('pt-BR');
+      document.getElementById('st-date').textContent = dataVenc;
+      document.getElementById('st-days').textContent = Math.max(0, lic.days_remaining);
+      document.getElementById('st-status').textContent = lic.expired ? 'Expirada' : !lic.is_active ? 'Desativada' : 'Ativa';
+      box.className = `status-box ${lic.expired || !lic.is_active ? 'danger' : lic.days_remaining <= 10 ? 'warning' : 'active'}`;
+      box.style.display = 'block';
+    } catch {}
+  }
+
+  async function renovar() {
+    const pwd  = document.getElementById('pwd-renew').value;
+    const date = document.getElementById('valid-until').value;
+    if (!pwd || !date) { showMsg('msg-renew', 'Preencha senha e data.', 'error'); return; }
+
+    const btn = document.getElementById('btn-renovar');
+    btn.disabled = true; btn.textContent = 'Renovando...';
+    try {
+      const r = await request('POST', '/license/renew', { master_password: pwd, valid_until: date });
+      showMsg('msg-renew', '✓ ' + r.message, 'success');
+      document.getElementById('pwd-renew').value = '';
+    } catch (e) {
+      showMsg('msg-renew', e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = '✓ Renovar Licença';
+    }
+  }
+
+  async function desativar() {
+    const pwd = document.getElementById('pwd-deact').value;
+    if (!pwd) { showMsg('msg-deact', 'Digite a senha master.', 'error'); return; }
+    if (!confirm('Tem certeza? Todos os usuários serão bloqueados imediatamente.')) return;
+
+    const btn = document.getElementById('btn-deact');
+    btn.disabled = true; btn.textContent = 'Desativando...';
+    try {
+      const r = await request('POST', '/license/deactivate', { master_password: pwd });
+      showMsg('msg-deact', '⚠ ' + r.message, 'warning');
+      document.getElementById('pwd-deact').value = '';
+    } catch (e) {
+      showMsg('msg-deact', e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = '✕ Desativar Licença';
+    }
+  }
+
+  // Preenche data padrão: hoje + 30 dias
+  const def = new Date();
+  def.setDate(def.getDate() + 30);
+  document.getElementById('valid-until').value = def.toISOString().split('T')[0];
+
+  loadStatus();
+</script>
+</body>
+</html>
