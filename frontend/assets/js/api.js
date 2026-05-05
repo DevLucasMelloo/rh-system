@@ -306,7 +306,10 @@ const Api = (() => {
   const renewLicense      = (data) => request('POST', '/license/renew', data);
   const deactivateLicense = (data) => request('POST', '/license/deactivate', data);
 
+  const getBackupInfo = () => request('GET', '/backup/info');
+
   return {
+    request,
     getToken, setToken, removeToken, getUser, setUser,
     login, setupAdmin, me,
     getUsers, createUser, updateUser, adminResetPwd, changeMyPwd,
@@ -328,5 +331,6 @@ const Api = (() => {
     dlPayroll, dlTimesheet, dlEmployees, dlVacations, dlTerminations, dlHourBank,
     generateThirteenth, generateThirteenthBatch, listThirteenth, updateThirteenth, markThirteenthPaid, deleteThirteenth, exportThirteenth,
     getLicense, renewLicense, deactivateLicense,
+    getBackupInfo,
   };
 })();

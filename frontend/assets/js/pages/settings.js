@@ -13,6 +13,7 @@ const PageSettings = (() => {
     { key: 'timesheet',    label: 'Ponto' },
     { key: 'bankhours',    label: 'Banco de Horas' },
     { key: 'reports',      label: 'Relatórios' },
+    { key: 'backup',       label: 'Backup' },
     { key: 'audit',        label: 'Auditoria' },
   ];
 

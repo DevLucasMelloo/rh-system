@@ -189,6 +189,7 @@ const PAGES = {
   timesheet:    PageTimesheet,
   bankhours:    PageBankHours,
   reports:      PageReports,
+  backup:       PageBackup,
   settings:     PageSettings,
   audit:        PageAudit,
   license:      PageLicense,
