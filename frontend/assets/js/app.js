@@ -148,22 +148,17 @@ function _firstAllowedPage() {
 
 function applySidebarAccess() {
   const user = Api.getUser();
-  const licNav = document.getElementById('nav-license');
 
   if (!user || user.role === 'admin' || !user.allowed_modules) {
     document.querySelectorAll('.nav-item[data-page]').forEach(el => el.style.display = '');
-    // Licença só para admin
-    if (licNav) licNav.style.display = user?.role === 'admin' ? '' : 'none';
     return;
   }
   let allowed;
   try { allowed = JSON.parse(user.allowed_modules); } catch { allowed = null; }
   if (!allowed) return;
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {
-    if (el.id === 'nav-license') return; // tratado separado
     el.style.display = allowed.includes(el.dataset.page) ? '' : 'none';
   });
-  if (licNav) licNav.style.display = 'none';
 }
 
 function switchLoginTab(tab) {
@@ -192,7 +187,6 @@ const PAGES = {
   backup:       PageBackup,
   settings:     PageSettings,
   audit:        PageAudit,
-  license:      PageLicense,
 };
 
 let currentPage = null;
