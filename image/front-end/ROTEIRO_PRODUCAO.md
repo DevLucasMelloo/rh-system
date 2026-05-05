@@ -149,7 +149,7 @@ Entre em contato para renovar o acesso.
 
 - [X] Criar arquivo `.env.example` com todas as variáveis necessárias (sem valores reais)
 - [X] Confirmar que `.env` está no `.gitignore`
-- [ ] Configurar variáveis no painel da Railway:
+- [X] Configurar variáveis no painel da Railway:
   - `DATABASE_URL`
   - `SECRET_KEY`
   - `FERNET_KEY`
@@ -160,21 +160,21 @@ Entre em contato para renovar o acesso.
 
 ### 4.3 Railway
 
-- [ ] Criar conta na Railway e conectar ao repositório GitHub
-- [ ] Configurar deploy automático no push para a branch `main`
-- [ ] Configurar domínio personalizado
-- [ ] Verificar SSL automático (HTTPS)
-- [ ] Testar ambiente de produção completo após primeiro deploy
+- [X] Criar conta na Railway e conectar ao repositório GitHub
+- [X] Configurar deploy automático no push para a branch `main` — a cada push no GitHub o Railway faz redeploy automático
+- [ ] Configurar domínio personalizado (pendente — usando domínio Railway por ora: rh-system-production-8ac6.up.railway.app)
+- [X] Verificar SSL automático (HTTPS) — ativo e funcionando
+- [X] Testar ambiente de produção completo após primeiro deploy — todas as abas abrindo normalmente
 
 ### 4.4 Checklist pré-go-live
 
-- [ ] Todos os endpoints respondendo corretamente
-- [ ] Login e autenticação funcionando
-- [ ] Folha de pagamento calculando corretamente
-- [ ] Férias, rescisão e 13º funcionando
-- [ ] Sistema de licença ativo e testado
-- [ ] HTTPS ativo
-- [ ] Logs sem dados sensíveis expostos
+- [X] Todos os endpoints respondendo corretamente
+- [X] Login e autenticação funcionando
+- [X] Folha de pagamento calculando corretamente
+- [X] Férias, rescisão e 13º funcionando
+- [X] Sistema de licença ativo e testado
+- [X] HTTPS ativo — Railway fornece SSL automático
+- [X] Logs sem dados sensíveis expostos
 
 ---
 
