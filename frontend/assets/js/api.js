@@ -302,7 +302,9 @@ const Api = (() => {
   const dlHourBank     = ()    => download('/reports/hour-bank',     null, 'banco_horas.xlsx');
 
   // ── Licença ────────────────────────────────────────────────────────────────
-  const getLicense = () => request('GET', '/license');
+  const getLicense        = () => request('GET', '/license');
+  const renewLicense      = (data) => request('POST', '/license/renew', data);
+  const deactivateLicense = (data) => request('POST', '/license/deactivate', data);
 
   return {
     getToken, setToken, removeToken, getUser, setUser,
@@ -325,6 +327,6 @@ const Api = (() => {
     getAuditLogs, getAuditStats, getAuditUsers, getAuditActions, dlAuditLogs,
     dlPayroll, dlTimesheet, dlEmployees, dlVacations, dlTerminations, dlHourBank,
     generateThirteenth, generateThirteenthBatch, listThirteenth, updateThirteenth, markThirteenthPaid, deleteThirteenth, exportThirteenth,
-    getLicense,
+    getLicense, renewLicense, deactivateLicense,
   };
 })();
