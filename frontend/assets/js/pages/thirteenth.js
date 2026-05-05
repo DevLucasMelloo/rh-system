@@ -226,7 +226,9 @@ const PageThirteenth = (() => {
     const valor = parseFloat(document.getElementById('edit13-valor')?.value);
     const inss  = parcela === 2 ? (parseFloat(document.getElementById('edit13-inss')?.value) || 0) : 0;
     if (isNaN(valor) || valor <= 0) {
-      document.getElementById('edit13-err').innerHTML = '<div class="alert alert-error">Informe o valor da parcela.</div>';
+      const errEl = document.getElementById('edit13-err');
+      if (!errEl) return;
+      errEl.innerHTML = '<div class="alert alert-error">Informe o valor da parcela.</div>';
       return;
     }
     try {
@@ -235,7 +237,9 @@ const PageThirteenth = (() => {
       toast('Valores atualizados.');
       loadList();
     } catch (e) {
-      document.getElementById('edit13-err').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('edit13-err');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 

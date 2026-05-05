@@ -76,7 +76,9 @@ const PagePayroll = (() => {
       renderButtons();
       renderTable();
     } catch (e) {
-      document.getElementById('payroll-tbody').innerHTML =
+      const el = document.getElementById('payroll-tbody');
+      if (!el) return;
+      el.innerHTML =
         `<tr><td colspan="13" style="padding:24px;text-align:center;color:var(--danger)">${e.message}</td></tr>`;
     }
   }
@@ -114,13 +116,15 @@ const PagePayroll = (() => {
   }
 
   function renderTable() {
+    const el = document.getElementById('payroll-tbody');
+    if (!el) return;
     if (!rows.length) {
-      document.getElementById('payroll-tbody').innerHTML =
+      el.innerHTML =
         `<tr><td colspan="13" style="padding:40px;text-align:center;color:var(--text-muted)">Nenhum funcionário elegível para este período.</td></tr>`;
       return;
     }
 
-    document.getElementById('payroll-tbody').innerHTML = rows.map(r => rowHtml(r)).join('');
+    el.innerHTML = rows.map(r => rowHtml(r)).join('');
   }
 
   function _getItem(items, types, credit = null) {
@@ -255,7 +259,9 @@ const PagePayroll = (() => {
       toast(`${created.length} holerite(s) gerado(s)!`);
       await loadData();
     } catch (e) {
-      document.getElementById('batch-error').innerHTML =
+      const el = document.getElementById('batch-error');
+      if (!el) return;
+      el.innerHTML =
         `<div class="alert alert-error">${e.message}</div>`;
     }
   }
@@ -282,7 +288,9 @@ const PagePayroll = (() => {
       const p = await Api.getPayroll(id);
       _renderDetail(p);
     } catch (e) {
-      document.getElementById('modal-body').innerHTML =
+      const el = document.getElementById('modal-body');
+      if (!el) return;
+      el.innerHTML =
         `<div class="alert alert-error">${e.message}</div>`;
     }
   }
@@ -315,7 +323,9 @@ const PagePayroll = (() => {
         </div>
       </div>`;
 
-    document.getElementById('modal-body').innerHTML = `
+    const _modalBody = document.getElementById('modal-body');
+    if (!_modalBody) return;
+    _modalBody.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
         <div class="detail-item"><label>Funcionário</label><span style="font-weight:600">${p.employee_name||'—'}</span></div>
         <div class="detail-item"><label>Competência</label><span>${fmt.month(p.competence_month)}/${p.competence_year}</span></div>
@@ -363,7 +373,9 @@ const PagePayroll = (() => {
         <button class="btn btn-sm" style="background:${p.use_hour_bank_for_absences ? '#0e7490' : '#0891b2'};color:#fff;border:${p.use_hour_bank_for_absences ? '2px solid #164e63' : 'none'}" onclick="PagePayroll.toggleBancoFaltas(${p.id},${p.use_hour_bank_for_absences})" title="Usa horas do banco para cobrir faltas em vez de descontar em dinheiro">${p.use_hour_bank_for_absences ? '✓ Banco p/ Faltas (ON)' : '🔄 Banco p/ Faltas'}</button>
       </div>` : ''}`;
 
-    document.getElementById('modal-footer').innerHTML = `
+    const _modalFooter = document.getElementById('modal-footer');
+    if (!_modalFooter) return;
+    _modalFooter.innerHTML = `
       <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
       <button class="btn btn-danger" style="margin-right:auto;order:-1" onclick="PagePayroll.confirmDeleteFromDetail(${p.id},'${(p.employee_name||'').replace(/'/g,"\\'")}')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
@@ -419,7 +431,9 @@ const PagePayroll = (() => {
     const credit = document.getElementById('item-credit').value === 'true';
     const notes  = document.getElementById('item-notes').value.trim() || null;
     if (!desc || !amount || amount <= 0) {
-      document.getElementById('item-error').innerHTML =
+      const errEl = document.getElementById('item-error');
+      if (!errEl) return;
+      errEl.innerHTML =
         '<div class="alert alert-error">Preencha descrição e valor válido.</div>';
       return;
     }
@@ -434,7 +448,9 @@ const PagePayroll = (() => {
       toast('Item adicionado!');
       openDetail(payrollId);
     } catch (e) {
-      document.getElementById('item-error').innerHTML =
+      const el = document.getElementById('item-error');
+      if (!el) return;
+      el.innerHTML =
         `<div class="alert alert-error">${e.message}</div>`;
     }
   }
@@ -461,7 +477,9 @@ const PagePayroll = (() => {
     const amount = parseFloat(document.getElementById('edit-amount').value);
     const notes  = document.getElementById('edit-notes').value.trim() || null;
     if (!desc || !amount || amount < 0) {
-      document.getElementById('edit-error').innerHTML =
+      const errEl = document.getElementById('edit-error');
+      if (!errEl) return;
+      errEl.innerHTML =
         '<div class="alert alert-error">Valor inválido.</div>';
       return;
     }
@@ -470,7 +488,9 @@ const PagePayroll = (() => {
       toast('Item atualizado!');
       openDetail(payrollId);
     } catch (e) {
-      document.getElementById('edit-error').innerHTML =
+      const el = document.getElementById('edit-error');
+      if (!el) return;
+      el.innerHTML =
         `<div class="alert alert-error">${e.message}</div>`;
     }
   }
@@ -585,7 +605,9 @@ const PagePayroll = (() => {
   function changePeriod() {
     month = parseInt(document.getElementById('sel-month').value);
     year  = parseInt(document.getElementById('sel-year').value);
-    document.getElementById('payroll-tbody').innerHTML = loadingRow(13);
+    const el = document.getElementById('payroll-tbody');
+    if (!el) return;
+    el.innerHTML = loadingRow(13);
     loadData();
   }
 

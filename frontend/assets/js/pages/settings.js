@@ -152,6 +152,7 @@ const PageSettings = (() => {
     const pwd      = document.getElementById('nu-pwd').value;
     const role     = document.getElementById('nu-role').value;
     const errEl    = document.getElementById('nu-error');
+    if (!errEl) return;
 
     const checked = [...document.querySelectorAll('.nu-module:checked')].map(el => el.value);
     const allChecked = checked.length === ALL_MODULES.length;
@@ -221,6 +222,7 @@ const PageSettings = (() => {
 
   async function saveEditUser(id) {
     const errEl = document.getElementById('eu-error');
+    if (!errEl) return;
     const checked = [...document.querySelectorAll('.eu-module:checked')].map(el => el.value);
     const allChecked = checked.length === ALL_MODULES.length;
     const allowed_modules = allChecked ? null : JSON.stringify(checked);
@@ -260,6 +262,7 @@ const PageSettings = (() => {
     const novo    = document.getElementById('rp-new').value;
     const confirm = document.getElementById('rp-confirm').value;
     const errEl   = document.getElementById('rp-error');
+    if (!errEl) return;
 
     if (!novo || !confirm) {
       errEl.innerHTML = '<div class="alert alert-error">Preencha os dois campos.</div>';
@@ -299,6 +302,7 @@ const PageSettings = (() => {
     const novo    = document.getElementById('cp-new').value;
     const confirm = document.getElementById('cp-confirm').value;
     const errEl   = document.getElementById('cp-error');
+    if (!errEl) return;
 
     if (novo !== confirm) {
       errEl.innerHTML = '<div class="alert alert-error">As senhas não coincidem.</div>';

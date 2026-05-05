@@ -162,7 +162,9 @@ const PageAudit = (() => {
   async function loadStats() {
     try {
       const s = await Api.getAuditStats();
-      document.getElementById('audit-stats').innerHTML = `
+      const el = document.getElementById('audit-stats');
+      if (!el) return;
+      el.innerHTML = `
         ${statCard('Total de Registros', s.total)}
         ${statCard('Usuários Ativos',    s.active_users)}
         ${statCard('Ações Hoje',         s.today)}

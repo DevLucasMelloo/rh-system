@@ -106,7 +106,9 @@ const PageDashboard = (() => {
       renderVacationExpiring(d.expiring_vacations || []);
       renderBirthdays(d.birthdays_next_30_days || []);
     } catch (e) {
-      document.getElementById('stats-grid').innerHTML =
+      const el = document.getElementById('stats-grid');
+      if (!el) return;
+      el.innerHTML =
         `<div style="grid-column:1/-1"><div class="alert alert-error">Erro ao carregar dashboard: ${e.message}</div></div>`;
     }
   }
@@ -114,7 +116,9 @@ const PageDashboard = (() => {
   function renderStats(d) {
     const m = fmt.month(d.current_month);
     const y = d.current_year;
-    document.getElementById('stats-grid').innerHTML = `
+    const el = document.getElementById('stats-grid');
+    if (!el) return;
+    el.innerHTML = `
 
       <!-- Funcionários Ativos -->
       <div class="stat-card" style="cursor:pointer" onclick="navigate('employees')" title="Ver Funcionários">
@@ -276,6 +280,7 @@ const PageDashboard = (() => {
 
   function renderAnnualTable(data) {
     const el = document.getElementById('annual-table');
+    if (!el) return;
     if (!data || !data.employees || !data.employees.length) {
       el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Nenhuma folha fechada em ${data?.year || ''}.</div>`;
       return;
@@ -346,6 +351,7 @@ const PageDashboard = (() => {
 
   function renderScheduledVacations(list) {
     const el = document.getElementById('scheduled-vacation-list');
+    if (!el) return;
     if (!list.length) {
       el.innerHTML = `<div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Nenhuma férias agendada.</div>`;
       return;
@@ -370,6 +376,7 @@ const PageDashboard = (() => {
 
   function renderActiveVacations(list) {
     const el = document.getElementById('active-vacation-list');
+    if (!el) return;
     if (!list.length) {
       el.innerHTML = `<div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Nenhum funcionário em férias no momento.</div>`;
       return;
@@ -396,6 +403,7 @@ const PageDashboard = (() => {
 
   function renderVacationExpiring(list) {
     const el = document.getElementById('vacation-list');
+    if (!el) return;
     if (!list.length) {
       el.innerHTML = `<div style="padding:16px 24px;color:var(--text-muted);font-size:13px">Nenhuma férias vencida ou próxima de vencer.</div>`;
       return;
@@ -447,6 +455,7 @@ const PageDashboard = (() => {
 
   function renderBirthdays(list) {
     const el    = document.getElementById('birthday-list');
+    if (!el) return;
     const hdr   = document.getElementById('birthday-header');
     const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                        'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];

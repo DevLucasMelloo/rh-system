@@ -59,7 +59,9 @@ const PageEmployees = (() => {
       allEmployees = [...(active || []), ...(inactive || [])];
       renderTable();
     } catch (e) {
-      document.getElementById('emp-tbody').innerHTML =
+      const el = document.getElementById('emp-tbody');
+      if (!el) return;
+      el.innerHTML =
         `<tr><td colspan="8" class="text-center" style="padding:24px;color:var(--danger)">${e.message}</td></tr>`;
     }
   }
@@ -83,12 +85,14 @@ const PageEmployees = (() => {
       );
     }
 
+    const empTbody = document.getElementById('emp-tbody');
+    if (!empTbody) return;
     if (!list.length) {
-      document.getElementById('emp-tbody').innerHTML = emptyRow('Nenhum funcionário encontrado.', 8);
+      empTbody.innerHTML = emptyRow('Nenhum funcionário encontrado.', 8);
       return;
     }
 
-    document.getElementById('emp-tbody').innerHTML = list.map(e => `
+    empTbody.innerHTML = list.map(e => `
       <tr>
         <td><strong>${e.name}</strong></td>
         <td style="color:var(--text-muted)">${fmt.cpf(e.cpf)}</td>
@@ -319,9 +323,13 @@ const PageEmployees = (() => {
       <button class="btn btn-primary" onclick="PageEmployees.saveEdit(${id})">Salvar</button>`, true);
     try {
       const emp = await Api.getEmployee(id);
-      document.getElementById('modal-body').innerHTML = empForm(emp);
+      const el = document.getElementById('modal-body');
+      if (!el) return;
+      el.innerHTML = empForm(emp);
     } catch (e) {
-      document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('modal-body');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
@@ -532,7 +540,9 @@ const PageEmployees = (() => {
     openModal(`Dados — ${name}`, `<div style="padding:20px;text-align:center"><div class="spinner spinner-dark"></div> Carregando...</div>`, '', true);
     try {
       const e = await Api.getEmployee(id);
-      document.getElementById('modal-body').innerHTML = `
+      const el = document.getElementById('modal-body');
+      if (!el) return;
+      el.innerHTML = `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:14px">
           ${row('Nome',            e.name)}
           ${row('CPF',             fmt.cpf(e.cpf))}
@@ -552,7 +562,9 @@ const PageEmployees = (() => {
           ${row('Cidade/UF',       [e.city, e.state].filter(Boolean).join(' / ') || '—')}
         </div>`;
     } catch (err) {
-      document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+      const el = document.getElementById('modal-body');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
     }
 
     function row(label, value) {
@@ -582,13 +594,17 @@ const PageEmployees = (() => {
             <td>${h.new_value || '—'}</td>
           </tr>`).join('')
         : emptyRow('Sem histórico registrado.', 4);
-      document.getElementById('modal-body').innerHTML = `
+      const el = document.getElementById('modal-body');
+      if (!el) return;
+      el.innerHTML = `
         <div class="table-wrapper" style="border:none">
           <table><thead><tr><th>Data/Hora</th><th>Campo</th><th>Anterior</th><th>Novo</th></tr></thead>
           <tbody>${rows}</tbody></table>
         </div>`;
     } catch (e) {
-      document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('modal-body');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 

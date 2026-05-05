@@ -53,14 +53,16 @@ const PageVales = (() => {
   }
 
   async function loadAll() {
-    document.getElementById('vale-cards').innerHTML =
+    const valeCards = document.getElementById('vale-cards');
+    if (!valeCards) return;
+    valeCards.innerHTML =
       '<div style="padding:40px;text-align:center"><div class="spinner spinner-dark"></div></div>';
     try {
       allVales = await Api.getAllVales() || [];
       renderStats();
       renderCards();
     } catch (e) {
-      document.getElementById('vale-cards').innerHTML =
+      valeCards.innerHTML =
         `<div class="alert alert-error">${e.message}</div>`;
     }
   }
@@ -101,8 +103,10 @@ const PageVales = (() => {
 
     const list = activeTab === 'open' ? open : paid;
 
+    const valeCardsEl = document.getElementById('vale-cards');
+    if (!valeCardsEl) return;
     if (!list.length) {
-      document.getElementById('vale-cards').innerHTML =
+      valeCardsEl.innerHTML =
         `<div style="text-align:center;padding:48px;color:var(--text-muted)">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:12px;opacity:.4"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           <p>${activeTab === 'open' ? 'Nenhum vale em aberto.' : 'Nenhum vale quitado.'}</p>
@@ -110,7 +114,7 @@ const PageVales = (() => {
       return;
     }
 
-    document.getElementById('vale-cards').innerHTML = list.map(v => valeCard(v)).join('');
+    valeCardsEl.innerHTML = list.map(v => valeCard(v)).join('');
   }
 
   function valeCard(v) {
@@ -231,12 +235,16 @@ const PageVales = (() => {
   async function saveNew() {
     const empId = parseInt(document.getElementById('nv-emp').value);
     if (!empId) {
-      document.getElementById('nv-error').innerHTML = '<div class="alert alert-error">Selecione um funcionário.</div>';
+      const errEl = document.getElementById('nv-error');
+      if (!errEl) return;
+      errEl.innerHTML = '<div class="alert alert-error">Selecione um funcionário.</div>';
       return;
     }
     const amount = parseFloat(document.getElementById('nv-amount').value);
     if (!amount || amount <= 0) {
-      document.getElementById('nv-error').innerHTML = '<div class="alert alert-error">Informe um valor válido.</div>';
+      const errEl = document.getElementById('nv-error');
+      if (!errEl) return;
+      errEl.innerHTML = '<div class="alert alert-error">Informe um valor válido.</div>';
       return;
     }
     const data = {
@@ -253,7 +261,9 @@ const PageVales = (() => {
       toast('Vale registrado com sucesso!');
       await loadAll();
     } catch (e) {
-      document.getElementById('nv-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('nv-error');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
@@ -263,7 +273,9 @@ const PageVales = (() => {
       const v = await Api.getVale(id);
       _renderDetail(v);
     } catch (e) {
-      document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('modal-body');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
@@ -283,7 +295,9 @@ const PageVales = (() => {
           : '<span class="badge badge-gray">Pendente</span>'}</td>
       </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--text-muted)">Sem parcelas.</td></tr>';
 
-    document.getElementById('modal-body').innerHTML = `
+    const _modalBody = document.getElementById('modal-body');
+    if (!_modalBody) return;
+    _modalBody.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
         <div class="detail-item"><label>Funcionário</label><span style="font-weight:600">${v.employee_name || '—'}</span></div>
         <div class="detail-item"><label>Emissão</label><span>${fmt.date(v.issued_date)}</span></div>
@@ -300,7 +314,9 @@ const PageVales = (() => {
         </table>
       </div>`;
 
-    document.getElementById('modal-footer').innerHTML = `
+    const _modalFooter = document.getElementById('modal-footer');
+    if (!_modalFooter) return;
+    _modalFooter.innerHTML = `
       <button class="btn btn-danger" onclick="PageVales.confirmDelete(${v.id})" style="margin-right:auto"
         ${hasPaid ? 'disabled title="Possui parcelas já pagas em folha fechada"' : ''}>
         Excluir

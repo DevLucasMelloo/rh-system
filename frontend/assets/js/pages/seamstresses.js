@@ -142,6 +142,7 @@ const PageSeamstresses = (() => {
     if (!sel) return;
     const [month, year] = sel.value.split('|').map(Number);
     const content = document.getElementById('folha-content');
+    if (!content) return;
     content.innerHTML = `<div style="padding:20px;text-align:center"><div class="spinner spinner-dark"></div></div>`;
     try {
       const r = await Api.getSeamstressMonthReport(month, year);
@@ -165,7 +166,9 @@ const PageSeamstresses = (() => {
         <td>${s.payment_date ? fmt.date(s.payment_date) : '—'}</td>
       </tr>`).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">Nenhum lançamento nesta competência.</td></tr>`;
 
-    document.getElementById('folha-content').innerHTML = `
+    const folhaEl = document.getElementById('folha-content');
+    if (!folhaEl) return;
+    folhaEl.innerHTML = `
       <div class="table-wrapper">
         <table>
           <thead><tr><th>Costureira</th><th>Valor Mensal</th><th>Entregas no Mês</th><th>Status</th><th>Data Pag.</th></tr></thead>
@@ -209,14 +212,21 @@ const PageSeamstresses = (() => {
 
   async function confirmCloseMonth(month, year) {
     const payDate = document.getElementById('close-paydate').value;
-    if (!payDate) { document.getElementById('close-error').innerHTML = '<div class="alert alert-error">Informe a data de pagamento.</div>'; return; }
+    if (!payDate) {
+      const errEl = document.getElementById('close-error');
+      if (!errEl) return;
+      errEl.innerHTML = '<div class="alert alert-error">Informe a data de pagamento.</div>';
+      return;
+    }
     try {
       const r = await Api.closeSeamstressMonth({ competence_month: month, competence_year: year, payment_date: payDate });
       closeModal();
       toast(`${r.closed} costureira(s) pagas em ${fmt.date(r.payment_date)}!`);
       loadFolha();
     } catch (e) {
-      document.getElementById('close-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('close-error');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
@@ -265,12 +275,19 @@ const PageSeamstresses = (() => {
 
   async function saveNew() {
     const data = collectSeamstressForm();
-    if (!data.name) { document.getElementById('sf-error').innerHTML = '<div class="alert alert-error">Nome é obrigatório.</div>'; return; }
+    if (!data.name) {
+      const errEl = document.getElementById('sf-error');
+      if (!errEl) return;
+      errEl.innerHTML = '<div class="alert alert-error">Nome é obrigatório.</div>';
+      return;
+    }
     try {
       await Api.createSeamstress(data);
       closeModal(); toast('Costureira cadastrada!'); await load();
     } catch (e) {
-      document.getElementById('sf-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('sf-error');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
@@ -284,12 +301,19 @@ const PageSeamstresses = (() => {
 
   async function saveEdit(id) {
     const data = collectSeamstressForm();
-    if (!data.name) { document.getElementById('sf-error').innerHTML = '<div class="alert alert-error">Nome é obrigatório.</div>'; return; }
+    if (!data.name) {
+      const errEl = document.getElementById('sf-error');
+      if (!errEl) return;
+      errEl.innerHTML = '<div class="alert alert-error">Nome é obrigatório.</div>';
+      return;
+    }
     try {
       await Api.updateSeamstress(id, data);
       closeModal(); toast('Costureira atualizada!'); await load();
     } catch (e) {
-      document.getElementById('sf-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('sf-error');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
@@ -339,14 +363,17 @@ const PageSeamstresses = (() => {
           </td>
         </tr>`;
       }).join('') : emptyRow('Nenhum pagamento.', 7);
-      document.getElementById('modal-body').innerHTML = `
+      const el = document.getElementById('modal-body');
+      if (!el) return;
+      el.innerHTML = `
         <div class="table-wrapper"><table>
           <thead><tr><th>Tipo</th><th>Competência/Data</th><th>Valor</th><th>Status</th><th>Pago em</th><th>Obs.</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>`;
     } catch (e) {
-      if (document.getElementById('modal-body'))
-        document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('modal-body');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
@@ -398,7 +425,12 @@ const PageSeamstresses = (() => {
     const type   = document.getElementById('pay-type').value;
     const amount = parseFloat(document.getElementById('pay-amount').value);
     const notes  = document.getElementById('pay-notes').value.trim() || null;
-    if (!amount || amount <= 0) { document.getElementById('pay-error').innerHTML = '<div class="alert alert-error">Informe um valor válido.</div>'; return; }
+    if (!amount || amount <= 0) {
+      const errEl = document.getElementById('pay-error');
+      if (!errEl) return;
+      errEl.innerHTML = '<div class="alert alert-error">Informe um valor válido.</div>';
+      return;
+    }
 
     let body = { payment_type: type, amount, notes };
 
@@ -408,7 +440,12 @@ const PageSeamstresses = (() => {
       body.competence_year  = y;
     } else {
       const dt = document.getElementById('pay-date').value;
-      if (!dt) { document.getElementById('pay-error').innerHTML = '<div class="alert alert-error">Informe a data de pagamento.</div>'; return; }
+      if (!dt) {
+        const errEl = document.getElementById('pay-error');
+        if (!errEl) return;
+        errEl.innerHTML = '<div class="alert alert-error">Informe a data de pagamento.</div>';
+        return;
+      }
       body.payment_date = dt;
     }
 
@@ -417,7 +454,9 @@ const PageSeamstresses = (() => {
       toast('Pagamento lançado!');
       openPayments(id, name);
     } catch (e) {
-      document.getElementById('pay-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('pay-error');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 

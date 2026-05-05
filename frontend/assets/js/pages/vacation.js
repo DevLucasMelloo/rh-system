@@ -48,16 +48,17 @@ const PageVacation = (() => {
   async function loadOverview() {
     const tb   = document.getElementById('vac-overview-tbody');
     const alert = document.getElementById('vac-alert-bar');
+    if (!tb) return;
     try {
       const list = await Api.getVacationOverview();
 
       const overdueCount = list.filter(e => e.vacation_status === 'vencida').length;
-      if (overdueCount > 0) {
+      if (overdueCount > 0 && alert) {
         alert.innerHTML = `
           <div class="alert alert-warning" style="display:flex;align-items:center;gap:8px">
             ⚠ <strong>${overdueCount} funcionário(s) com férias vencidas.</strong> Ação necessária.
           </div>`;
-      } else {
+      } else if (alert) {
         alert.innerHTML = '';
       }
 
@@ -120,6 +121,7 @@ const PageVacation = (() => {
   async function loadEmployee() {
     const id = parseInt(document.getElementById('vac-emp-sel').value) || null;
     const el = document.getElementById('vac-emp-list');
+    if (!el) return;
     if (!id) { el.innerHTML = ''; return; }
     el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted)">Carregando...</div>`;
     try {
@@ -365,7 +367,9 @@ const PageVacation = (() => {
     const sel = document.getElementById('nv-period');
     const opt = sel ? sel.options[sel.selectedIndex] : null;
     if (!opt || !opt.value) {
-      document.getElementById('nv-error').innerHTML = '<div class="alert alert-error">Selecione o período de férias.</div>';
+      const errEl = document.getElementById('nv-error');
+      if (!errEl) return;
+      errEl.innerHTML = '<div class="alert alert-error">Selecione o período de férias.</div>';
       return;
     }
 
@@ -391,7 +395,9 @@ const PageVacation = (() => {
       toast('Férias agendadas!');
       loadOverview();
     } catch (e) {
-      document.getElementById('nv-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('nv-error');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
@@ -645,7 +651,9 @@ const PageVacation = (() => {
       toast('Férias atualizadas!');
       loadOverview();
     } catch (e) {
-      document.getElementById('ed-error').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('ed-error');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 

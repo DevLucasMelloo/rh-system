@@ -329,6 +329,7 @@ const PageRescisao = (() => {
     };
 
     const resultEl = document.getElementById('res-result');
+    if (!resultEl) return;
     resultEl.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner spinner-dark"></div></div>';
 
     try {
@@ -370,6 +371,7 @@ const PageRescisao = (() => {
   function renderResult(t) {
     _currentTermId  = t.id;
     const resultEl  = document.getElementById('res-result');
+    if (!resultEl) return;
     const actionsEl = document.getElementById('res-edit-actions');
     if (actionsEl) actionsEl.style.display = 'flex';
 
@@ -566,11 +568,13 @@ const PageRescisao = (() => {
   async function loadHistory() {
     try {
       const list = await Api.getTerminations() || [];
+      const histTbody = document.getElementById('res-history-tbody');
+      if (!histTbody) return;
       if (!list.length) {
-        document.getElementById('res-history-tbody').innerHTML = emptyRow('Nenhuma rescisão registrada.', 7);
+        histTbody.innerHTML = emptyRow('Nenhuma rescisão registrada.', 7);
         return;
       }
-      document.getElementById('res-history-tbody').innerHTML = list.map(t => {
+      histTbody.innerHTML = list.map(t => {
         const isPendente = t.status === 'pendente';
         const actionBtns = isPendente ? `
           <button class="btn-icon" onclick="PageRescisao.openDetail(${t.id})" title="Ver / editar" style="color:var(--primary)">
@@ -600,7 +604,9 @@ const PageRescisao = (() => {
           </tr>`;
       }).join('');
     } catch (e) {
-      document.getElementById('res-history-tbody').innerHTML = emptyRow(e.message, 7);
+      const el = document.getElementById('res-history-tbody');
+      if (!el) return;
+      el.innerHTML = emptyRow(e.message, 7);
     }
   }
 
@@ -621,7 +627,8 @@ const PageRescisao = (() => {
       loadHistory();
       if (_currentTermId === id) {
         _currentTermId = null;
-        document.getElementById('res-result').innerHTML =
+        const resResult = document.getElementById('res-result');
+        if (resResult) resResult.innerHTML =
           '<div style="text-align:center;padding:40px;color:var(--text-muted)"><p>Rescisão excluída.</p></div>';
         const acts = document.getElementById('res-edit-actions');
         if (acts) acts.style.display = 'none';
@@ -675,7 +682,9 @@ const PageRescisao = (() => {
         ? `Aviso: ${fmt.date(t.notice_start_date)} → ${fmt.date(t.notice_end_date||t.termination_date)} · ${t.notice_days} dias${redLabel}`
         : `Aviso: ${t.notice_days} dias${redLabel}`;
 
-      document.getElementById('modal-body').innerHTML = `
+      const _modalBody = document.getElementById('modal-body');
+      if (!_modalBody) return;
+      _modalBody.innerHTML = `
         <div class="detail-grid" style="margin-bottom:12px">
           <div class="detail-item"><label>Funcionário</label><span>${t.employee_name || '—'}</span></div>
           <div class="detail-item"><label>Motivo</label><span>${fmtReason(t.reason)}</span></div>
@@ -719,7 +728,9 @@ const PageRescisao = (() => {
         });
       }
 
-      document.getElementById('modal-footer').innerHTML = isPendente ? `
+      const _modalFooter = document.getElementById('modal-footer');
+      if (!_modalFooter) return;
+      _modalFooter.innerHTML = isPendente ? `
         <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
         <button class="btn btn-secondary" onclick="PageRescisao._recalcModal('${pId}')">↺ Recalcular</button>
         <button class="btn btn-secondary" onclick="PageRescisao.printReceipt(${id})">🖨 Imprimir</button>
@@ -730,7 +741,9 @@ const PageRescisao = (() => {
         <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
         <button class="btn btn-secondary" onclick="PageRescisao.printReceipt(${id})">🖨 Imprimir Recibo</button>`;
     } catch (e) {
-      document.getElementById('modal-body').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+      const el = document.getElementById('modal-body');
+      if (!el) return;
+      el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
     }
   }
 
