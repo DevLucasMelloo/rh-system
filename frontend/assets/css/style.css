@@ -868,13 +868,146 @@ tbody td {
 .credit { color: var(--success); font-weight: 600; }
 .debit  { color: var(--danger);  font-weight: 600; }
 
-/* ─── Responsive ────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
+/* ─── Mobile top bar ────────────────────────────────────────────────────── */
+#mobile-topbar {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: var(--sidebar-bg);
+  z-index: 150;
+  align-items: center;
+  padding: 0 16px;
+  gap: 14px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+#mobile-hamburger {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+#mobile-hamburger:hover { background: var(--sidebar-hover); color: #fff; }
+
+.mobile-logo {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* ─── Sidebar overlay (mobile) ──────────────────────────────────────────── */
+#sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 149;
+}
+
+/* ─── Tablet (768px–1024px) ─────────────────────────────────────────────── */
+@media (max-width: 1024px) and (min-width: 769px) {
   #sidebar { width: 64px; }
   #sidebar .nav-label,
   #sidebar .sidebar-logo { display: none; }
   #main-content { margin-left: 64px; }
-  .page-wrapper { padding: 20px 16px; }
+  .page-wrapper { padding: 24px 20px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ─── Mobile (≤768px) ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Top bar visível */
+  #mobile-topbar { display: flex; }
+
+  /* Sidebar como drawer — fora da tela por padrão */
+  #sidebar {
+    transform: translateX(-100%);
+    width: var(--sidebar-width) !important;
+    transition: transform .25s ease;
+    z-index: 200;
+    top: 0;
+  }
+  #sidebar .nav-label,
+  #sidebar .sidebar-logo { display: block !important; }
+
+  /* Sidebar aberto */
+  #sidebar.mobile-open { transform: translateX(0); }
+  #sidebar.mobile-open + #sidebar-overlay { display: block; }
+
+  /* Conteúdo principal sem margin lateral, com espaço pro top bar */
+  #main-content {
+    margin-left: 0 !important;
+    padding-top: 56px;
+  }
+
+  /* Padding menor nas páginas */
+  .page-wrapper { padding: 16px 12px; }
+
+  /* Page header empilhado */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .page-header > div:last-child,
+  .page-header > button,
+  .page-header > a {
+    width: 100%;
+  }
+  .page-header h1 { font-size: 20px; }
+
+  /* Botões no header ocupam largura total */
+  .page-header .btn { width: 100%; justify-content: center; }
+
+  /* Formulários em coluna única */
   .form-row { grid-template-columns: 1fr; }
+
+  /* Stats em 1 coluna no mobile pequeno */
+  .stats-grid { grid-template-columns: 1fr; }
+  .stat-card { padding: 16px 18px; }
+  .stat-value { font-size: 22px; }
+
+  /* Tabelas com scroll horizontal */
+  .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 500px; }
+
+  /* Modal full width */
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal {
+    border-radius: 16px 16px 0 0;
+    max-width: 100%;
+    max-height: 92vh;
+  }
+
+  /* Cards com padding menor */
+  .card-body { padding: 16px; }
+  .card-header { padding: 14px 16px; }
+
+  /* Toolbar empilhada */
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .search-box { max-width: 100%; }
+
+  /* Detail grid em coluna */
+  .detail-grid { grid-template-columns: 1fr; }
+
+  /* Login card sem padding excessivo */
+  .login-card { padding: 28px 20px; margin: 16px; }
+
+  /* Toast menor no mobile */
+  #toast-container { top: 64px; right: 12px; left: 12px; }
+  .toast { max-width: 100%; }
+
+  /* Grid de relatórios 1 coluna */
+  .report-grid { grid-template-columns: 1fr; }
+
+  /* Stats grid de auditoria */
+  .stats-grid[style*="grid-template-columns:repeat(4"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
 }

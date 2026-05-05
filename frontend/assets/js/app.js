@@ -4,7 +4,24 @@
 
 // ── Sidebar toggle ────────────────────────────────────────────────────────────
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('collapsed');
+  const sidebar  = document.getElementById('sidebar');
+  const overlay  = document.getElementById('sidebar-overlay');
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    const open = sidebar.classList.toggle('mobile-open');
+    if (overlay) overlay.style.display = open ? 'block' : 'none';
+  } else {
+    sidebar.classList.toggle('collapsed');
+  }
+}
+
+function closeSidebar() {
+  const isMobile = window.innerWidth <= 768;
+  if (!isMobile) return;
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  sidebar.classList.remove('mobile-open');
+  if (overlay) overlay.style.display = 'none';
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
