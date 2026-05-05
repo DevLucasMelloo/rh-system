@@ -546,15 +546,13 @@ tbody td {
 
 .dropdown-menu {
   display: none;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
+  position: fixed;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: var(--shadow-md);
   min-width: 180px;
-  z-index: 200;
+  z-index: 500;
   overflow: hidden;
 }
 
