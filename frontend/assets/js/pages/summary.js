@@ -88,13 +88,21 @@ const PageSummary = (() => {
              </div>`;
 
         const seamRows = m.seamstresses.length
-          ? m.seamstresses.map(s => `
+          ? m.seamstresses.map(s => {
+              const tipoLabel = s.payment_type === 'entrega' ? 'Entrega' : 'Mensal';
+              const tipoColor = s.payment_type === 'entrega' ? '#d97706' : '#7c3aed';
+              const tipoBg    = s.payment_type === 'entrega' ? '#fffbeb' : '#f5f3ff';
+              return `
               <div style="display:flex;justify-content:space-between;align-items:center;
                           padding:10px 16px;border-bottom:1px solid var(--border);
-                          border-left:3px solid #7c3aed;margin-bottom:1px;background:#fff">
-                <span style="font-size:13px;color:var(--text)">${s.name}</span>
+                          border-left:3px solid ${tipoColor};margin-bottom:1px;background:#fff">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:13px;color:var(--text)">${s.name}</span>
+                  <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;
+                               background:${tipoBg};color:${tipoColor};text-transform:uppercase;letter-spacing:.4px">${tipoLabel}</span>
+                </div>
                 <span style="font-size:13px;font-weight:700;color:var(--text)">${fmtMoney(s.amount)}</span>
-              </div>`).join('')
+              </div>`;}).join('')
           : `<div style="padding:28px 16px;text-align:center;color:var(--text-light);font-size:13px">
                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 8px;opacity:.4"><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>
                Sem pagamentos registrados
@@ -123,7 +131,7 @@ const PageSummary = (() => {
 
               <div style="display:flex;align-items:center;gap:14px">
                 <div style="text-align:right">
-                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-light)">Monthly Total</div>
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-light)">Mês Total</div>
                   <div style="font-size:20px;font-weight:800;color:var(--text)">${fmtMoney(m.total)}</div>
                 </div>
                 ${payIds.length > 0 ? `
@@ -149,29 +157,35 @@ const PageSummary = (() => {
 
               <!-- Funcionários -->
               <div style="border-right:1px solid var(--border)">
-                <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                  </svg>
-                  <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#2563eb">Funcionários</span>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#2563eb">Funcionários</span>
+                  </div>
+                  <span style="font-size:12px;font-weight:800;color:#2563eb">${fmtMoney(m.total_employees)}</span>
                 </div>
                 ${empRows}
               </div>
 
               <!-- Costureiras -->
               <div>
-                <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
-                    <circle cx="12" cy="12" r="3"/>
-                    <line x1="12" y1="3" x2="12" y2="9"/>
-                    <line x1="12" y1="15" x2="12" y2="21"/>
-                    <line x1="3" y1="12" x2="9" y2="12"/>
-                    <line x1="15" y1="12" x2="21" y2="12"/>
-                  </svg>
-                  <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#7c3aed">Costureiras</span>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
+                      <circle cx="12" cy="12" r="3"/>
+                      <line x1="12" y1="3" x2="12" y2="9"/>
+                      <line x1="12" y1="15" x2="12" y2="21"/>
+                      <line x1="3" y1="12" x2="9" y2="12"/>
+                      <line x1="15" y1="12" x2="21" y2="12"/>
+                    </svg>
+                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#7c3aed">Costureiras</span>
+                  </div>
+                  <span style="font-size:12px;font-weight:800;color:#7c3aed">${fmtMoney(m.total_seamstresses)}</span>
                 </div>
                 ${seamRows}
               </div>

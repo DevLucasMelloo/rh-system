@@ -147,25 +147,46 @@ def resumo_anual(
 
     result = []
     for m in sorted(months_with_data, reverse=True):
-        emp_rows = [
-            {"payroll_id": p.id, "name": p.employee.name, "net_salary": float(p.net_salary or 0)}
-            for p in payrolls if p.competence_month == m
-        ]
-        seam_rows = [
-            {"name": sp.seamstress.name, "amount": float(sp.amount or 0)}
-            for sp in seam_pays if sp.competence_month == m
-        ]
+        month_payrolls = [p for p in payrolls if p.competence_month == m]
+
+        # Agrupa por funcionário — se houver mais de um holerite no mês
+        # (ex.: rascunho + fechado), pega o de maior valor líquido (o mais atualizado)
+        from collections import defaultdict
+        emp_dict: dict[int, dict] = {}
+        for p in month_payrolls:
+            eid = p.employee_id
+            val = float(p.net_salary or 0)
+            if eid not in emp_dict or val > emp_dict[eid]["net_salary"]:
+                emp_dict[eid] = {
+                    "payroll_id": p.id,
+                    "name": p.employee.name,
+                    "net_salary": val,
+                }
+        emp_rows = sorted(emp_dict.values(), key=lambda x: x["name"])
+
+        # Agrupa costureiras por nome + tipo de pagamento, somando os valores
+        seam_dict: dict[tuple, dict] = {}
+        for sp in seam_pays:
+            if sp.competence_month != m:
+                continue
+            tipo = sp.payment_type or "mensal"   # "mensal" | "entrega"
+            key  = (sp.seamstress.name, tipo)
+            if key not in seam_dict:
+                seam_dict[key] = {"name": sp.seamstress.name, "payment_type": tipo, "amount": 0.0}
+            seam_dict[key]["amount"] += float(sp.amount or 0)
+        seam_rows = sorted(seam_dict.values(), key=lambda x: (x["name"], x["payment_type"]))
+
         total_emp  = sum(r["net_salary"] for r in emp_rows)
         total_seam = sum(r["amount"]     for r in seam_rows)
         result.append({
-            "month":               m,
-            "year":                year,
-            "month_name":          MONTH_NAMES[m - 1],
-            "employees":           emp_rows,
-            "seamstresses":        seam_rows,
-            "total_employees":     total_emp,
-            "total_seamstresses":  total_seam,
-            "total":               total_emp + total_seam,
+            "month":              m,
+            "year":               year,
+            "month_name":         MONTH_NAMES[m - 1],
+            "employees":          emp_rows,
+            "seamstresses":       seam_rows,
+            "total_employees":    total_emp,
+            "total_seamstresses": total_seam,
+            "total":              total_emp + total_seam,
         })
 
     return result
