@@ -70,9 +70,12 @@ def logout(db: Session, user_id: int) -> None:
         user_repo.update_refresh_token(db, user, None)
 
 
-def request_password_reset(db: Session, username: str, origin: str = "") -> None:
+def request_password_reset(db: Session, username: str, recovery_email: str, origin: str = "") -> None:
     user = user_repo.get_by_email(db, username)
+    # Falha silenciosa — não revela se usuário existe ou e-mail é inválido
     if not user or not user.is_active or not user.recovery_email:
+        return
+    if user.recovery_email.lower().strip() != recovery_email.lower().strip():
         return
 
     token = create_password_reset_token(username)

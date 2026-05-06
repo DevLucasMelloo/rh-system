@@ -102,32 +102,42 @@ function doLogout() {
 function openForgotPassword() {
   openModal('Recuperar Senha', `
     <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;line-height:1.5">
-      Informe seu usuário de login. Se houver um e-mail de recuperação cadastrado,
-      você receberá um link para redefinir sua senha.
+      Informe seu usuário de login e o e-mail de recuperação cadastrado na sua conta.
+      Se os dados conferem, você receberá um link para redefinir a senha.
     </p>
     <div class="form-group">
       <label>Usuário (login)</label>
-      <input class="form-control" id="fp-username" placeholder="Ex: admin" autocomplete="username">
+      <input class="form-control" id="fp-username" placeholder="Ex: admin" autocomplete="username"
+             onkeydown="if(event.key==='Enter') document.getElementById('fp-email').focus()">
+    </div>
+    <div class="form-group">
+      <label>E-mail de recuperação</label>
+      <input type="email" class="form-control" id="fp-email" placeholder="seu@email.com" autocomplete="email"
+             onkeydown="if(event.key==='Enter') doForgotPassword()">
     </div>
     <div id="fp-msg"></div>`, `
     <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
     <button class="btn btn-primary" id="fp-btn" onclick="doForgotPassword()">Enviar Link</button>`);
+
+  setTimeout(() => document.getElementById('fp-username')?.focus(), 100);
 }
 
 async function doForgotPassword() {
   const username = (document.getElementById('fp-username')?.value || '').trim();
+  const email    = (document.getElementById('fp-email')?.value || '').trim();
   const msgEl    = document.getElementById('fp-msg');
   const btn      = document.getElementById('fp-btn');
-  if (!username) {
-    if (msgEl) msgEl.innerHTML = '<div class="alert alert-error">Informe o usuário.</div>';
+
+  if (!username || !email) {
+    if (msgEl) msgEl.innerHTML = '<div class="alert alert-error">Preencha o usuário e o e-mail.</div>';
     return;
   }
   if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
   try {
-    await Api.forgotPassword(username);
+    await Api.forgotPassword(username, email);
     if (msgEl) msgEl.innerHTML = `
-      <div class="alert" style="background:#f0fdf4;border-color:#86efac;color:#166534">
-        Se o usuário existir e tiver e-mail cadastrado, o link foi enviado.
+      <div class="alert" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:8px;padding:12px">
+        Se os dados conferem, o link de redefinição foi enviado para o e-mail cadastrado.
       </div>`;
     if (btn) btn.style.display = 'none';
   } catch (e) {

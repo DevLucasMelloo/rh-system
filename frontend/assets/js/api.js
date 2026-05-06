@@ -91,7 +91,19 @@ const Api = (() => {
     const opts = { method, headers };
     if (body) opts.body = JSON.stringify(body);
 
-    const res = await fetch(url, opts);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    opts.signal = controller.signal;
+
+    let res;
+    try {
+      res = await fetch(url, opts);
+    } catch (err) {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') throw new Error('Tempo limite excedido. Tente novamente.');
+      throw new Error('Falha de conexão. Verifique sua internet.');
+    }
+    clearTimeout(timer);
 
     if (res.status === 401) {
       removeToken();
@@ -183,7 +195,7 @@ const Api = (() => {
   const adminResetPwd    = (id, body)   => patch(`/users/${id}/password`, body);
   const changeMyPwd      = (body)       => patch('/users/me/password', body);
   const updateMyProfile  = (body)       => patch('/users/me', body);
-  const forgotPassword   = (username)   => post('/auth/forgot-password', { username });
+  const forgotPassword   = (username, recovery_email) => post('/auth/forgot-password', { username, recovery_email });
   const resetPassword    = (token, new_password) => post('/auth/reset-password', { token, new_password });
 
   // ── Dashboard ─────────────────────────────────────────────────────────────

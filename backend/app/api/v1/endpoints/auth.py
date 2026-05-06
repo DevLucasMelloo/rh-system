@@ -108,7 +108,7 @@ def logout(
 @limiter.limit("3/minute")
 def forgot_password(request: Request, data: PasswordResetRequest, db: Session = Depends(get_db)):
     origin = request.headers.get("origin") or str(request.base_url).rstrip("/")
-    auth_service.request_password_reset(db, data.username, origin)
+    auth_service.request_password_reset(db, data.username, data.recovery_email, origin)
     return {"message": "Se o email existir, você receberá um link de redefinição"}
 
 

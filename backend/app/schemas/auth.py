@@ -18,6 +18,7 @@ class RefreshRequest(BaseModel):
 
 class PasswordResetRequest(BaseModel):
     username: str
+    recovery_email: str
 
 
 class PasswordResetConfirm(BaseModel):
