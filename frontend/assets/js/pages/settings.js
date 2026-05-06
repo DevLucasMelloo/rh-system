@@ -52,6 +52,25 @@ const PageSettings = (() => {
               <div class="detail-item"><label>Usuário</label><span>${user?.username || '—'}</span></div>
               <div class="detail-item"><label>Perfil</label><span>${fmtRole(user?.role)}</span></div>
             </div>
+
+            <!-- E-mail de recuperação -->
+            <div style="margin-bottom:16px;padding:14px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)">
+              <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-light);display:block;margin-bottom:8px">
+                E-mail para Recuperação de Senha
+              </label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input type="email" id="my-recovery-email" class="form-control"
+                  placeholder="seu@email.com"
+                  value="${user?.recovery_email || ''}"
+                  style="flex:1;margin:0">
+                <button class="btn btn-primary btn-sm" onclick="PageSettings.saveMyEmail()"
+                  style="white-space:nowrap;flex-shrink:0">Salvar</button>
+              </div>
+              <p style="font-size:11px;color:var(--text-light);margin:6px 0 0">
+                Usado para receber o link de redefinição de senha quando esquecer a senha.
+              </p>
+            </div>
+
             <button class="btn btn-secondary" style="width:100%;margin-bottom:8px"
               onclick="PageSettings.openChangePwd()">Alterar Senha</button>
             <button class="btn btn-danger" style="width:100%"
@@ -319,11 +338,25 @@ const PageSettings = (() => {
     }
   }
 
+  async function saveMyEmail() {
+    const email = (document.getElementById('my-recovery-email')?.value || '').trim();
+    try {
+      const updated = await Api.updateMyProfile({ recovery_email: email || null });
+      // Atualiza cache local do usuário
+      const stored = Api.getUser();
+      if (stored) { stored.recovery_email = updated.recovery_email; Api.setUser(stored); }
+      toast('E-mail salvo com sucesso!');
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
   return {
     render,
     openNewUser, saveNewUser,
     openEditUser, saveEditUser,
     openResetUserPwd, saveResetUserPwd,
     openChangePwd, saveChangePwd,
+    saveMyEmail,
   };
 })();

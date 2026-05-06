@@ -56,11 +56,28 @@ def _run_sqlite_migrations():
             pass
 
 
+def _run_pg_migrations():
+    """Aplica colunas novas em tabelas existentes — para PostgreSQL (usa IF NOT EXISTS)."""
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_email VARCHAR(200)",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                pass
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     Base.metadata.create_all(bind=engine)
     if settings.DATABASE_URL.startswith("sqlite"):
         _run_sqlite_migrations()
+    else:
+        _run_pg_migrations()
     logger.info(f"Sistema de RH iniciado — ambiente: {settings.ENVIRONMENT}")
     yield
 

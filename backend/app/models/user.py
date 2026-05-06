@@ -26,6 +26,9 @@ class User(Base):
     # None = acesso total ao perfil; lista = módulos restritos
     allowed_modules = Column(String(500), nullable=True)
 
+    # E-mail para recuperação de senha (diferente do login/username)
+    recovery_email = Column(String(200), nullable=True)
+
     # Refresh token armazenado para invalidação
     refresh_token = Column(String(500), nullable=True)
 

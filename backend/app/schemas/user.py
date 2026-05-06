@@ -44,6 +44,13 @@ class UserUpdate(BaseModel):
     role: UserRole | None = None
     is_active: bool | None = None
     allowed_modules: str | None = None
+    recovery_email: str | None = None
+
+
+class UserProfileUpdate(BaseModel):
+    """Permite que o próprio usuário atualize nome e e-mail de recuperação."""
+    name: str | None = None
+    recovery_email: str | None = None
 
 
 class PasswordChange(BaseModel):
@@ -76,5 +83,6 @@ class UserRead(BaseModel):
     role: UserRole
     is_active: bool
     allowed_modules: str | None
+    recovery_email: str | None = None
 
     model_config = {"from_attributes": True}

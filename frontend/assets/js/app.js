@@ -98,6 +98,100 @@ function doLogout() {
   btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Entrar';
 }
 
+// ── Esqueceu a senha ───────────────────────────────────────────────────────────
+function openForgotPassword() {
+  openModal('Recuperar Senha', `
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;line-height:1.5">
+      Informe seu usuário de login. Se houver um e-mail de recuperação cadastrado,
+      você receberá um link para redefinir sua senha.
+    </p>
+    <div class="form-group">
+      <label>Usuário (login)</label>
+      <input class="form-control" id="fp-username" placeholder="Ex: admin" autocomplete="username">
+    </div>
+    <div id="fp-msg"></div>`, `
+    <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" id="fp-btn" onclick="doForgotPassword()">Enviar Link</button>`);
+}
+
+async function doForgotPassword() {
+  const username = (document.getElementById('fp-username')?.value || '').trim();
+  const msgEl    = document.getElementById('fp-msg');
+  const btn      = document.getElementById('fp-btn');
+  if (!username) {
+    if (msgEl) msgEl.innerHTML = '<div class="alert alert-error">Informe o usuário.</div>';
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+  try {
+    await Api.forgotPassword(username);
+    if (msgEl) msgEl.innerHTML = `
+      <div class="alert" style="background:#f0fdf4;border-color:#86efac;color:#166534">
+        Se o usuário existir e tiver e-mail cadastrado, o link foi enviado.
+      </div>`;
+    if (btn) btn.style.display = 'none';
+  } catch (e) {
+    if (msgEl) msgEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    if (btn) { btn.disabled = false; btn.textContent = 'Enviar Link'; }
+  }
+}
+
+// ── Redefinição de senha via link (token na URL) ────────────────────────────
+function showResetPasswordForm(token) {
+  document.getElementById('login-page').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+
+  // Substitui o conteúdo do login-card por um formulário de reset
+  const card = document.querySelector('.login-card');
+  if (!card) return;
+  card.innerHTML = `
+    <h1>RH System</h1>
+    <p class="subtitle">Redefinição de Senha</p>
+    <div id="reset-error"></div>
+    <div class="form-group">
+      <label>Nova Senha</label>
+      <input type="password" class="form-control" id="reset-pwd" placeholder="Mínimo 4 caracteres"
+             onkeydown="if(event.key==='Enter') document.getElementById('reset-pwd2').focus()">
+    </div>
+    <div class="form-group">
+      <label>Confirmar Nova Senha</label>
+      <input type="password" class="form-control" id="reset-pwd2" placeholder="Repita a senha"
+             onkeydown="if(event.key==='Enter') doResetPassword('${token}')">
+    </div>
+    <button class="btn btn-primary btn-lg" id="btn-reset" onclick="doResetPassword('${token}')">
+      Redefinir Senha
+    </button>
+    <button type="button" onclick="window.location.href='/'"
+      style="background:none;border:none;color:var(--text-muted);font-size:13px;
+             cursor:pointer;margin-top:8px;width:100%;text-align:center">
+      Voltar para o login
+    </button>`;
+}
+
+async function doResetPassword(token) {
+  const pwd    = document.getElementById('reset-pwd')?.value || '';
+  const pwd2   = document.getElementById('reset-pwd2')?.value || '';
+  const errEl  = document.getElementById('reset-error');
+  const btn    = document.getElementById('btn-reset');
+
+  if (!pwd || pwd !== pwd2) {
+    if (errEl) errEl.innerHTML = '<div class="alert alert-error">As senhas não coincidem ou estão vazias.</div>';
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Redefinindo...'; }
+  try {
+    await Api.resetPassword(token, pwd);
+    if (errEl) errEl.innerHTML = `
+      <div class="alert" style="background:#f0fdf4;border-color:#86efac;color:#166534">
+        Senha redefinida! Redirecionando para o login...
+      </div>`;
+    setTimeout(() => window.location.href = '/', 2000);
+  } catch (e) {
+    if (errEl) errEl.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    if (btn) { btn.disabled = false; btn.textContent = 'Redefinir Senha'; }
+  }
+}
+
 async function checkLicenseBanner() {
   try {
     const lic = await Api.getLicense();
@@ -224,6 +318,14 @@ function navigate(page) {
       switchLoginTab('register');
     }
   } catch { /* backend offline */ }
+
+  // Verifica se há token de reset na URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const resetToken = urlParams.get('reset_token');
+  if (resetToken) {
+    showResetPasswordForm(resetToken);
+    return;
+  }
 
   // Auto-login se tiver token salvo
   if (Api.getToken()) {

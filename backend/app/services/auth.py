@@ -70,14 +70,14 @@ def logout(db: Session, user_id: int) -> None:
         user_repo.update_refresh_token(db, user, None)
 
 
-def request_password_reset(db: Session, username: str) -> None:
+def request_password_reset(db: Session, username: str, origin: str = "") -> None:
     user = user_repo.get_by_email(db, username)
-    if not user or not user.is_active:
+    if not user or not user.is_active or not user.recovery_email:
         return
 
     token = create_password_reset_token(username)
-    reset_link = f"http://localhost/reset-password?token={token}"
-    send_password_reset(username, reset_link)
+    reset_link = f"{origin}/?reset_token={token}"
+    send_password_reset(user.recovery_email, reset_link)
 
 
 def confirm_password_reset(db: Session, data: PasswordResetConfirm) -> None:

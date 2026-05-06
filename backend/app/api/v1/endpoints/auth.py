@@ -107,7 +107,8 @@ def logout(
 @router.post("/forgot-password", status_code=202)
 @limiter.limit("3/minute")
 def forgot_password(request: Request, data: PasswordResetRequest, db: Session = Depends(get_db)):
-    auth_service.request_password_reset(db, data.username)
+    origin = request.headers.get("origin") or str(request.base_url).rstrip("/")
+    auth_service.request_password_reset(db, data.username, origin)
     return {"message": "Se o email existir, você receberá um link de redefinição"}
 
 

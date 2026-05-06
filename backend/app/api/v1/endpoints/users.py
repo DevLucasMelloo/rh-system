@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.core.dependencies import get_current_user, require_admin
-from app.schemas.user import UserCreate, UserRead, UserUpdate, PasswordChange, AdminPasswordReset
+from app.schemas.user import UserCreate, UserRead, UserUpdate, UserProfileUpdate, PasswordChange, AdminPasswordReset
 from app.services import user as user_service
 from app.repositories import user as user_repo
 from app.models.user import User
@@ -32,6 +32,17 @@ def list_users(
 @router.get("/me", response_model=UserRead)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.patch("/me", response_model=UserRead)
+def update_my_profile(
+    data: UserProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Permite que o próprio usuário atualize nome e e-mail de recuperação."""
+    update = UserUpdate(name=data.name, recovery_email=data.recovery_email)
+    return user_repo.update_user(db, current_user, update)
 
 
 @router.patch("/me/password", status_code=204)

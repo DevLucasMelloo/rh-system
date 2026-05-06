@@ -182,6 +182,9 @@ const Api = (() => {
   const updateUser       = (id, body)   => patch(`/users/${id}`, body);
   const adminResetPwd    = (id, body)   => patch(`/users/${id}/password`, body);
   const changeMyPwd      = (body)       => patch('/users/me/password', body);
+  const updateMyProfile  = (body)       => patch('/users/me', body);
+  const forgotPassword   = (username)   => post('/auth/forgot-password', { username });
+  const resetPassword    = (token, new_password) => post('/auth/reset-password', { token, new_password });
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   const getDashboard      = ()     => get('/reports/dashboard');
@@ -359,5 +362,6 @@ const Api = (() => {
     getBackupInfo,
     openPayrollPdfTab,
     loadPayrollPdfInWindow,
+    updateMyProfile, forgotPassword, resetPassword,
   };
 })();
