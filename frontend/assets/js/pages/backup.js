@@ -194,9 +194,9 @@ const PageBackup = (() => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast('Backup gerado com sucesso!', 'success');
+      toast('Backup gerado com sucesso!', 'success');
     } catch (err) {
-      showToast(err.message, 'error');
+      toast(err.message, 'error');
     } finally {
       btn.disabled = false;
       btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Gerar Backup (.zip)';
@@ -272,7 +272,7 @@ const PageBackup = (() => {
     if (!_selectedFile) return;
     const user = Api.getUser();
     if (user?.role !== 'admin') {
-      showToast('Apenas administradores podem importar backups.', 'error');
+      toast('Apenas administradores podem importar backups.', 'error');
       return;
     }
 
@@ -309,14 +309,14 @@ const PageBackup = (() => {
           ✓ ${data.message} — ${data.imported ?? 0} grupo(s) de registros restaurados.
         </div>`;
       }
-      showToast('Backup importado com sucesso!', 'success');
+      toast('Backup importado com sucesso!', 'success');
       loadStats();
     } catch (err) {
       if (msg) {
         msg.style.display = 'block';
         msg.innerHTML = `<div class="alert alert-error" style="font-size:13px">${err.message}</div>`;
       }
-      showToast(err.message, 'error');
+      toast(err.message, 'error');
     } finally {
       if (btn) {
         btn.disabled = false;
