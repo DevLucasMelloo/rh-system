@@ -177,6 +177,7 @@ const PAGES = {
   employees:    PageEmployees,
   seamstresses: PageSeamstresses,
   payroll:      PagePayroll,
+  summary:      PageSummary,
   vales:        PageVales,
   rescisao:     PageRescisao,
   vacation:     PageVacation,

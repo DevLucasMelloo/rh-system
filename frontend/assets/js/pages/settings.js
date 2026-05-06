@@ -6,6 +6,7 @@ const PageSettings = (() => {
     { key: 'employees',    label: 'Funcionários' },
     { key: 'seamstresses', label: 'Costureiras' },
     { key: 'payroll',      label: 'Folha de Pagamento' },
+    { key: 'summary',      label: 'Resumo Pagamentos' },
     { key: 'vales',        label: 'Vales' },
     { key: 'rescisao',     label: 'Rescisão' },
     { key: 'vacation',     label: 'Férias' },

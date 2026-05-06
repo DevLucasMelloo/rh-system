@@ -103,6 +103,74 @@ def list_by_employee(
     return [_enrich(p) for p in payrolls]
 
 
+@router.get("/resumo-anual")
+def resumo_anual(
+    year: int = Query(..., ge=2000, le=2100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Resumo mensal do ano: funcionários + costureiras por mês."""
+    from app.models.employee import Employee
+    from app.models.seamstress import Seamstress, SeamstressPayment
+    from app.models.payroll import Payroll
+
+    company_id = current_user.company_id
+    MONTH_NAMES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+                   "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
+
+    # Coleta todos os holerites do ano para a empresa
+    emp_ids_q = db.query(Employee.id).filter(Employee.company_id == company_id).subquery()
+    payrolls  = (
+        db.query(Payroll)
+        .filter(Payroll.employee_id.in_(emp_ids_q), Payroll.competence_year == year)
+        .join(Employee, Employee.id == Payroll.employee_id)
+        .order_by(Payroll.competence_month, Employee.name)
+        .all()
+    )
+
+    # Coleta pagamentos de costureiras do ano
+    seam_ids_q = db.query(Seamstress.id).filter(Seamstress.company_id == company_id).subquery()
+    seam_pays  = (
+        db.query(SeamstressPayment)
+        .filter(SeamstressPayment.seamstress_id.in_(seam_ids_q),
+                SeamstressPayment.competence_year == year)
+        .join(Seamstress, Seamstress.id == SeamstressPayment.seamstress_id)
+        .order_by(SeamstressPayment.competence_month, Seamstress.name)
+        .all()
+    )
+
+    # Monta dicionário por mês
+    months_with_data: set[int] = set(
+        [p.competence_month for p in payrolls] +
+        [sp.competence_month for sp in seam_pays if sp.competence_month]
+    )
+
+    result = []
+    for m in sorted(months_with_data, reverse=True):
+        emp_rows = [
+            {"payroll_id": p.id, "name": p.employee.name, "net_salary": float(p.net_salary or 0)}
+            for p in payrolls if p.competence_month == m
+        ]
+        seam_rows = [
+            {"name": sp.seamstress.name, "amount": float(sp.amount or 0)}
+            for sp in seam_pays if sp.competence_month == m
+        ]
+        total_emp  = sum(r["net_salary"] for r in emp_rows)
+        total_seam = sum(r["amount"]     for r in seam_rows)
+        result.append({
+            "month":               m,
+            "year":                year,
+            "month_name":          MONTH_NAMES[m - 1],
+            "employees":           emp_rows,
+            "seamstresses":        seam_rows,
+            "total_employees":     total_emp,
+            "total_seamstresses":  total_seam,
+            "total":               total_emp + total_seam,
+        })
+
+    return result
+
+
 @router.get("/vales", response_model=list[ValeRead])
 def list_all_vales(
     db: Session = Depends(get_db),
