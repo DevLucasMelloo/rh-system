@@ -77,10 +77,27 @@ const PageSummary = (() => {
         const empRows = m.employees.length
           ? m.employees.map(e => `
               <div style="display:flex;justify-content:space-between;align-items:center;
-                          padding:10px 16px;border-bottom:1px solid var(--border);
-                          border-left:3px solid #2563eb;margin-bottom:1px;background:#fff">
+                          padding:9px 16px;border-bottom:1px solid var(--border);
+                          border-left:3px solid #2563eb;background:#fff">
                 <span style="font-size:13px;color:var(--text)">${e.name}</span>
-                <span style="font-size:13px;font-weight:700;color:var(--text)">${fmtMoney(e.net_salary)}</span>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="font-size:13px;font-weight:700;color:var(--text)">${fmtMoney(e.net_salary)}</span>
+                  ${e.payroll_id ? `
+                  <button
+                    title="Imprimir holerite de ${e.name}"
+                    onclick="PageSummary.printOne(${e.payroll_id}, this)"
+                    style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);
+                           background:#fff;cursor:pointer;display:flex;align-items:center;
+                           justify-content:center;transition:all .15s;flex-shrink:0;padding:0"
+                    onmouseover="this.style.background='#eff6ff';this.style.borderColor='#2563eb'"
+                    onmouseout="this.style.background='#fff';this.style.borderColor='var(--border)'">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2">
+                      <polyline points="6 9 6 2 18 2 18 9"/>
+                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                      <rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                  </button>` : ''}
+                </div>
               </div>`).join('')
           : `<div style="padding:28px 16px;text-align:center;color:var(--text-light);font-size:13px">
                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 8px;opacity:.4"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
@@ -215,72 +232,38 @@ const PageSummary = (() => {
       </div>`;
   }
 
-  async function printMonth(payrollIds, monthName, year) {
-    if (!payrollIds || payrollIds.length === 0) return;
-    const btn = event.currentTarget;
-    const origInner = btn.innerHTML;
-    btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div>';
+  async function printOne(payrollId, btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<div class="spinner" style="width:12px;height:12px;border-width:2px"></div>';
     btn.disabled = true;
-
     try {
-      const payrolls = await Promise.all(payrollIds.map(id => Api.request('GET', `/payroll/${id}`)));
-
-      const win = window.open('', '_blank');
-      if (!win) { toast('Permita pop-ups para imprimir.', 'error'); return; }
-
-      const rows = payrolls.map(p => {
-        const items     = p.items || [];
-        const credits   = items.filter(i => i.is_credit).map(i =>
-          `<tr><td style="padding:5px 8px;font-size:12px">${i.description}</td>
-               <td style="padding:5px 8px;font-size:12px;text-align:right;color:#16a34a">+ ${fmtMoney(i.amount)}</td></tr>`).join('');
-        const discounts = items.filter(i => !i.is_credit).map(i =>
-          `<tr><td style="padding:5px 8px;font-size:12px">${i.description}</td>
-               <td style="padding:5px 8px;font-size:12px;text-align:right;color:#dc2626">- ${fmtMoney(i.amount)}</td></tr>`).join('');
-
-        return `
-          <div style="border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin-bottom:20px;page-break-inside:avoid">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;
-                        margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #2563eb">
-              <div>
-                <div style="font-size:16px;font-weight:800;color:#1e293b">${p.employee_name || '—'}</div>
-                <div style="font-size:12px;color:#64748b">${p.employee_role || ''}</div>
-              </div>
-              <div style="text-align:right">
-                <div style="font-size:11px;color:#64748b">Competência</div>
-                <div style="font-size:13px;font-weight:700">${String(p.competence_month).padStart(2,'0')}/${p.competence_year}</div>
-              </div>
-            </div>
-            <table style="width:100%;border-collapse:collapse;margin-bottom:10px">${credits}${discounts}</table>
-            <div style="display:flex;justify-content:space-between;align-items:center;
-                        padding-top:10px;border-top:1px solid #e2e8f0">
-              <span style="font-size:13px;font-weight:700;color:#1e293b">Salário Líquido</span>
-              <span style="font-size:16px;font-weight:800;color:#16a34a">${fmtMoney(p.net_salary)}</span>
-            </div>
-          </div>`;
-      }).join('');
-
-      win.document.write(`<!DOCTYPE html><html><head>
-        <meta charset="UTF-8">
-        <title>Holerites — ${monthName} ${year}</title>
-        <style>
-          *{box-sizing:border-box;margin:0;padding:0}
-          body{font-family:'Segoe UI',Arial,sans-serif;padding:24px;background:#fff;color:#1e293b}
-          h1{font-size:18px;margin-bottom:20px;color:#0f172a}
-          @media print{@page{margin:15mm}body{padding:0}}
-        </style>
-      </head><body>
-        <h1>Holerites — ${monthName} / ${year}</h1>${rows}
-        <script>window.onload=function(){window.print()}<\/script>
-      </body></html>`);
-      win.document.close();
-
+      await Api.openPayrollPdfTab(payrollId);
     } catch (err) {
-      toast('Erro ao gerar impressão: ' + err.message, 'error');
+      toast(err.message, 'error');
     } finally {
-      btn.innerHTML = origInner;
+      btn.innerHTML = orig;
       btn.disabled = false;
     }
   }
 
-  return { render, changeYear, printMonth };
+  async function printMonth(payrollIds, monthName, year) {
+    if (!payrollIds || payrollIds.length === 0) return;
+    const btn = event.currentTarget;
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div>';
+    btn.disabled = true;
+    try {
+      for (let i = 0; i < payrollIds.length; i++) {
+        await Api.openPayrollPdfTab(payrollIds[i]);
+        if (i < payrollIds.length - 1) await new Promise(r => setTimeout(r, 500));
+      }
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.innerHTML = orig;
+      btn.disabled = false;
+    }
+  }
+
+  return { render, changeYear, printOne, printMonth };
 })();

@@ -225,6 +225,19 @@ const Api = (() => {
   const deletePayrollItem = (pid, iid)    => del(`/payroll/${pid}/items/${iid}`);
   const getPayrollPdf     = (id)          => download(`/payroll/${id}/pdf`, null, `holerite_${id}.pdf`);
 
+  async function openPayrollPdfTab(id) {
+    const token = getToken();
+    const res   = await fetch(`${API_BASE}/payroll/${id}/pdf`, {
+      headers: token ? { Authorization: 'Bearer ' + token } : {}
+    });
+    if (!res.ok) throw new Error('Falha ao abrir holerite');
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const tab  = window.open(url, '_blank');
+    if (!tab) throw new Error('Permita pop-ups para abrir o holerite');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
   // ── Vales ─────────────────────────────────────────────────────────────────
   const getAllVales  = ()             => get('/payroll/vales');
   const getVales    = (empId)        => get(`/payroll/employees/${empId}/vales`);
@@ -332,5 +345,6 @@ const Api = (() => {
     generateThirteenth, generateThirteenthBatch, listThirteenth, updateThirteenth, markThirteenthPaid, deleteThirteenth, exportThirteenth,
     getLicense, renewLicense, deactivateLicense,
     getBackupInfo,
+    openPayrollPdfTab,
   };
 })();
