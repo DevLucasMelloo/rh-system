@@ -1,3 +1,6 @@
+# Scripts locais de teste
+seed_test_data.py
+
 # Nunca subir — segredos e dados
 .env
 *.db
