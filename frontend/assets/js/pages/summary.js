@@ -1,16 +1,11 @@
 const PageSummary = (() => {
 
-  const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-                       'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-
   function fmtMoney(v) {
     return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   async function render(container) {
-    const el = document.getElementById('page-content');
-    if (!el) return;
-
+    if (!container) return;
     const year = new Date().getFullYear();
 
     container.innerHTML = `
@@ -30,8 +25,7 @@ const PageSummary = (() => {
           <div class="spinner" style="width:32px;height:32px;margin:0 auto 12px"></div>
           <div style="color:var(--text-light);font-size:14px">Carregando resumo...</div>
         </div>
-      </div>
-    `;
+      </div>`;
 
     loadSummary(year);
   }
@@ -47,6 +41,8 @@ const PageSummary = (() => {
 
     try {
       const data = await Api.request('GET', `/payroll/resumo-anual?year=${year}`);
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear  = new Date().getFullYear();
 
       if (!data || data.length === 0) {
         body.innerHTML = `
@@ -58,163 +54,179 @@ const PageSummary = (() => {
         return;
       }
 
-      // Total anual
-      const totalAno = data.reduce((s, m) => s + m.total, 0);
+      // ── Totais anuais ──────────────────────────────────────────────────────
+      const totalAno     = data.reduce((s, m) => s + m.total, 0);
       const totalEmpAno  = data.reduce((s, m) => s + m.total_employees, 0);
       const totalSeamAno = data.reduce((s, m) => s + m.total_seamstresses, 0);
 
       let html = `
-        <!-- Totalizador anual -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px">
-          <div class="card" style="padding:20px 24px">
-            <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-light);margin-bottom:6px">Total Funcionários ${year}</div>
-            <div style="font-size:22px;font-weight:800;color:#2563eb">${fmtMoney(totalEmpAno)}</div>
-          </div>
-          <div class="card" style="padding:20px 24px">
-            <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-light);margin-bottom:6px">Total Costureiras ${year}</div>
-            <div style="font-size:22px;font-weight:800;color:#7c3aed">${fmtMoney(totalSeamAno)}</div>
-          </div>
-          <div class="card" style="padding:20px 24px">
-            <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-light);margin-bottom:6px">Total Geral ${year}</div>
-            <div style="font-size:22px;font-weight:800;color:#16a34a">${fmtMoney(totalAno)}</div>
-          </div>
-        </div>
-      `;
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px">
+          ${_statCard('Funcionários ' + year, fmtMoney(totalEmpAno), '#2563eb', '#eff6ff',
+            '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>')}
+          ${_statCard('Costureiras ' + year, fmtMoney(totalSeamAno), '#7c3aed', '#f5f3ff',
+            '<circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/>')}
+          ${_statCard('Total Geral ' + year, fmtMoney(totalAno), '#16a34a', '#f0fdf4',
+            '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>')}
+        </div>`;
 
-      // Card por mês
+      // ── Card por mês ───────────────────────────────────────────────────────
       for (const m of data) {
-        const payIds = m.employees.map(e => e.payroll_id).filter(Boolean);
+        const payIds     = m.employees.map(e => e.payroll_id).filter(Boolean);
+        const isCurrent  = m.month === currentMonth && m.year === currentYear;
 
-        // Linhas de funcionários
-        let empRows = m.employees.length
+        const empRows = m.employees.length
           ? m.employees.map(e => `
-              <tr>
-                <td style="padding:8px 12px;font-size:13px;color:var(--text)">${e.name}</td>
-                <td style="padding:8px 12px;font-size:13px;font-weight:600;color:var(--text);text-align:right">${fmtMoney(e.net_salary)}</td>
-              </tr>`).join('')
-          : `<tr><td colspan="2" style="padding:12px;text-align:center;color:var(--text-light);font-size:13px">Sem holerites</td></tr>`;
+              <div style="display:flex;justify-content:space-between;align-items:center;
+                          padding:10px 16px;border-bottom:1px solid var(--border);
+                          border-left:3px solid #2563eb;margin-bottom:1px;background:#fff">
+                <span style="font-size:13px;color:var(--text)">${e.name}</span>
+                <span style="font-size:13px;font-weight:700;color:var(--text)">${fmtMoney(e.net_salary)}</span>
+              </div>`).join('')
+          : `<div style="padding:28px 16px;text-align:center;color:var(--text-light);font-size:13px">
+               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 8px;opacity:.4"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+               Sem holerites
+             </div>`;
 
-        // Linhas de costureiras
-        let seamRows = m.seamstresses.length
+        const seamRows = m.seamstresses.length
           ? m.seamstresses.map(s => `
-              <tr>
-                <td style="padding:8px 12px;font-size:13px;color:var(--text)">${s.name}</td>
-                <td style="padding:8px 12px;font-size:13px;font-weight:600;color:var(--text);text-align:right">${fmtMoney(s.amount)}</td>
-              </tr>`).join('')
-          : `<tr><td colspan="2" style="padding:12px;text-align:center;color:var(--text-light);font-size:13px">Sem pagamentos</td></tr>`;
+              <div style="display:flex;justify-content:space-between;align-items:center;
+                          padding:10px 16px;border-bottom:1px solid var(--border);
+                          border-left:3px solid #7c3aed;margin-bottom:1px;background:#fff">
+                <span style="font-size:13px;color:var(--text)">${s.name}</span>
+                <span style="font-size:13px;font-weight:700;color:var(--text)">${fmtMoney(s.amount)}</span>
+              </div>`).join('')
+          : `<div style="padding:28px 16px;text-align:center;color:var(--text-light);font-size:13px">
+               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 8px;opacity:.4"><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="21"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>
+               Sem pagamentos registrados
+             </div>`;
 
         html += `
-          <div class="card" style="margin-bottom:20px;overflow:hidden">
-            <!-- Cabeçalho do mês -->
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--bg);border-bottom:1px solid var(--border)">
-              <div style="display:flex;align-items:center;gap:14px">
-                <div style="width:40px;height:40px;border-radius:10px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#2563eb">${m.month.toString().padStart(2,'0')}</div>
+          <div class="card" style="margin-bottom:18px;overflow:hidden">
+
+            <!-- Cabeçalho -->
+            <div style="display:flex;align-items:center;justify-content:space-between;
+                        padding:16px 20px;border-bottom:1px solid var(--border)">
+              <div style="display:flex;align-items:center;gap:12px">
                 <div>
-                  <div style="font-size:16px;font-weight:700;color:var(--text)">${m.month_name} / ${m.year}</div>
-                  <div style="font-size:12px;color:var(--text-light)">
-                    ${m.employees.length} func. · ${m.seamstresses.length} costureira${m.seamstresses.length !== 1 ? 's' : ''}
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <span style="font-size:17px;font-weight:800;color:var(--text)">${m.month_name} / ${m.year}</span>
+                    ${isCurrent ? `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+                                        background:#ede9fe;color:#7c3aed;padding:3px 8px;border-radius:20px">
+                                    Período Atual
+                                  </span>` : ''}
+                  </div>
+                  <div style="font-size:12px;color:var(--text-light);margin-top:2px">
+                    ${m.employees.length} funcionário${m.employees.length !== 1?'s':''} · ${m.seamstresses.length} costureira${m.seamstresses.length !== 1?'s':''}
                   </div>
                 </div>
               </div>
-              <div style="display:flex;align-items:center;gap:16px">
+
+              <div style="display:flex;align-items:center;gap:14px">
                 <div style="text-align:right">
-                  <div style="font-size:11px;color:var(--text-light);font-weight:600;text-transform:uppercase">Total do mês</div>
-                  <div style="font-size:18px;font-weight:800;color:#16a34a">${fmtMoney(m.total)}</div>
+                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-light)">Monthly Total</div>
+                  <div style="font-size:20px;font-weight:800;color:var(--text)">${fmtMoney(m.total)}</div>
                 </div>
                 ${payIds.length > 0 ? `
                 <button
                   title="Imprimir todos os holerites de ${m.month_name}"
                   onclick="PageSummary.printMonth(${JSON.stringify(payIds)}, '${m.month_name}', ${m.year})"
-                  style="width:38px;height:38px;border-radius:9px;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0"
+                  style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);
+                         background:#fff;cursor:pointer;display:flex;align-items:center;
+                         justify-content:center;transition:all .15s;flex-shrink:0"
                   onmouseover="this.style.background='#eff6ff';this.style.borderColor='#2563eb'"
                   onmouseout="this.style.background='#fff';this.style.borderColor='var(--border)'">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2">
+                    <polyline points="6 9 6 2 18 2 18 9"/>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                    <rect x="6" y="14" width="12" height="8"/>
+                  </svg>
                 </button>` : ''}
               </div>
             </div>
 
-            <!-- Tabelas lado a lado -->
+            <!-- Colunas -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
 
               <!-- Funcionários -->
               <div style="border-right:1px solid var(--border)">
-                <div style="padding:10px 12px;background:#f8fafc;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#2563eb">Funcionários</span>
-                  <span style="font-size:12px;font-weight:700;color:#2563eb">${fmtMoney(m.total_employees)}</span>
+                <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#2563eb">Funcionários</span>
                 </div>
-                <table style="width:100%;border-collapse:collapse">
-                  <thead>
-                    <tr style="background:#fafafa">
-                      <th style="padding:7px 12px;font-size:11px;font-weight:600;color:var(--text-light);text-align:left;border-bottom:1px solid var(--border)">Funcionário</th>
-                      <th style="padding:7px 12px;font-size:11px;font-weight:600;color:var(--text-light);text-align:right;border-bottom:1px solid var(--border)">Valor Líquido</th>
-                    </tr>
-                  </thead>
-                  <tbody>${empRows}</tbody>
-                </table>
+                ${empRows}
               </div>
 
               <!-- Costureiras -->
               <div>
-                <div style="padding:10px 12px;background:#f8fafc;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#7c3aed">Costureiras</span>
-                  <span style="font-size:12px;font-weight:700;color:#7c3aed">${fmtMoney(m.total_seamstresses)}</span>
+                <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <line x1="12" y1="3" x2="12" y2="9"/>
+                    <line x1="12" y1="15" x2="12" y2="21"/>
+                    <line x1="3" y1="12" x2="9" y2="12"/>
+                    <line x1="15" y1="12" x2="21" y2="12"/>
+                  </svg>
+                  <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#7c3aed">Costureiras</span>
                 </div>
-                <table style="width:100%;border-collapse:collapse">
-                  <thead>
-                    <tr style="background:#fafafa">
-                      <th style="padding:7px 12px;font-size:11px;font-weight:600;color:var(--text-light);text-align:left;border-bottom:1px solid var(--border)">Costureira</th>
-                      <th style="padding:7px 12px;font-size:11px;font-weight:600;color:var(--text-light);text-align:right;border-bottom:1px solid var(--border)">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>${seamRows}</tbody>
-                </table>
+                ${seamRows}
               </div>
 
             </div>
-          </div>
-        `;
+          </div>`;
       }
 
       body.innerHTML = html;
 
     } catch (err) {
-      if (!body) return;
-      body.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+      const b = document.getElementById('summary-body');
+      if (b) b.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
     }
+  }
+
+  function _statCard(label, value, color, bg, iconPath) {
+    return `
+      <div class="card" style="padding:18px 22px;display:flex;align-items:center;gap:14px">
+        <div style="width:42px;height:42px;border-radius:11px;background:${bg};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2">${iconPath}</svg>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-light);margin-bottom:4px">${label}</div>
+          <div style="font-size:19px;font-weight:800;color:${color}">${value}</div>
+        </div>
+      </div>`;
   }
 
   async function printMonth(payrollIds, monthName, year) {
     if (!payrollIds || payrollIds.length === 0) return;
-
     const btn = event.currentTarget;
     const origInner = btn.innerHTML;
     btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div>';
     btn.disabled = true;
 
     try {
-      // Busca dados de todos os holerites do mês
-      const payrolls = await Promise.all(
-        payrollIds.map(id => Api.request('GET', `/payroll/${id}`))
-      );
+      const payrolls = await Promise.all(payrollIds.map(id => Api.request('GET', `/payroll/${id}`)));
 
       const win = window.open('', '_blank');
-      if (!win) {
-        toast('Permita pop-ups para imprimir.', 'error');
-        return;
-      }
+      if (!win) { toast('Permita pop-ups para imprimir.', 'error'); return; }
 
       const rows = payrolls.map(p => {
-        const items = (p.items || []);
-        const credits  = items.filter(i => i.is_credit).map(i =>
-          `<tr><td style="padding:4px 8px;font-size:12px">${i.description}</td><td style="padding:4px 8px;font-size:12px;text-align:right;color:#16a34a">+ ${fmtMoney(i.amount)}</td></tr>`
-        ).join('');
+        const items     = p.items || [];
+        const credits   = items.filter(i => i.is_credit).map(i =>
+          `<tr><td style="padding:5px 8px;font-size:12px">${i.description}</td>
+               <td style="padding:5px 8px;font-size:12px;text-align:right;color:#16a34a">+ ${fmtMoney(i.amount)}</td></tr>`).join('');
         const discounts = items.filter(i => !i.is_credit).map(i =>
-          `<tr><td style="padding:4px 8px;font-size:12px">${i.description}</td><td style="padding:4px 8px;font-size:12px;text-align:right;color:#dc2626">- ${fmtMoney(i.amount)}</td></tr>`
-        ).join('');
+          `<tr><td style="padding:5px 8px;font-size:12px">${i.description}</td>
+               <td style="padding:5px 8px;font-size:12px;text-align:right;color:#dc2626">- ${fmtMoney(i.amount)}</td></tr>`).join('');
 
         return `
           <div style="border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin-bottom:20px;page-break-inside:avoid">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #2563eb">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;
+                        margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #2563eb">
               <div>
                 <div style="font-size:16px;font-weight:800;color:#1e293b">${p.employee_name || '—'}</div>
                 <div style="font-size:12px;color:#64748b">${p.employee_role || ''}</div>
@@ -224,10 +236,9 @@ const PageSummary = (() => {
                 <div style="font-size:13px;font-weight:700">${String(p.competence_month).padStart(2,'0')}/${p.competence_year}</div>
               </div>
             </div>
-            <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
-              ${credits}${discounts}
-            </table>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid #e2e8f0">
+            <table style="width:100%;border-collapse:collapse;margin-bottom:10px">${credits}${discounts}</table>
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        padding-top:10px;border-top:1px solid #e2e8f0">
               <span style="font-size:13px;font-weight:700;color:#1e293b">Salário Líquido</span>
               <span style="font-size:16px;font-weight:800;color:#16a34a">${fmtMoney(p.net_salary)}</span>
             </div>
@@ -238,18 +249,14 @@ const PageSummary = (() => {
         <meta charset="UTF-8">
         <title>Holerites — ${monthName} ${year}</title>
         <style>
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 24px; background: #fff; color: #1e293b; }
-          h1 { font-size: 18px; margin-bottom: 20px; color: #0f172a; }
-          @media print {
-            @page { margin: 15mm; }
-            body { padding: 0; }
-          }
+          *{box-sizing:border-box;margin:0;padding:0}
+          body{font-family:'Segoe UI',Arial,sans-serif;padding:24px;background:#fff;color:#1e293b}
+          h1{font-size:18px;margin-bottom:20px;color:#0f172a}
+          @media print{@page{margin:15mm}body{padding:0}}
         </style>
       </head><body>
-        <h1>Holerites — ${monthName} / ${year}</h1>
-        ${rows}
-        <script>window.onload = function(){ window.print(); }<\/script>
+        <h1>Holerites — ${monthName} / ${year}</h1>${rows}
+        <script>window.onload=function(){window.print()}<\/script>
       </body></html>`);
       win.document.close();
 
