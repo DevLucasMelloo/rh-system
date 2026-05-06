@@ -249,13 +249,19 @@ const PageSummary = (() => {
   async function printMonth(payrollIds, monthName, year) {
     if (!payrollIds || payrollIds.length === 0) return;
     const btn = event.currentTarget;
+
+    // Abre todas as janelas em branco sincronamente (antes de qualquer await)
+    // para não ser bloqueado pelo popup-blocker do navegador
+    const wins = payrollIds.map((_, i) =>
+      window.open('about:blank', `_payslip_${monthName}_${year}_${i}`)
+    );
+
     const orig = btn.innerHTML;
     btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div>';
     btn.disabled = true;
     try {
       for (let i = 0; i < payrollIds.length; i++) {
-        await Api.openPayrollPdfTab(payrollIds[i]);
-        if (i < payrollIds.length - 1) await new Promise(r => setTimeout(r, 500));
+        if (wins[i]) await Api.loadPayrollPdfInWindow(payrollIds[i], wins[i]);
       }
     } catch (err) {
       toast(err.message, 'error');

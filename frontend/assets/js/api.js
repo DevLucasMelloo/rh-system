@@ -238,6 +238,18 @@ const Api = (() => {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
 
+  async function loadPayrollPdfInWindow(id, win) {
+    const token = getToken();
+    const res   = await fetch(`${API_BASE}/payroll/${id}/pdf`, {
+      headers: token ? { Authorization: 'Bearer ' + token } : {}
+    });
+    if (!res.ok) throw new Error('Falha ao carregar holerite');
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    win.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
   // ── Vales ─────────────────────────────────────────────────────────────────
   const getAllVales  = ()             => get('/payroll/vales');
   const getVales    = (empId)        => get(`/payroll/employees/${empId}/vales`);
@@ -346,5 +358,6 @@ const Api = (() => {
     getLicense, renewLicense, deactivateLicense,
     getBackupInfo,
     openPayrollPdfTab,
+    loadPayrollPdfInWindow,
   };
 })();
