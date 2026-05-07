@@ -123,6 +123,9 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         n = vac_count  # first unclaimed period index
         vencimento = _add_months(emp.registration_date, (n + 2) * 12)
         days_left = (vencimento - today).days
+        # Mostra apenas vencidas (qualquer prazo) ou vencendo em até 60 dias
+        if not (overdue > 0 or days_left <= 60):
+            continue
         expiring.append(VacationExpiringRead(
             employee_id=emp.id,
             employee_name=emp.name,
