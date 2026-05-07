@@ -113,12 +113,12 @@ POST /admin/license/renew
 { "company_id": 1, "months": 1 }
 ```
 
-- [x] Criar tabela `licenses` no banco
-- [x] Implementar middleware de verificação de licença
-- [x] Criar endpoint de renovação protegido por senha master
-- [x] Implementar tela de bloqueio no frontend com dados de contato
-- [x] Configurar carência (3 dias após vencimento antes de bloquear)
-- [x] Testar fluxo completo: vencimento → bloqueio → renovação → desbloqueio
+- [X] Criar tabela `licenses` no banco
+- [X] Implementar middleware de verificação de licença
+- [X] Criar endpoint de renovação protegido por senha master
+- [X] Implementar tela de bloqueio no frontend com dados de contato
+- [X] Configurar carência (3 dias após vencimento antes de bloquear)
+- [X] Testar fluxo completo: vencimento → bloqueio → renovação → desbloqueio
 
 ### Tela de Bloqueio (exemplo)
 
@@ -184,9 +184,9 @@ Entre em contato para renovar o acesso.
 
 ### Email (Resend)
 
-- [ ] Integrar Resend ao FastAPI (`pip install resend`)
-- [ ] Email de boas-vindas ao cadastrar novo usuário
-- [ ] Recuperação de senha por email com token temporário
+- [X] Integrar Resend ao FastAPI (`pip install resend`) — resend==2.10.0 adicionado ao requirements.txt
+- [X] Email de boas-vindas ao cadastrar novo usuário — `send_welcome()` implementado em email.py
+- [X] Recuperação de senha por email com token temporário — fluxo completo: modal "Esqueceu a senha?" (usuário + e-mail), token JWT 15min, link com reset_token na URL, formulário de nova senha, testado e funcionando
 - [ ] Notificação automática quando férias de funcionário estiver vencendo
 - [ ] Relatório mensal resumido enviado por email para o RH
 

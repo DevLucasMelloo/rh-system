@@ -43,3 +43,6 @@ loguru==0.7.3
 
 # Email
 resend==2.10.0
+
+# Scheduler (jobs periódicos)
+apscheduler==3.10.4

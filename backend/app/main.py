@@ -78,8 +78,11 @@ async def lifespan(_app: FastAPI):
         _run_sqlite_migrations()
     else:
         _run_pg_migrations()
+    from app.utils.scheduler import start_scheduler
+    scheduler = start_scheduler()
     logger.info(f"Sistema de RH iniciado — ambiente: {settings.ENVIRONMENT}")
     yield
+    scheduler.shutdown(wait=False)
 
 
 app = FastAPI(
