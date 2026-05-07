@@ -100,8 +100,41 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
     birthdays.sort(key=lambda b: b.birth_day)
 
     # ── Férias expirando/vencidas (detalhado) ────────────────────────────────
+    from app.services.vacation import _add_months, _months_registered
+    from app.repositories import vacation as vac_repo_r
+
     expiring: list[VacationExpiringRead] = []
+    covered_emp_ids: set[int] = set()
+
+    # 1) Funcionários com períodos vencidos mas SEM férias agendadas no banco
+    for emp in active:
+        if not emp.registration_date:
+            continue
+        months = _months_registered(emp.registration_date)
+        periods_acq_ended  = months // 12
+        periods_conc_ended = max(0, periods_acq_ended - 1)
+        vac_count = vac_repo_r.count_non_cancelled_by_employee(db, emp.id)
+        overdue = max(0, periods_conc_ended - vac_count)
+        if overdue <= 0:
+            continue
+        n = vac_count  # first unclaimed period index
+        vencimento = _add_months(emp.registration_date, (n + 2) * 12)
+        days_left = (vencimento - today).days
+        expiring.append(VacationExpiringRead(
+            employee_id=emp.id,
+            employee_name=emp.name,
+            role=getattr(emp, "role", None),
+            acquisition_end=vencimento,
+            days_until_expiry=days_left,
+            is_expired=True,
+            status="vencida",
+        ))
+        covered_emp_ids.add(emp.id)
+
+    # 2) Férias agendadas/ativas com prazo vencendo nos próximos 60 dias
     for v in vacs_expiring:
+        if v.employee_id in covered_emp_ids:
+            continue
         emp = db.get(Employee, v.employee_id)
         days_left = (v.acquisition_end - today).days
         expiring.append(VacationExpiringRead(

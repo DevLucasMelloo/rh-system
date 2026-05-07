@@ -83,17 +83,25 @@ const PageVacation = (() => {
 
         const vencimento = e.vencimento ? fmt.date(e.vencimento) : '—';
 
+        const waiveBtn = e.overdue_periods > 0
+          ? `<button class="btn btn-secondary btn-sm" style="white-space:nowrap;margin-left:6px;color:var(--text-muted)"
+               title="Anular períodos retroativos para funcionário cadastrado com histórico anterior"
+               onclick="PageVacation.openWaive(${e.employee_id},'${e.employee_name.replace(/'/g,"\\'")}')">
+               ✕ Anular períodos
+             </button>`
+          : '';
+
         return `<tr>
           <td><strong>${e.employee_name}</strong></td>
           <td style="font-size:12px;color:var(--text-muted)">${fmt.date(e.registration_date)}</td>
           <td style="font-size:12px${e.vacation_status==='vencida'?';color:var(--danger);font-weight:600':''}">${vencimento}</td>
           <td>${statusBadge}</td>
           <td>${periodoHtml}</td>
-          <td style="text-align:right">
+          <td style="text-align:right;white-space:nowrap">
             <button class="btn btn-secondary btn-sm" style="white-space:nowrap"
               onclick="PageVacation.openNew(${e.employee_id})">
               📅 Programar
-            </button>
+            </button>${waiveBtn}
           </td>
         </tr>`;
       }).join('');
@@ -758,6 +766,70 @@ const PageVacation = (() => {
     win.document.close();
   }
 
+  // ── Anular períodos retroativos ───────────────────────────────────────────
+  async function openWaive(empId, empName) {
+    let eligibility;
+    try {
+      eligibility = await Api.getVacationEligibility(empId);
+    } catch (e) {
+      toast('Erro ao carregar períodos: ' + e.message, 'error');
+      return;
+    }
+
+    const overduePeriods = (eligibility.available_periods || []).filter(p => p.is_overdue);
+    if (!overduePeriods.length) {
+      toast('Nenhum período vencido encontrado para este funcionário.', 'warning');
+      return;
+    }
+
+    const periodsHtml = overduePeriods.map((p, i) => `
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer">
+        <input type="checkbox" id="waive-p-${i}" data-start="${p.acq_start}" data-end="${p.acq_end}" checked style="width:16px;height:16px">
+        <span>
+          <strong>${p.period_number}º Período</strong>
+          <span style="color:var(--text-muted);font-size:12px"> — ${fmt.date(p.acq_start)} a ${fmt.date(p.acq_end)}</span>
+          <span style="color:var(--danger);font-size:11px;margin-left:6px">⚠ Vencido</span>
+        </span>
+      </label>`).join('');
+
+    openModal(`Anular Períodos — ${empName}`, `
+      <div class="alert alert-warning" style="margin-bottom:16px;font-size:13px">
+        Use esta opção para funcionários cadastrados retroativamente cujas férias anteriores não foram registradas no sistema.
+        Os períodos selecionados serão marcados como <strong>Anulados</strong> e não aparecerão mais como vencidos.
+      </div>
+      <div style="margin-bottom:8px;font-weight:600;font-size:13px">Selecione os períodos a anular:</div>
+      ${periodsHtml}
+      <div id="waive-error" style="margin-top:12px"></div>`,
+      `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+       <button class="btn btn-danger" onclick="PageVacation.saveWaive(${empId},${overduePeriods.length})">Anular Selecionados</button>`
+    );
+    window._waiveEmpId = empId;
+    window._waivePeriodCount = overduePeriods.length;
+  }
+
+  async function saveWaive(empId, count) {
+    const periods = [];
+    for (let i = 0; i < count; i++) {
+      const cb = document.getElementById(`waive-p-${i}`);
+      if (cb && cb.checked) {
+        periods.push({ acq_start: cb.dataset.start, acq_end: cb.dataset.end });
+      }
+    }
+    if (!periods.length) {
+      toast('Selecione ao menos um período.', 'error');
+      return;
+    }
+    try {
+      const res = await Api.waiveVacationPeriods({ employee_id: empId, periods });
+      closeModal();
+      toast(`${res.waived} período(s) anulado(s) com sucesso.`);
+      loadOverview();
+    } catch (e) {
+      const el = document.getElementById('waive-error');
+      if (el) el.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    }
+  }
+
   return {
     render, loadOverview, loadEmployee,
     openNew, _onNewEmpChange, _onPeriodChange, _onSellAllChange, _onNewDaysChange, _onNewCalcChange, saveNew,
@@ -766,5 +838,6 @@ const PageVacation = (() => {
     openEdit, _onEditSellAll, saveEdit,
     deleteVac, startVac, _confirmStart, completeVac,
     printVac,
+    openWaive, saveWaive,
   };
 })();
