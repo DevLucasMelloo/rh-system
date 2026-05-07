@@ -100,70 +100,37 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
     birthdays.sort(key=lambda b: b.birth_day)
 
     # ── Férias expirando/vencidas (detalhado) ────────────────────────────────
-    from app.services.vacation import _add_months, _months_registered
-    from app.repositories import vacation as vac_repo_r
+    # Usa get_company_overview para aproveitar a lógica já testada de status
+    from app.services.vacation import get_company_overview
+    overview = get_company_overview(db, company_id)
 
     expiring: list[VacationExpiringRead] = []
-    covered_emp_ids: set[int] = set()
-
-    # Funcionários com férias ativas ou agendadas não aparecem no card
-    emp_ids_on_vacation = set(
-        v.employee_id for v in vacs
-        if v.status in (VacationStatus.ACTIVE, VacationStatus.SCHEDULED)
-    )
-
-    # 1) Funcionários com períodos vencidos ou a vencer em 60 dias (sem férias ativas)
-    for emp in active:
-        if emp.id in emp_ids_on_vacation:
-            covered_emp_ids.add(emp.id)  # bloqueia parte 2 também
+    for item in overview:
+        status = item["vacation_status"]
+        vencimento = item.get("vencimento")
+        if not vencimento:
             continue
-        if not emp.registration_date:
-            continue
-        months = _months_registered(emp.registration_date)
-        if months < 12:
-            continue
-        periods_acq_ended  = months // 12
-        periods_conc_ended = max(0, periods_acq_ended - 1)
-        vac_count = vac_repo_r.count_non_cancelled_by_employee(db, emp.id)
-        unclaimed = max(0, periods_acq_ended - vac_count)
-        if unclaimed <= 0:
-            continue
-        overdue = max(0, periods_conc_ended - vac_count)
-        n = vac_count  # first unclaimed period index
-        vencimento = _add_months(emp.registration_date, (n + 2) * 12)
         days_left = (vencimento - today).days
-        # Mostra apenas vencidas (qualquer prazo) ou vencendo em até 60 dias
-        if not (overdue > 0 or days_left <= 60):
-            continue
-        expiring.append(VacationExpiringRead(
-            employee_id=emp.id,
-            employee_name=emp.name,
-            role=getattr(emp, "role", None),
-            acquisition_end=vencimento,
-            days_until_expiry=days_left,
-            is_expired=overdue > 0,
-            status="vencida" if overdue > 0 else "disponivel",
-        ))
-        covered_emp_ids.add(emp.id)
-
-    # 2) Férias agendadas com prazo vencendo nos próximos 60 dias (apenas SCHEDULED)
-    for v in vacs_expiring:
-        if v.employee_id in covered_emp_ids:
-            continue
-        if v.status == VacationStatus.ACTIVE:
-            continue  # em gozo: não exibe
-        emp = db.get(Employee, v.employee_id)
-        days_left = (v.acquisition_end - today).days
-        expiring.append(VacationExpiringRead(
-            employee_id=v.employee_id,
-            employee_name=emp.name if emp else "—",
-            role=getattr(emp, "role", None) if emp else None,
-            acquisition_end=v.acquisition_end,
-            days_until_expiry=days_left,
-            is_expired=days_left < 0,
-            status=v.status.value,
-        ))
-    # Vencidas primeiro (mais urgentes), depois por proximidade
+        if status == "vencida":
+            expiring.append(VacationExpiringRead(
+                employee_id=item["employee_id"],
+                employee_name=item["employee_name"],
+                role=None,
+                acquisition_end=vencimento,
+                days_until_expiry=days_left,
+                is_expired=True,
+                status="vencida",
+            ))
+        elif status == "disponivel" and days_left <= 60:
+            expiring.append(VacationExpiringRead(
+                employee_id=item["employee_id"],
+                employee_name=item["employee_name"],
+                role=None,
+                acquisition_end=vencimento,
+                days_until_expiry=days_left,
+                is_expired=False,
+                status="disponivel",
+            ))
     expiring.sort(key=lambda x: x.days_until_expiry)
 
     # ── Férias Agendadas ─────────────────────────────────────────────────────
@@ -189,7 +156,8 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
             continue
         if v.status not in (VacationStatus.SCHEDULED, VacationStatus.ACTIVE):
             continue
-        enjoyment_end = v.enjoyment_start + timedelta(days=v.enjoyment_days - 1)
+        enj_days = v.enjoyment_days or 0
+        enjoyment_end = v.enjoyment_start + timedelta(days=max(enj_days - 1, 0))
         if enjoyment_end < today:
             continue  # já terminou, não mostrar
         emp = db.get(Employee, v.employee_id)
