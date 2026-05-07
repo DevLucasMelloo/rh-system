@@ -121,7 +121,7 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
                 is_expired=True,
                 status="vencida",
             ))
-        elif status == "disponivel":
+        elif status == "disponivel" and days_left <= 60:
             expiring.append(VacationExpiringRead(
                 employee_id=item["employee_id"],
                 employee_name=item["employee_name"],
