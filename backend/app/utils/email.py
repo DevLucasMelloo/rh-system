@@ -15,7 +15,7 @@ def _send(to: str, subject: str, body_html: str) -> bool:
         import resend
         resend.api_key = settings.RESEND_API_KEY
         resend.Emails.send({
-            "from": settings.EMAIL_FROM or "onboarding@resend.dev",
+            "from": settings.EMAIL_FROM or "RH System <onboarding@resend.dev>",
             "to": [to],
             "subject": subject,
             "html": body_html,
