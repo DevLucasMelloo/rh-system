@@ -95,7 +95,10 @@ def _has_closed_payroll_in_month(db: Session, employee_id: int, month: int, year
 
 def _months_registered(reg_date: date) -> int:
     today = date.today()
-    return (today.year - reg_date.year) * 12 + (today.month - reg_date.month)
+    months = (today.year - reg_date.year) * 12 + (today.month - reg_date.month)
+    if today.day < reg_date.day:
+        months -= 1
+    return max(0, months)
 
 
 def _recalc_net(base: Decimal, one_third: Decimal, inss: Decimal, items: list) -> Decimal:
