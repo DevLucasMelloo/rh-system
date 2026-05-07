@@ -73,6 +73,11 @@ def send_license_warning(to: str, name: str, valid_until, days_left: int) -> boo
         </p>
       </div>
       <p>Entre em contato para renovar o acesso antes do vencimento e evitar a interrupção do sistema.</p>
+      <div style="background:#f1f5f9;border-radius:10px;padding:16px;margin:20px 0">
+        <p style="margin:0 0 8px;font-weight:600">Contato para renovação:</p>
+        <p style="margin:0 0 4px">📱 <a href="tel:+5511937209330" style="color:#2563eb;text-decoration:none">(11) 93720-9330</a></p>
+        <p style="margin:0">📧 <a href="mailto:lucassmello29@gmail.com" style="color:#2563eb;text-decoration:none">lucassmello29@gmail.com</a></p>
+      </div>
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
       <p style="color:#94a3b8;font-size:12px">Sistema de RH — aviso automático enviado diariamente quando restam até 10 dias</p>
     </body></html>
