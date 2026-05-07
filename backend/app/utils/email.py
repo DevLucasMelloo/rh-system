@@ -85,6 +85,67 @@ def send_license_warning(to: str, name: str, valid_until, days_left: int) -> boo
     return _send(to, subject, body)
 
 
+def send_vacation_warning(to: str, recipient_name: str, employees: list[dict]) -> bool:
+    """
+    employees: lista de dicts com keys: name, days_overdue, acquisition_end (date)
+    days_overdue: positivo = dias que já passou do fim do período aquisitivo
+    """
+    from datetime import date as _date
+    today = _date.today()
+    count = len(employees)
+    subject = f"⚠️ {count} funcionário{'s' if count != 1 else ''} com férias vencidas — Sistema RH"
+
+    rows = ""
+    for emp in employees:
+        days = emp["days_overdue"]
+        acq_end = emp["acquisition_end"]
+        date_fmt = acq_end.strftime("%d/%m/%Y") if hasattr(acq_end, "strftime") else str(acq_end)
+        if days <= 0:
+            tempo = "Venceu hoje"
+        elif days <= 30:
+            urgency = "#dc2626"
+            tempo = f"Venceu há <strong style='color:{urgency}'>{days} dia{'s' if days != 1 else ''}</strong>"
+        elif days <= 90:
+            urgency = "#d97706"
+            tempo = f"Venceu há <strong style='color:{urgency}'>{days} dias</strong>"
+        else:
+            urgency = "#64748b"
+            tempo = f"Venceu há <strong style='color:{urgency}'>{days} dias</strong>"
+        rows += f"""
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:600">{emp['name']}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:13px">{date_fmt}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:13px">{tempo}</td>
+        </tr>"""
+
+    body = f"""
+    <html><body style="font-family:sans-serif;color:#1e293b;max-width:560px;margin:0 auto;padding:32px">
+      <h2 style="color:#dc2626;margin-bottom:8px">⚠️ Férias Vencidas</h2>
+      <p>Olá, <strong>{recipient_name}</strong>!</p>
+      <p>
+        {count} funcionário{'s estão' if count != 1 else ' está'} com férias vencidas
+        e ainda não agendaram o período de gozo.
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px">
+        <thead>
+          <tr style="background:#f1f5f9">
+            <th style="padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Funcionário</th>
+            <th style="padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Fim Aquisitivo</th>
+            <th style="padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Situação</th>
+          </tr>
+        </thead>
+        <tbody>{rows}</tbody>
+      </table>
+      <p style="color:#64748b;font-size:13px">
+        Acesse o sistema para agendar as férias dos funcionários listados acima.
+      </p>
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+      <p style="color:#94a3b8;font-size:12px">Sistema de RH — aviso automático enviado às segundas-feiras</p>
+    </body></html>
+    """
+    return _send(to, subject, body)
+
+
 def send_welcome(to: str, name: str, username: str) -> bool:
     subject = "Bem-vindo ao Sistema RH"
     body = f"""
