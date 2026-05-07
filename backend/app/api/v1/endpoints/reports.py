@@ -15,23 +15,6 @@ from app.services import reports as report_service
 router = APIRouter(prefix="/reports", tags=["Relatórios / Dashboard"])
 
 
-# ── Endpoints de teste (remover após validação) ───────────────────────────────
-
-@router.post("/test/monthly-report", include_in_schema=False)
-def test_monthly_report(current_user: User = Depends(require_rh_or_admin)):
-    """Dispara o relatório mensal manualmente para teste."""
-    from app.utils.scheduler import send_monthly_report_job
-    send_monthly_report_job()
-    return {"ok": True, "message": "Relatório enviado — verifique o e-mail cadastrado."}
-
-
-@router.post("/test/vacation-warning", include_in_schema=False)
-def test_vacation_warning(current_user: User = Depends(require_rh_or_admin)):
-    """Dispara o aviso de férias vencidas manualmente para teste."""
-    from app.utils.scheduler import check_expiring_vacations
-    check_expiring_vacations()
-    return {"ok": True, "message": "Aviso de férias enviado — verifique o e-mail cadastrado."}
-
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 

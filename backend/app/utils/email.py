@@ -114,7 +114,6 @@ def send_monthly_report(to: str, recipient_name: str, data: dict) -> bool:
             return f'<p style="color:#94a3b8;font-size:13px;margin:4px 0">{empty}</p>'
         return "".join(f'<p style="margin:3px 0;font-size:13px">• {i}</p>' for i in items)
 
-    on_vac_list    = _emp_list([e["name"] for e in data.get("on_vacation", [])])
     overdue_list   = _emp_list([
         f"{e['name']} <span style='color:#dc2626;font-size:12px'>({e['days_overdue']}d vencido)</span>"
         for e in data.get("overdue_vacation", [])
@@ -151,9 +150,7 @@ def send_monthly_report(to: str, recipient_name: str, data: dict) -> bool:
 
       <!-- Férias -->
       <div style="background:#f8fafc;border-radius:10px;padding:12px 16px;margin:20px 0;border:1px solid #e2e8f0">
-        <p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Funcionários em Férias no Mês</p>
-        {on_vac_list}
-        <p style="margin:14px 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Férias Vencidas</p>
+        <p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Férias Vencidas</p>
         {overdue_list}
         <p style="margin:14px 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Férias Agendadas</p>
         {scheduled_list}

@@ -137,8 +137,7 @@ def send_monthly_report_job():
     from app.models.user import User, UserRole
     from app.models.payroll import Payroll, PayrollStatus
     from app.models.seamstress import SeamstressPayment
-    from app.models.vacation import Vacation, VacationStatus
-    from app.services.vacation import get_company_overview, _auto_advance_status
+    from app.services.vacation import get_company_overview
     from app.utils.email import send_monthly_report
     from decimal import Decimal
 
@@ -193,33 +192,6 @@ def send_monthly_report_job():
             total_seamstress = sum(Decimal(str(p.amount or 0)) for p in seam_payments)
             total_paid = total_net_payroll + total_seamstress
 
-            # Férias no mês de referência
-            from datetime import date as _date
-            ref_start = _date(ref_year, ref_month, 1)
-            import calendar as _cal
-            last_day = _cal.monthrange(ref_year, ref_month)[1]
-            ref_end = _date(ref_year, ref_month, last_day)
-
-            all_vacs = (
-                db.query(Vacation)
-                .join(Employee)
-                .filter(Employee.company_id == company.id)
-                .all()
-            )
-            all_vacs = [_auto_advance_status(db, v) for v in all_vacs]
-
-            on_vacation = []
-            for v in all_vacs:
-                if v.status not in (VacationStatus.ACTIVE, VacationStatus.COMPLETED, VacationStatus.SCHEDULED):
-                    continue
-                if not v.enjoyment_start or v.sell_all_days:
-                    continue
-                enj_end = v.enjoyment_start + timedelta(days=max((v.enjoyment_days or 0) - 1, 0))
-                if v.enjoyment_start <= ref_end and enj_end >= ref_start:
-                    emp = db.get(Employee, v.employee_id)
-                    if emp:
-                        on_vacation.append({"name": emp.name})
-
             # Férias vencidas (atual)
             overview = get_company_overview(db, company.id)
             overdue_vacation = []
@@ -259,7 +231,6 @@ def send_monthly_report_job():
                 "total_net_payroll": float(total_net_payroll),
                 "total_seamstress": float(total_seamstress),
                 "total_paid": float(total_paid),
-                "on_vacation": on_vacation,
                 "overdue_vacation": overdue_vacation,
                 "scheduled_vacation": scheduled_vacation,
                 "birthdays": birthdays,
