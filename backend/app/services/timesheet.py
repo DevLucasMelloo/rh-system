@@ -844,17 +844,62 @@ def _month_absence_minutes(entries, year: int, month: int, emp) -> int:
 
 def get_bank_summary(db: Session, year: int, company_id: int) -> list[dict]:
     from app.repositories import payroll as payroll_repo
-    from app.models.payroll import PayrollStatus
+    from app.models.payroll import Payroll, PayrollStatus, PayrollItem
+    from app.models.timesheet import TimesheetEntry, HourBank
+    from sqlalchemy import and_, extract
 
     employees = emp_repo.list_active(db, company_id)
+    if not employees:
+        return []
+
+    emp_ids = [e.id for e in employees]
+
+    # Carrega todos os lançamentos do ano em uma única query
+    all_entries = (
+        db.query(TimesheetEntry)
+        .filter(
+            TimesheetEntry.employee_id.in_(emp_ids),
+            extract("year", TimesheetEntry.work_date) == year,
+        )
+        .all()
+    )
+    # Agrupa por (employee_id, month)
+    entries_map: dict[tuple, list] = {}
+    for e in all_entries:
+        key = (e.employee_id, e.work_date.month)
+        entries_map.setdefault(key, []).append(e)
+
+    # Carrega todos os holerites do ano em uma única query (com itens via joinedload)
+    from sqlalchemy.orm import joinedload
+    all_payrolls = (
+        db.query(Payroll)
+        .options(joinedload(Payroll.items))
+        .filter(
+            Payroll.employee_id.in_(emp_ids),
+            Payroll.competence_year == year,
+        )
+        .all()
+    )
+    payroll_map: dict[tuple, Payroll] = {
+        (p.employee_id, p.competence_month): p for p in all_payrolls
+    }
+
+    # Carrega todos os bancos de horas em uma única query
+    all_banks = (
+        db.query(HourBank)
+        .filter(HourBank.employee_id.in_(emp_ids))
+        .all()
+    )
+    bank_map = {b.employee_id: b for b in all_banks}
+
     result = []
+    emp_by_id = {e.id: e for e in employees}
 
     for emp in employees:
         months_data = {}
         for month in range(1, 13):
-            entries = ts_repo.list_entries_by_month(db, emp.id, month, year)
             monthly_delta = 0
-            for e in entries:
+            for e in entries_map.get((emp.id, month), []):
                 if getattr(e, "is_holiday", False) and not getattr(e, "is_dsr_deducted", False):
                     continue
                 if e.is_annulled or e.is_medical_certificate:
@@ -862,7 +907,7 @@ def get_bank_summary(db: Session, year: int, company_id: int) -> list[dict]:
                 if getattr(e, "is_recess", False) or getattr(e, "is_dsr_deducted", False):
                     continue
                 if e.is_absence:
-                    continue  # falta: desconto direto no salário, não entra no banco
+                    continue
                 if getattr(e, "is_compensar", False):
                     exp_c = expected_minutes_for_compensar(e.work_date, emp.is_intern, emp.weekly_hours)
                     monthly_delta -= exp_c
@@ -870,10 +915,9 @@ def get_bank_summary(db: Session, year: int, company_id: int) -> list[dict]:
                     exp = expected_minutes(e.work_date, emp.is_intern, emp.weekly_hours)
                     monthly_delta += (e.worked_minutes or 0) - exp
 
-            # Operações de banco no holerite fechado deste mês
-            paid_minutes     = 0  # HE paga (banco_credito ou pay_overtime legado)
-            deducted_minutes = 0  # banco negativo descontado (banco_desconto)
-            payroll = payroll_repo.get_payroll_by_period(db, emp.id, month, year)
+            paid_minutes = 0
+            deducted_minutes = 0
+            payroll = payroll_map.get((emp.id, month))
             if payroll and payroll.status == PayrollStatus.CLOSED:
                 sal = float(payroll.gross_salary or 0)
                 for item in (payroll.items or []):
@@ -885,7 +929,6 @@ def get_bank_summary(db: Session, year: int, company_id: int) -> list[dict]:
                         rate = sal / 220 if sal else 0
                         if rate > 0:
                             deducted_minutes += int(float(item.amount) / rate * 60)
-                # Compatibilidade com holerites antigos que usavam flag pay_overtime
                 if paid_minutes == 0 and payroll.pay_overtime and payroll.total_overtime_hours:
                     paid_minutes = int(float(payroll.total_overtime_hours) * 60)
 
@@ -895,7 +938,7 @@ def get_bank_summary(db: Session, year: int, company_id: int) -> list[dict]:
                 "deducted_minutes":  deducted_minutes,
             }
 
-        bank = ts_repo.get_hour_bank(db, emp.id)
+        bank = bank_map.get(emp.id)
         result.append({
             "employee_id":           emp.id,
             "name":                  emp.name,
