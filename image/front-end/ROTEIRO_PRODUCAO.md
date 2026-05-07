@@ -188,7 +188,7 @@ Entre em contato para renovar o acesso.
 - [X] Email de boas-vindas ao cadastrar novo usuário — `send_welcome()` implementado em email.py
 - [X] Recuperação de senha por email com token temporário — fluxo completo: modal "Esqueceu a senha?" (usuário + e-mail), token JWT 15min, link com reset_token na URL, formulário de nova senha, testado e funcionando
 - [X] Notificação automática quando férias de funcionário estiver vencendo — `check_expiring_vacations()` no scheduler, roda toda segunda-feira 08:00, envia tabela com funcionários e há quantos dias as férias venceram para admins/RH com e-mail cadastrado
-- [ ] Relatório mensal resumido enviado por email para o RH
+- [X] Relatório mensal resumido enviado por email para o RH — todo dia 4 às 08:00; contém: total de funcionários ativos, total líquido folha + costureiras + total geral, funcionários em férias no mês, férias vencidas (lista com dias), férias agendadas, aniversariantes do mês
 
 ### Testes Automatizados
 

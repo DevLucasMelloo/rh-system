@@ -85,6 +85,93 @@ def send_license_warning(to: str, name: str, valid_until, days_left: int) -> boo
     return _send(to, subject, body)
 
 
+def send_monthly_report(to: str, recipient_name: str, data: dict) -> bool:
+    """
+    Relatório mensal de RH enviado todo dia 4 às 08:00.
+    data: {
+      month_name, year,
+      total_employees,
+      total_net_payroll, total_seamstress,
+      total_paid (funcionarios + costureiras),
+      on_vacation: [{name}],
+      overdue_vacation: [{name, days_overdue}],
+      scheduled_vacation: [{name, start, days}],
+      birthdays: [{name, date_str}],
+    }
+    """
+    month_name = data["month_name"]
+    year = data["year"]
+    subject = f"Relatório de RH — {month_name}/{year}"
+
+    def _row(label, value, color="#1e293b"):
+        return f'<tr><td style="padding:8px 12px;color:#64748b;font-size:13px">{label}</td><td style="padding:8px 12px;font-weight:600;color:{color};font-size:14px">{value}</td></tr>'
+
+    def _fmt_brl(val):
+        return f"R$ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    def _emp_list(items, empty="Nenhum"):
+        if not items:
+            return f'<p style="color:#94a3b8;font-size:13px;margin:4px 0">{empty}</p>'
+        return "".join(f'<p style="margin:3px 0;font-size:13px">• {i}</p>' for i in items)
+
+    on_vac_list    = _emp_list([e["name"] for e in data.get("on_vacation", [])])
+    overdue_list   = _emp_list([
+        f"{e['name']} <span style='color:#dc2626;font-size:12px'>({e['days_overdue']}d vencido)</span>"
+        for e in data.get("overdue_vacation", [])
+    ])
+    scheduled_list = _emp_list([
+        f"{e['name']} — {e['start']} ({e['days']} dias)"
+        for e in data.get("scheduled_vacation", [])
+    ])
+    birthday_list  = _emp_list([f"{e['name']} — {e['date_str']}" for e in data.get("birthdays", [])])
+
+    body = f"""
+    <html><body style="font-family:sans-serif;color:#1e293b;max-width:560px;margin:0 auto;padding:32px">
+      <h2 style="color:#2563eb;margin-bottom:4px">📊 Relatório de RH</h2>
+      <p style="color:#64748b;margin-top:0;margin-bottom:24px">{month_name} de {year}</p>
+      <p>Olá, <strong>{recipient_name}</strong>! Segue o resumo do mês anterior.</p>
+
+      <!-- Funcionários -->
+      <div style="background:#f8fafc;border-radius:10px;padding:4px 0;margin:20px 0;border:1px solid #e2e8f0">
+        <p style="margin:10px 12px 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Funcionários</p>
+        <table style="width:100%;border-collapse:collapse">
+          {_row("Total de funcionários ativos", data["total_employees"])}
+        </table>
+      </div>
+
+      <!-- Folha -->
+      <div style="background:#f8fafc;border-radius:10px;padding:4px 0;margin:20px 0;border:1px solid #e2e8f0">
+        <p style="margin:10px 12px 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Folha de Pagamento</p>
+        <table style="width:100%;border-collapse:collapse">
+          {_row("Total líquido funcionários", _fmt_brl(data["total_net_payroll"]), "#16a34a")}
+          {_row("Total pago costureiras", _fmt_brl(data["total_seamstress"]), "#16a34a")}
+          {_row("Total geral pago", _fmt_brl(data["total_paid"]), "#2563eb")}
+        </table>
+      </div>
+
+      <!-- Férias -->
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 16px;margin:20px 0;border:1px solid #e2e8f0">
+        <p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Funcionários em Férias no Mês</p>
+        {on_vac_list}
+        <p style="margin:14px 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Férias Vencidas</p>
+        {overdue_list}
+        <p style="margin:14px 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Férias Agendadas</p>
+        {scheduled_list}
+      </div>
+
+      <!-- Aniversariantes -->
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 16px;margin:20px 0;border:1px solid #e2e8f0">
+        <p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Aniversariantes do Mês</p>
+        {birthday_list}
+      </div>
+
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+      <p style="color:#94a3b8;font-size:12px">Sistema de RH — relatório automático enviado todo dia 4 de cada mês</p>
+    </body></html>
+    """
+    return _send(to, subject, body)
+
+
 def send_vacation_warning(to: str, recipient_name: str, employees: list[dict]) -> bool:
     """
     employees: lista de dicts com keys: name, days_overdue, acquisition_end (date)
