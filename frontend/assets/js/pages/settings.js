@@ -88,7 +88,7 @@ const PageSettings = (() => {
           <div class="table-wrapper" style="border:none">
             <table>
               <thead>
-                <tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Status</th><th></th></tr>
+                <tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Status</th><th></th></tr>
               </thead>
               <tbody id="settings-users-tbody">${loadingRow(5)}</tbody>
             </table>
