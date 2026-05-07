@@ -745,6 +745,14 @@ const PageVacation = (() => {
         <tr><td>Até</td><td>${fmtD(v.acquisition_end)}</td></tr>
         <tr><td>Modalidade</td><td>${gozo}</td></tr>
         ${v.enjoyment_start ? `<tr><td>Início do Gozo</td><td>${fmtD(v.enjoyment_start)}</td></tr>` : ''}
+        ${(() => {
+          if (!v.enjoyment_start || v.sell_all_days || !v.enjoyment_days) return '';
+          const parts = v.enjoyment_start.split('-');
+          const d = new Date(+parts[0], +parts[1]-1, +parts[2]);
+          d.setDate(d.getDate() + v.enjoyment_days);
+          const ret = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+          return `<tr><td>Data de Retorno</td><td>${ret}</td></tr>`;
+        })()}
         ${v.registration_date ? `<tr><td>Data de Registro</td><td>${fmtD(v.registration_date)}</td></tr>` : ''}
       </table>
       <table>
