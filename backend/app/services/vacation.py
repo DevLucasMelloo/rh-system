@@ -520,11 +520,13 @@ def get_company_overview(db: Session, company_id: int) -> list[dict]:
         else:
             vac_status = "regular"
 
-        # Concessivo end of the first unclaimed period
+        # Concessivo end and acquisition end of the first unclaimed period
         vencimento = None
+        acquisition_end_date = None
         if periods_with_acq_ended > vacation_count:
             n = vacation_count
             vencimento = _add_months(reg_date, (n + 2) * 12)
+            acquisition_end_date = _add_months(reg_date, (n + 1) * 12)
 
         sched_start = sched_end = sched_days = None
         sell_all = False
@@ -546,9 +548,10 @@ def get_company_overview(db: Session, company_id: int) -> list[dict]:
             "scheduled_end":     sched_end,
             "scheduled_days":    sched_days,
             "sell_all_days":     sell_all,
-            "unclaimed_periods": unclaimed,
-            "overdue_periods":   overdue,
-            "is_eligible":       unclaimed > 0,
+            "unclaimed_periods":    unclaimed,
+            "overdue_periods":      overdue,
+            "is_eligible":          unclaimed > 0,
+            "acquisition_end_date": acquisition_end_date,
         })
 
     order = {"vencida": 0, "disponivel": 1, "agendada": 2, "regular": 3, "inelegivel": 4}

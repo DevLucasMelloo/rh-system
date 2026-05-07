@@ -107,19 +107,19 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
     expiring: list[VacationExpiringRead] = []
     for item in overview:
         status = item["vacation_status"]
-        vencimento = item.get("vencimento")
-        if not vencimento:
-            continue
-        days_left = (vencimento - today).days
-        if status == "vencida":
+        if status in ("vencida", "disponivel"):
+            acq_end = item.get("acquisition_end_date")
+            if not acq_end:
+                continue
+            days_since = (acq_end - today).days  # negative = already expired
             expiring.append(VacationExpiringRead(
                 employee_id=item["employee_id"],
                 employee_name=item["employee_name"],
                 role=None,
-                acquisition_end=vencimento,
-                days_until_expiry=days_left,
+                acquisition_end=acq_end,
+                days_until_expiry=days_since,
                 is_expired=True,
-                status="vencida",
+                status=status,
             ))
     expiring.sort(key=lambda x: x.days_until_expiry)
 
