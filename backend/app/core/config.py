@@ -20,12 +20,15 @@ class Settings(BaseSettings):
     # Criptografia Fernet
     FERNET_KEY: str
 
-    # Email
+    # Email (Resend)
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "onboarding@resend.dev"
+
+    # Email (SMTP legado — mantido para compatibilidade com variáveis antigas)
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    EMAIL_FROM: str = ""
 
     # Banco — echo de queries SQL (desativar em dev para não poluir terminal)
     DB_ECHO: bool = False

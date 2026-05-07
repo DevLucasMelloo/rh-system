@@ -33,6 +33,11 @@ def create_user(db: Session, data: UserCreate, company_id: int, created_by_id: i
     return user
 
 
+def send_welcome_email(recovery_email: str, name: str, username: str) -> None:
+    from app.utils.email import send_welcome
+    send_welcome(recovery_email, name, username)
+
+
 def update_user(db: Session, user_id: int, data: UserUpdate, updated_by_id: int) -> User:
     user = get_user_or_404(db, user_id)
     updated = user_repo.update_user(db, user, data)

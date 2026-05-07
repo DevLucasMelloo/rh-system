@@ -40,3 +40,6 @@ httpx==0.28.1
 
 # Logging
 loguru==0.7.3
+
+# Email
+resend==2.10.0
