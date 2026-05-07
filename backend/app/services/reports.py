@@ -106,13 +106,22 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
     expiring: list[VacationExpiringRead] = []
     covered_emp_ids: set[int] = set()
 
-    # 1) Todos os funcionários com períodos não usufruídos (vencidos ou disponíveis)
+    # Funcionários com férias ativas ou agendadas não aparecem no card
+    emp_ids_on_vacation = set(
+        v.employee_id for v in vacs
+        if v.status in (VacationStatus.ACTIVE, VacationStatus.SCHEDULED)
+    )
+
+    # 1) Funcionários com períodos vencidos ou a vencer em 60 dias (sem férias ativas)
     for emp in active:
+        if emp.id in emp_ids_on_vacation:
+            covered_emp_ids.add(emp.id)  # bloqueia parte 2 também
+            continue
         if not emp.registration_date:
             continue
         months = _months_registered(emp.registration_date)
         if months < 12:
-            continue  # ainda inelegível
+            continue
         periods_acq_ended  = months // 12
         periods_conc_ended = max(0, periods_acq_ended - 1)
         vac_count = vac_repo_r.count_non_cancelled_by_employee(db, emp.id)
@@ -137,10 +146,12 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         ))
         covered_emp_ids.add(emp.id)
 
-    # 2) Férias agendadas/ativas com prazo vencendo nos próximos 60 dias
+    # 2) Férias agendadas com prazo vencendo nos próximos 60 dias (apenas SCHEDULED)
     for v in vacs_expiring:
         if v.employee_id in covered_emp_ids:
             continue
+        if v.status == VacationStatus.ACTIVE:
+            continue  # em gozo: não exibe
         emp = db.get(Employee, v.employee_id)
         days_left = (v.acquisition_end - today).days
         expiring.append(VacationExpiringRead(
