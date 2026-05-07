@@ -102,7 +102,9 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
     # ── Férias expirando/vencidas (detalhado) ────────────────────────────────
     # Usa get_company_overview para aproveitar a lógica já testada de status
     from app.services.vacation import get_company_overview
+    from loguru import logger
     overview = get_company_overview(db, company_id)
+    logger.info(f"[dashboard] overview items: {[(i['employee_name'], i['vacation_status'], i.get('acquisition_end_date')) for i in overview]}")
 
     expiring: list[VacationExpiringRead] = []
     for item in overview:
@@ -110,6 +112,7 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         if status in ("vencida", "disponivel"):
             acq_end = item.get("acquisition_end_date")
             if not acq_end:
+                logger.warning(f"[dashboard] {item['employee_name']} status={status} mas acquisition_end_date=None")
                 continue
             days_since = (acq_end - today).days  # negative = already expired
             expiring.append(VacationExpiringRead(
