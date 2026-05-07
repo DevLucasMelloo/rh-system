@@ -175,7 +175,7 @@ const PageVacation = (() => {
 
       <div id="nv-form-body" style="display:none">
         <div class="form-group">
-          <label>Período de Férias *</label>
+          <label>Período Aquisitivo *</label>
           <select class="form-control" id="nv-period" onchange="PageVacation._onPeriodChange()">
             <option value="">Selecione o período...</option>
           </select>
