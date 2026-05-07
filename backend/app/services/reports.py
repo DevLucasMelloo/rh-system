@@ -106,17 +106,20 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
     expiring: list[VacationExpiringRead] = []
     covered_emp_ids: set[int] = set()
 
-    # 1) Funcionários com períodos vencidos mas SEM férias agendadas no banco
+    # 1) Todos os funcionários com períodos não usufruídos (vencidos ou disponíveis)
     for emp in active:
         if not emp.registration_date:
             continue
         months = _months_registered(emp.registration_date)
+        if months < 12:
+            continue  # ainda inelegível
         periods_acq_ended  = months // 12
         periods_conc_ended = max(0, periods_acq_ended - 1)
         vac_count = vac_repo_r.count_non_cancelled_by_employee(db, emp.id)
-        overdue = max(0, periods_conc_ended - vac_count)
-        if overdue <= 0:
+        unclaimed = max(0, periods_acq_ended - vac_count)
+        if unclaimed <= 0:
             continue
+        overdue = max(0, periods_conc_ended - vac_count)
         n = vac_count  # first unclaimed period index
         vencimento = _add_months(emp.registration_date, (n + 2) * 12)
         days_left = (vencimento - today).days
@@ -126,8 +129,8 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
             role=getattr(emp, "role", None),
             acquisition_end=vencimento,
             days_until_expiry=days_left,
-            is_expired=True,
-            status="vencida",
+            is_expired=overdue > 0,
+            status="vencida" if overdue > 0 else "disponivel",
         ))
         covered_emp_ids.add(emp.id)
 
