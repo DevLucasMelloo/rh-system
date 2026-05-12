@@ -128,7 +128,7 @@ LICENSE_EXEMPT = {"/health", "/versao", "/api/v1/auth/login", "/api/v1/auth/setu
                   "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password",
                   "/api/v1/license/renew", "/api/v1/license/deactivate", "/api/v1/license"}
 
-GRACE_DAYS = 3
+GRACE_DAYS = 1
 
 @app.middleware("http")
 async def check_license(request: Request, call_next):
