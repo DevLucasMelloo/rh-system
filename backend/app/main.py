@@ -124,7 +124,7 @@ app.include_router(api_router)
 
 # ── Middleware de licença ──────────────────────────────────────────────────────
 LICENSE_EXEMPT = {"/health", "/versao", "/api/v1/auth/login", "/api/v1/auth/setup",
-                  "/api/v1/auth/setup-status", "/api/v1/auth/refresh", "/api/v1/auth/me",
+                  "/api/v1/auth/setup-status", "/api/v1/auth/refresh",
                   "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password",
                   "/api/v1/license/renew", "/api/v1/license/deactivate", "/api/v1/license"}
 

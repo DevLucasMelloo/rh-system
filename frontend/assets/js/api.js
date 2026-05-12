@@ -113,6 +113,7 @@ const Api = (() => {
 
     if (res.status === 402) {
       const data = await res.json().catch(() => ({}));
+      removeToken();
       _showLicenseBlock(data.valid_until, data.is_active);
       throw new Error('licenca_vencida');
     }
