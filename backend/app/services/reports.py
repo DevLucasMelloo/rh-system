@@ -126,6 +126,9 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
             ))
     expiring.sort(key=lambda x: x.days_until_expiry)
 
+    # Mapa de funcionários para evitar db.get() dentro de loops
+    emp_map = {e.id: e for e in all_emps}
+
     # ── Férias Agendadas ─────────────────────────────────────────────────────
     scheduled_vacations: list[ScheduledVacationRead] = []
     for v in vacs:
@@ -133,7 +136,7 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
             continue
         if v.status not in (VacationStatus.SCHEDULED, VacationStatus.ACTIVE):
             continue
-        emp = db.get(Employee, v.employee_id)
+        emp = emp_map.get(v.employee_id)
         scheduled_vacations.append(ScheduledVacationRead(
             employee_id=v.employee_id,
             employee_name=emp.name if emp else "—",
@@ -152,8 +155,8 @@ def get_dashboard(db: Session, company_id: int) -> DashboardRead:
         enj_days = v.enjoyment_days or 0
         enjoyment_end = v.enjoyment_start + timedelta(days=max(enj_days - 1, 0))
         if enjoyment_end < today:
-            continue  # já terminou, não mostrar
-        emp = db.get(Employee, v.employee_id)
+            continue
+        emp = emp_map.get(v.employee_id)
         active_vacations.append(ActiveVacationRead(
             employee_id=v.employee_id,
             employee_name=emp.name if emp else "—",
@@ -373,9 +376,11 @@ def report_payroll(db: Session, company_id: int, month: int, year: int) -> bytes
     Planilha: resumo da folha de pagamento do mês.
     Uma linha por funcionário.
     """
+    from sqlalchemy.orm import joinedload as _jl
     payrolls = (
         db.query(Payroll)
         .join(Employee)
+        .options(_jl(Payroll.employee))
         .filter(
             Employee.company_id == company_id,
             Payroll.competence_month == month,
@@ -387,7 +392,7 @@ def report_payroll(db: Session, company_id: int, month: int, year: int) -> bytes
 
     rows = []
     for p in payrolls:
-        emp = db.get(Employee, p.employee_id)
+        emp = p.employee
         rows.append({
             "Funcionário":        emp.name if emp else "",
             "Cargo":              emp.role if emp else "",
@@ -438,11 +443,12 @@ def report_timesheet(
     if employee_id:
         q = q.filter(TimesheetEntry.employee_id == employee_id)
 
-    entries = q.order_by(Employee.name, TimesheetEntry.work_date).all()
+    from sqlalchemy.orm import joinedload as _jl
+    entries = q.options(_jl(TimesheetEntry.employee)).order_by(Employee.name, TimesheetEntry.work_date).all()
 
     rows = []
     for e in entries:
-        emp = db.get(Employee, e.employee_id)
+        emp = e.employee
         rows.append({
             "Funcionário":         emp.name if emp else "",
             "Data":                str(e.work_date),
@@ -516,9 +522,11 @@ def report_vacations(db: Session, company_id: int) -> bytes:
     """
     Planilha: férias de todos os funcionários.
     """
+    from sqlalchemy.orm import joinedload as _jl
     vacs = (
         db.query(Vacation)
         .join(Employee)
+        .options(_jl(Vacation.employee))
         .filter(Employee.company_id == company_id)
         .order_by(Employee.name, Vacation.acquisition_start)
         .all()
@@ -526,7 +534,7 @@ def report_vacations(db: Session, company_id: int) -> bytes:
 
     rows = []
     for v in vacs:
-        emp = db.get(Employee, v.employee_id)
+        emp = v.employee
         rows.append({
             "Funcionário":        emp.name if emp else "",
             "Período Aquisitivo Início": str(v.acquisition_start),
@@ -555,9 +563,11 @@ def report_terminations(db: Session, company_id: int) -> bytes:
     """
     Planilha: rescisões da empresa.
     """
+    from sqlalchemy.orm import joinedload as _jl
     terms = (
         db.query(Termination)
         .join(Employee)
+        .options(_jl(Termination.employee))
         .filter(Employee.company_id == company_id)
         .order_by(Termination.termination_date.desc())
         .all()
@@ -565,7 +575,7 @@ def report_terminations(db: Session, company_id: int) -> bytes:
 
     rows = []
     for t in terms:
-        emp = db.get(Employee, t.employee_id)
+        emp = t.employee
         rows.append({
             "Funcionário":          emp.name if emp else "",
             "Data Rescisão":        str(t.termination_date),

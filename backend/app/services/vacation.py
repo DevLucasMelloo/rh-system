@@ -485,24 +485,48 @@ def list_active(db: Session, company_id: int) -> list[Vacation]:
 def get_company_overview(db: Session, company_id: int) -> list[dict]:
     """Situação de férias de todos os funcionários ativos da empresa."""
     from app.repositories import employee as emp_repo_mod
+    from sqlalchemy import func
+
     employees = emp_repo_mod.list_all(db, company_id)
+    active_emps = [e for e in employees if e.status != EmployeeStatus.INACTIVE and e.registration_date]
+    if not active_emps:
+        return []
+
+    emp_ids = [e.id for e in active_emps]
+
+    # Carrega todas as férias em uma query e auto-avança status em memória
+    all_vacs_raw = (
+        db.query(Vacation)
+        .filter(Vacation.employee_id.in_(emp_ids))
+        .all()
+    )
+    all_vacs_raw = [_auto_advance_status(db, v) for v in all_vacs_raw]
+
+    # Agrupa férias por funcionário
+    vacs_by_emp: dict[int, list[Vacation]] = {}
+    for v in all_vacs_raw:
+        vacs_by_emp.setdefault(v.employee_id, []).append(v)
+
+    # Conta férias não-canceladas por funcionário em memória (evita N queries)
+    vacation_count_map: dict[int, int] = {
+        emp_id: sum(
+            1 for v in vacs
+            if v.status != VacationStatus.CANCELLED
+        )
+        for emp_id, vacs in vacs_by_emp.items()
+    }
+
     result = []
-
-    for emp in employees:
-        if emp.status == EmployeeStatus.INACTIVE:
-            continue
-        if not emp.registration_date:
-            continue
-
+    for emp in active_emps:
         reg_date = emp.registration_date
         months   = _months_registered(reg_date)
         periods_with_acq_ended  = months // 12
         periods_with_conc_ended = max(0, months // 12 - 1)
-        vacation_count = vac_repo.count_non_cancelled_by_employee(db, emp.id)
+        vacation_count = vacation_count_map.get(emp.id, 0)
         unclaimed = max(0, periods_with_acq_ended - vacation_count)
         overdue   = max(0, periods_with_conc_ended - vacation_count)
 
-        all_vacs      = [_auto_advance_status(db, v) for v in vac_repo.list_by_employee(db, emp.id)]
+        all_vacs  = vacs_by_emp.get(emp.id, [])
         scheduled_vac = next(
             (v for v in all_vacs
              if v.status in (VacationStatus.SCHEDULED, VacationStatus.ACTIVE)),

@@ -237,18 +237,33 @@ def _add_auto(
 def list_eligible_employees(db: Session, month: int, year: int, company_id: int) -> list[dict]:
     """Retorna todos os funcionários elegíveis com o holerite do período (se existir)."""
     emps = _eligible_employees(db, company_id, month, year)
-    result = []
-    for emp in emps:
-        payroll = payroll_repo.get_payroll_by_period(db, emp.id, month, year)
-        result.append({
-            "employee_id": emp.id,
-            "name": emp.name,
-            "salary": emp.salary,
+    if not emps:
+        return []
+    emp_ids = [e.id for e in emps]
+
+    # Carrega todos os holerites do período em uma query só
+    payrolls = (
+        db.query(Payroll)
+        .filter(
+            Payroll.employee_id.in_(emp_ids),
+            Payroll.competence_month == month,
+            Payroll.competence_year  == year,
+        )
+        .all()
+    )
+    payroll_map = {p.employee_id: p for p in payrolls}
+
+    return [
+        {
+            "employee_id":   emp.id,
+            "name":          emp.name,
+            "salary":        emp.salary,
             "admission_date": emp.admission_date,
-            "has_payroll": payroll is not None,
-            "payroll": payroll,
-        })
-    return result
+            "has_payroll":   emp.id in payroll_map,
+            "payroll":       payroll_map.get(emp.id),
+        }
+        for emp in emps
+    ]
 
 
 def create_payroll(
@@ -297,11 +312,21 @@ def batch_create_payrolls(
     """Cria holerites para todos os funcionários elegíveis que ainda não têm um."""
     emps = _eligible_employees(db, company_id, data.competence_month, data.competence_year)
     created = []
-    for emp in emps:
-        existing = payroll_repo.get_payroll_by_period(
-            db, emp.id, data.competence_month, data.competence_year
+
+    # Carrega todos os holerites existentes do período em uma query
+    emp_ids = [e.id for e in emps]
+    existing_ids = set(
+        p.employee_id for p in db.query(Payroll.employee_id)
+        .filter(
+            Payroll.employee_id.in_(emp_ids),
+            Payroll.competence_month == data.competence_month,
+            Payroll.competence_year  == data.competence_year,
         )
-        if existing:
+        .all()
+    )
+
+    for emp in emps:
+        if emp.id in existing_ids:
             continue
         payroll = payroll_repo.create_payroll(db, {
             "employee_id":              emp.id,
