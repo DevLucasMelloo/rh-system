@@ -58,12 +58,20 @@ def calc_worked_minutes(
     lunch_in: time | None,
     exit_t: time | None,
 ) -> int:
-    """Minutos efetivamente trabalhados (desconta intervalo de almoço)."""
-    if not all([entry, lunch_out, lunch_in, exit_t]):
+    """
+    Minutos efetivamente trabalhados.
+    - 4 horários preenchidos: desconta o intervalo de almoço
+    - 2 horários preenchidos (primeiro e último): jornada direta sem almoço
+      (caso de carga reduzida sem direito a intervalo, ex.: 4h/dia)
+    """
+    times = [t for t in (entry, lunch_out, lunch_in, exit_t) if t]
+    if len(times) < 2:
         return 0
-    total = _to_min(exit_t) - _to_min(entry)
-    lunch = _to_min(lunch_in) - _to_min(lunch_out)
-    return max(0, total - max(0, lunch))
+    if entry and lunch_out and lunch_in and exit_t:
+        total = _to_min(exit_t) - _to_min(entry)
+        lunch = _to_min(lunch_in) - _to_min(lunch_out)
+        return max(0, total - max(0, lunch))
+    return max(0, _to_min(times[-1]) - _to_min(times[0]))
 
 
 def calc_overtime_minutes(worked: int, expected: int) -> int:

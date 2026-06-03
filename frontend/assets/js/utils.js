@@ -64,13 +64,21 @@ function toggleDropdown(id) {
   document.querySelectorAll('.dropdown-menu.open').forEach(m => m.classList.remove('open'));
   if (!wasOpen) {
     menu.classList.add('open');
-    // Reposicionar usando fixed para escapar de overflow:hidden
     const btn = menu.previousElementSibling;
     const rect = btn.getBoundingClientRect();
     menu.style.position = 'fixed';
-    menu.style.top = (rect.bottom + 4) + 'px';
     menu.style.right = (window.innerWidth - rect.right) + 'px';
     menu.style.left = 'auto';
+
+    // Mede a altura do menu para decidir se abre para cima ou para baixo
+    menu.style.top = '-9999px';
+    const menuHeight = menu.offsetHeight;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceBelow < menuHeight + 8 && rect.top > menuHeight + 8) {
+      menu.style.top = (rect.top - menuHeight - 4) + 'px';
+    } else {
+      menu.style.top = (rect.bottom + 4) + 'px';
+    }
   }
 }
 
