@@ -966,6 +966,7 @@ def sync_hour_bank(db: Session, employee_id: int) -> int:
 
     all_entries = ts_repo.get_all_entries(db, employee_id)
     balance = 0
+    dirty_entries = []
 
     for e in all_entries:
         if getattr(e, "is_holiday", False) and not getattr(e, "is_dsr_deducted", False):
@@ -982,7 +983,18 @@ def sync_hour_bank(db: Session, employee_id: int) -> int:
             balance -= exp
         else:
             exp = expected_minutes(e.work_date, emp.is_intern, emp.weekly_hours)
-            balance += (e.worked_minutes or 0) - exp
+            # Recalcula worked/overtime/late pelos horarios atuais (corrige entries antigos
+            # que ficaram com worked_minutes=0 por regra mudada do calc_worked_minutes)
+            recomputed = calc_worked_minutes(e.entry_time, e.lunch_out_time, e.lunch_in_time, e.exit_time)
+            if recomputed != (e.worked_minutes or 0):
+                e.worked_minutes = recomputed
+                e.overtime_minutes = calc_overtime_minutes(recomputed, exp)
+                e.late_minutes = calc_late_minutes(recomputed, exp)
+                dirty_entries.append(e)
+            balance += recomputed - exp
+
+    if dirty_entries:
+        db.commit()
 
     for p in payroll_repo.list_payrolls_by_employee(db, employee_id):
         if p.status != PayrollStatus.CLOSED:
