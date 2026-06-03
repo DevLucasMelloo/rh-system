@@ -33,20 +33,23 @@ def expected_minutes(work_date: date, is_intern: bool, weekly_hours: int) -> int
         return 0
     if is_intern:
         return (weekly_hours * 60) // 5
+    # CLT com carga reduzida: distribui igualmente nos 5 dias úteis
+    if weekly_hours and weekly_hours != 44:
+        return (weekly_hours * 60) // 5
     return CLT_EXPECTED.get(weekday, 480)
 
 
 def expected_minutes_for_compensar(work_date: date, is_intern: bool, weekly_hours: int) -> int:
     """
     Minutos esperados para dias de compensar.
-    Para CLT: Seg-Qui=9h, Sex=8h. Para fins de semana usa média diária.
+    CLT 44h: Seg-Qui=9h, Sex=8h. Outras cargas: distribui igualmente nos 5 dias.
     """
     weekday = work_date.weekday()
     if is_intern:
         return (weekly_hours * 60) // 5
-    # Usa a mesma lógica do dia útil mais próximo (semana 44h/5dias)
-    # Para sáb/dom aplica a média (44h / 5 = 8,8h ≈ 528 min), mas na prática compensar ocorre em dia útil
-    return CLT_EXPECTED.get(weekday, 480)  # defaults 8h para outros dias
+    if weekly_hours and weekly_hours != 44:
+        return (weekly_hours * 60) // 5
+    return CLT_EXPECTED.get(weekday, 480)
 
 
 def calc_worked_minutes(
